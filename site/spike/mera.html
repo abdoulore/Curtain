@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mera Passkey Spike</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { --bg: #f7f6f3; --card: #fff; --ink: #1c1b19; --muted: #6b6860; --line: #e4e1da; --accent: #5b3df5; --ok: #157f3b; --bad: #b42318; --code: #f0eee9; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141312; --card: #1d1c1a; --ink: #f1efe9; --muted: #a29e94; --line: #2f2d2a; --accent: #9d8cff; --ok: #4ade80; --bad: #f87171; --code: #262422; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  input { width: 100%; margin-top: 4px; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 14px ui-monospace, monospace; }
+  button { appearance: none; border: 0; border-radius: 10px; padding: 12px 14px; font-size: 15px; font-weight: 600; background: var(--accent); color: #fff; width: 100%; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  button:disabled { opacity: .45; }
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+  .kv { font: 13px ui-monospace, monospace; word-break: break-all; margin-top: 10px; }
+  .kv div { padding: 3px 0; }
+  .kv b { font-family: -apple-system, system-ui, sans-serif; font-weight: 600; color: var(--muted); font-size: 12px; display: block; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } a { color: var(--accent); }
+  pre { background: var(--code); border-radius: 8px; padding: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mera one-passkey spike</h1>
+  <p class="sub">Can the passkey Mera creates at sign-up also sign check-ins at the door? Testnet only.</p>
+
+  <section>
+    <h2>0. Gas wallet (for the door step only)</h2>
+    <label>Burner private key (testnet only, kept in this browser)
+      <input id="pk" type="password" placeholder="0x..." autocomplete="off" spellcheck="false">
+    </label>
+    <button id="save" class="secondary">Save</button>
+    <div class="kv" id="setupInfo"></div>
+  </section>
+
+  <section>
+    <h2>1. Sign up with Mera</h2>
+    <button id="signup">Create account with Face ID or fingerprint</button>
+    <div class="kv" id="signupInfo"></div>
+  </section>
+
+  <section>
+    <h2>2. Sign in again with Mera</h2>
+    <button id="signin">Sign in</button>
+    <div class="kv" id="signinInfo"></div>
+  </section>
+
+  <section>
+    <h2>3. Account signs a ticket purchase</h2>
+    <button id="sign712">Sign a BuyIntent for the demo event</button>
+    <div class="kv" id="sign712Info"></div>
+  </section>
+
+  <section>
+    <h2>4. Same passkey checks in onchain</h2>
+    <button id="register">Register the captured key on the canary</button>
+    <div class="row"><button id="door">Check in with the same passkey</button></div>
+    <div class="kv" id="doorInfo"></div>
+  </section>
+
+  <section>
+    <h2>Log</h2>
+    <pre id="log"></pre>
+    <div class="row">
+      <button id="copy" class="secondary">Copy results JSON</button>
+      <button id="reset" class="secondary">Reset</button>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { createPasskeyWithPrfOutput, getPasskeyPrfOutput, createSecp256k1SigningSession } from 'https://esm.sh/@category-labs/mera@0.2.0?deps=viem@2.57.2';
+import { toViemAccount } from 'https://esm.sh/@category-labs/mera@0.2.0/viem?deps=viem@2.57.2';
+import { HDKey } from 'https://esm.sh/@scure/bip32@2.4.0';
+import { entropyToMnemonic, mnemonicToSeedSync } from 'https://esm.sh/@scure/bip39@2.4.0';
+import { wordlist } from 'https://esm.sh/@scure/bip39@2.4.0/wordlists/english.js';
+import {
+  createPublicClient, createWalletClient, http, defineChain, parseAbi, keccak256, encodeAbiParameters, toHex, bytesToHex,
+  hexToBytes, decodeEventLog, formatEther, recoverTypedDataAddress,
+} from 'https://esm.sh/viem@2.57.2';
+import { privateKeyToAccount } from 'https://esm.sh/viem@2.57.2/accounts';
+
+// Public RPC on purpose: no keys in this page.
+const RPC = 'https://testnet-rpc.monad.xyz';
+const EXPLORER = 'https://testnet.monadvision.com';
+const CANARY = '0x927e3b171db648538072017c9fdb0e31f35bf0d2';
+const DEMO_EVENT = '0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7';
+const N = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551n;
+const STORE = 'curtain-mera-spike-v1';
+
+const chain = defineChain({ id: 10143, name: 'Monad Testnet', nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: [RPC] } } });
+const pub = createPublicClient({ chain, transport: http(RPC) });
+const canaryAbi = parseAbi([
+  'struct WebAuthnAuth { bytes32 r; bytes32 s; uint256 challengeIndex; uint256 typeIndex; bytes authenticatorData; string clientDataJSON; }',
+  'function register(bytes32 qx, bytes32 qy) returns (uint256)',
+  'function checkIn(uint256 ticketId, bytes32 gateNonce, uint256 challengeBlock, WebAuthnAuth auth) returns (bytes32)',
+  'event Registered(uint256 indexed ticketId, address indexed registrant, bytes32 qx, bytes32 qy)',
+  'error InvalidAssertion()', 'error ChallengeAlreadyUsed(bytes32 challenge)', 'error ChallengeExpired(uint256, uint256)',
+]);
+const eventAbi = parseAbi(['function rpIdHash() view returns (bytes32)']);
+
+const $ = (id) => document.getElementById(id);
+let state = {};
+try { state = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} };
+const frag = new URLSearchParams(location.hash.slice(1));
+if (frag.get('pk')) state.pk = frag.get('pk');
+if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+state.results ??= {};
+save();
+
+function log(...parts) {
+  const line = `[${new Date().toISOString().slice(11, 19)}] ` + parts.map((p) => typeof p === 'string' ? p
+    : JSON.stringify(p, (_, v) => (typeof v === 'bigint' ? v.toString() : v))).join(' ');
+  $('log').textContent += line + '\n';
+}
+const kv = (el, rows) => { el.innerHTML = rows.map(([k, v, c]) => `<div><b>${k}</b><span class="${c || ''}">${v}</span></div>`).join(''); };
+const txLink = (h) => `<a href="${EXPLORER}/tx/${h}" target="_blank" rel="noopener">${h}</a>`;
+const b64urlToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+const toBytes = (buf) => ArrayBuffer.isView(buf) ? new Uint8Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)) : new Uint8Array(buf);
+
+// ---------------------------------------------------------------------------
+// The spike: a Mera WebAuthnClient that behaves like Mera's browser client and
+// also keeps the P-256 public key from the registration response.
+// ---------------------------------------------------------------------------
+const prompts = { create: 0, get: 0 };
+let captured = null;
+
+function extractP256(resp) {
+  const alg = typeof resp.getPublicKeyAlgorithm === 'function' ? resp.getPublicKeyAlgorithm() : null;
+  if (alg !== null && alg !== -7) return { alg, error: `authenticator chose COSE alg ${alg}, not ES256` };
+  if (typeof resp.getPublicKey === 'function') {
+    const spki = resp.getPublicKey();
+    if (spki) {
+      const b = new Uint8Array(spki);
+      const pt = b.slice(b.length - 65);
+      if (pt[0] === 0x04) return { alg: -7, qx: bytesToHex(pt.slice(1, 33)), qy: bytesToHex(pt.slice(33)), via: 'getPublicKey' };
+    }
+  }
+  // Fallback: COSE EC2 key inside attestationObject (-2 is 0x21, -3 is 0x22, each a 32 byte bstr 58 20).
+  const ao = new Uint8Array(resp.attestationObject);
+  const find = (n) => { for (let i = 0; i < ao.length - 2; i++) if (ao[i] === n[0] && ao[i + 1] === n[1] && ao[i + 2] === n[2]) return i; return -1; };
+  const xi = find([0x21, 0x58, 0x20]); const yi = find([0x22, 0x58, 0x20]);
+  if (xi < 0 || yi < 0) return { alg, error: 'no P-256 coordinates in attestationObject' };
+  return { alg: -7, qx: bytesToHex(ao.slice(xi + 3, xi + 35)), qy: bytesToHex(ao.slice(yi + 3, yi + 35)), via: 'COSE' };
+}
+
+const curtainWebAuthnClient = {
+  async createCredential(req) {
+    prompts.create++;
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        rp: req.rp, user: req.user, challenge: req.challenge,
+        pubKeyCredParams: req.algorithms.map((alg) => ({ type: 'public-key', alg })),
+        ...(req.timeout !== undefined ? { timeout: req.timeout } : {}),
+        attestation: req.attestation,
+        authenticatorSelection: { residentKey: req.residentKey, requireResidentKey: true, userVerification: req.userVerification },
+        extensions: { prf: { eval: { first: req.prfSalt } } },
+      },
+    });
+    if (!cred || cred.type !== 'public-key') throw new Error('WebAuthn returned no public key credential');
+    const resp = cred.response;
+    captured = { credentialId: cred.id, ...extractP256(resp) };
+    const prf = cred.getClientExtensionResults().prf;
+    const first = prf?.results?.first;
+    const transports = typeof resp.getTransports === 'function' ? resp.getTransports() : undefined;
+    captured.prfAtCreate = !!first;
+    return {
+      credentialId: new Uint8Array(cred.rawId),
+      ...(transports ? { transports } : {}),
+      prfEnabled: prf?.enabled === true,
+      ...(first ? { prfOutput: toBytes(first) } : {}),
+    };
+  },
+  async getCredential(req) {
+    prompts.get++;
+    const ac = req.allowCredential;
+    const cred = await navigator.credentials.get({
+      publicKey: {
+        rpId: req.rpId, challenge: req.challenge,
+        ...(req.timeout !== undefined ? { timeout: req.timeout } : {}),
+        userVerification: req.userVerification,
+        extensions: { prf: { eval: { first: req.prfSalt } } },
+        ...(ac ? { allowCredentials: [{ id: ac.credentialId, type: 'public-key', ...(ac.transports ? { transports: ac.transports } : {}) }] } : {}),
+      },
+    });
+    if (!cred || cred.type !== 'public-key') throw new Error('WebAuthn returned no public key credential');
+    const first = cred.getClientExtensionResults().prf?.results?.first;
+    return { credentialId: new Uint8Array(cred.rawId), ...(first ? { prfOutput: toBytes(first) } : {}) };
+  },
+};
+
+function deriveAccount(prfOutput) {
+  const seed = mnemonicToSeedSync(entropyToMnemonic(prfOutput, wordlist));
+  const node = HDKey.fromMasterSeed(seed).derive("m/44'/60'/0'/0/0");
+  const session = createSecp256k1SigningSession({ privateKey: node.privateKey });
+  return { session, account: toViemAccount(session) };
+}
+let live = null; // { session, account } while signed in
+
+// ---------------------------------------------------------------------------
+// Steps
+// ---------------------------------------------------------------------------
+async function renderSetup() {
+  $('pk').value = state.pk || '';
+  const rows = [['Page origin', location.origin], ['Device', navigator.userAgent]];
+  try {
+    const a = privateKeyToAccount(state.pk);
+    rows.push(['Burner', a.address], ['Balance', formatEther(await pub.getBalance({ address: a.address })) + ' MON']);
+  } catch { rows.push(['Burner', 'not set (only needed for step 4)']); }
+  kv($('setupInfo'), rows);
+}
+
+function guard(id, fn) {
+  $(id).addEventListener('click', async () => {
+    $(id).disabled = true;
+    try { await fn(); } catch (e) {
+      const msg = e?.code ? `${e.code}: ${e.message}` : (e?.shortMessage || e?.message || String(e));
+      log(`${id} failed:`, msg, e?.cause ? String(e.cause) : '');
+      alert(msg);
+    } finally { $(id).disabled = false; save(); }
+  });
+}
+
+$('save').addEventListener('click', () => { state.pk = $('pk').value.trim(); save(); renderSetup(); });
+
+// Step 1: one Mera call, which runs our client. No awaits before it, so the tap still counts as a gesture.
+guard('signup', async () => {
+  prompts.create = 0; prompts.get = 0; captured = null;
+  const created = await createPasskeyWithPrfOutput({
+    rp: { id: location.hostname, name: 'Curtain' },
+    user: { name: `spike-${new Date().toISOString().slice(0, 16)}`, displayName: 'Curtain spike' },
+    webAuthnClient: curtainWebAuthnClient,
+  });
+  live?.session.end();
+  live = deriveAccount(created.prfOutput);
+  state.cred = { credentialId: created.credentialId, transports: created.transports, ...captured };
+  state.results.signup = {
+    meraAddress: live.account.address, credentialId: created.credentialId, doorKeyCaptured: !!captured?.qx,
+    alg: captured?.alg, via: captured?.via, error: captured?.error, prfAtCreate: captured?.prfAtCreate,
+    biometricPrompts: prompts.create + prompts.get,
+  };
+  log('signup', state.results.signup);
+  kv($('signupInfo'), [
+    ['Mera address', live.account.address, 'ok'],
+    ['Door key captured', captured?.qx ? `yes (${captured.via})` : `no: ${captured?.error}`, captured?.qx ? 'ok' : 'bad'],
+    ['qx', captured?.qx || '-'], ['qy', captured?.qy || '-'],
+    ['Biometric prompts for sign-up', String(prompts.create + prompts.get)],
+  ]);
+});
+
+// Step 2: sign in again; the address must not change.
+guard('signin', async () => {
+  if (!state.cred) throw new Error('Sign up first.');
+  prompts.get = 0;
+  const { prfOutput } = await getPasskeyPrfOutput({
+    rpId: location.hostname,
+    credential: { credentialId: state.cred.credentialId, ...(state.cred.transports ? { transports: state.cred.transports } : {}) },
+    webAuthnClient: curtainWebAuthnClient,
+  });
+  live?.session.end();
+  live = deriveAccount(prfOutput);
+  const same = live.account.address === state.results.signup?.meraAddress;
+  state.results.signin = { meraAddress: live.account.address, sameAsSignup: same, biometricPrompts: prompts.get };
+  log('signin', state.results.signin);
+  kv($('signinInfo'), [['Mera address', live.account.address], ['Same as sign-up', String(same), same ? 'ok' : 'bad']]);
+});
+
+// Step 3: the Mera account signs the exact EIP-712 BuyIntent the escrow verifies.
+guard('sign712', async () => {
+  if (!live || !state.cred?.qx) throw new Error('Sign up or sign in first, with a captured door key.');
+  const domain = { name: 'Curtain', version: '1', chainId: 10143, verifyingContract: DEMO_EVENT };
+  const types = { BuyIntent: [
+    { name: 'buyer', type: 'address' }, { name: 'qx', type: 'bytes32' }, { name: 'qy', type: 'bytes32' },
+    { name: 'price', type: 'uint256' }, { name: 'nonce', type: 'uint256' }, { name: 'deadline', type: 'uint256' },
+  ] };
+  const message = { buyer: live.account.address, qx: state.cred.qx, qy: state.cred.qy, price: 1000000n, nonce: 0n,
+    deadline: BigInt(Math.floor(Date.now() / 1000) + 3600) };
+  const signature = await live.account.signTypedData({ domain, types, primaryType: 'BuyIntent', message });
+  const signer = await recoverTypedDataAddress({ domain, types, primaryType: 'BuyIntent', message, signature });
+  const ok = signer === live.account.address;
+  state.results.buyIntent = { signer, matches: ok };
+  log('buyIntent', state.results.buyIntent);
+  kv($('sign712Info'), [['Recovered signer', signer], ['Matches Mera address', String(ok), ok ? 'ok' : 'bad'],
+    ['Biometric prompts', '0 (signed with the live Mera session)']]);
+});
+
+// Step 4a: register the captured P-256 key on the canary (burner pays gas).
+guard('register', async () => {
+  if (!state.cred?.qx) throw new Error('No captured door key.');
+  const acct = privateKeyToAccount(state.pk);
+  const wallet = createWalletClient({ account: acct, chain, transport: http(RPC) });
+  const hash = await wallet.writeContract({ address: CANARY, abi: canaryAbi, functionName: 'register', args: [state.cred.qx, state.cred.qy] });
+  const receipt = await pub.waitForTransactionReceipt({ hash });
+  const ev = receipt.logs.map((l) => { try { return decodeEventLog({ abi: canaryAbi, ...l }); } catch { return null; } }).find((e) => e?.eventName === 'Registered');
+  state.results.register = { hash, ticketId: ev?.args.ticketId.toString(), status: receipt.status };
+  log('register', state.results.register);
+  kv($('doorInfo'), [['register tx', txLink(hash)], ['canary ticket', state.results.register.ticketId]]);
+});
+
+// Step 4b: a plain WebAuthn assertion with the Mera passkey, verified onchain.
+let latestBlock = null;
+(async function poll() { try { latestBlock = await pub.getBlockNumber(); } catch {} setTimeout(poll, 1000); })();
+
+function derToRS(sig) {
+  let i = 0; if (sig[i++] !== 0x30) throw new Error('Bad DER');
+  if (sig[i] & 0x80) i += 1 + (sig[i] & 0x7f); else i += 1;
+  const int = () => { if (sig[i++] !== 0x02) throw new Error('Bad DER int'); const l = sig[i++]; const v = BigInt(bytesToHex(sig.slice(i, i + l))); i += l; return v; };
+  const r = int(); let s = int(); if (s > N / 2n) s = N - s;
+  return { r: toHex(r, { size: 32 }), s: toHex(s, { size: 32 }) };
+}
+
+guard('door', async () => {
+  if (!state.results.register?.ticketId) throw new Error('Register the key first.');
+  if (latestBlock === null) throw new Error('No block yet, try again.');
+  const ticketId = BigInt(state.results.register.ticketId);
+  const challengeBlock = latestBlock;
+  const gateNonce = toHex(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge = keccak256(encodeAbiParameters([{ type: 'uint256' }, { type: 'bytes32' }, { type: 'uint256' }], [ticketId, gateNonce, challengeBlock]));
+  const a = await navigator.credentials.get({ publicKey: {
+    challenge: hexToBytes(challenge), rpId: location.hostname, userVerification: 'required', timeout: 60000,
+    allowCredentials: [{ type: 'public-key', id: b64urlToBytes(state.cred.credentialId) }],
+  } });
+  const r = a.response;
+  const clientDataJSON = new TextDecoder().decode(r.clientDataJSON);
+  const authenticatorData = bytesToHex(new Uint8Array(r.authenticatorData));
+  const { r: sr, s: ss } = derToRS(new Uint8Array(r.signature));
+  const auth = { r: sr, s: ss, challengeIndex: BigInt(clientDataJSON.indexOf('"challenge":"')), typeIndex: BigInt(clientDataJSON.indexOf('"type":"webauthn.get"')), authenticatorData, clientDataJSON };
+
+  // The escrow also pins rpId: authenticatorData[0:32] must equal the event's rpIdHash.
+  const eventRpIdHash = await pub.readContract({ address: DEMO_EVENT, abi: eventAbi, functionName: 'rpIdHash' });
+  const rpIdMatches = authenticatorData.slice(0, 66).toLowerCase() === eventRpIdHash.toLowerCase();
+
+  const acct = privateKeyToAccount(state.pk);
+  const wallet = createWalletClient({ account: acct, chain, transport: http(RPC) });
+  const args = [ticketId, gateNonce, challengeBlock, auth];
+  const estimate = await pub.estimateContractGas({ address: CANARY, abi: canaryAbi, functionName: 'checkIn', args, account: acct });
+  const hash = await wallet.writeContract({ address: CANARY, abi: canaryAbi, functionName: 'checkIn', args, gas: estimate + estimate / 10n });
+  const receipt = await pub.waitForTransactionReceipt({ hash });
+  state.results.door = { hash, status: receipt.status, estimate: estimate.toString(), flags: '0x' + authenticatorData.slice(66, 68),
+    rpIdMatchesDemoEvent: rpIdMatches, sameCredential: a.id === state.cred.credentialId };
+  log('door', state.results.door);
+  kv($('doorInfo'), [
+    ['register tx', txLink(state.results.register.hash)],
+    ['checkIn tx', txLink(hash)], ['status', receipt.status, receipt.status === 'success' ? 'ok' : 'bad'],
+    ['eth_estimateGas', estimate.toString()], ['Same credential as Mera account', String(a.id === state.cred.credentialId)],
+    ['rpIdHash matches the demo event', String(rpIdMatches), rpIdMatches ? 'ok' : 'bad'],
+  ]);
+});
+
+$('copy').addEventListener('click', async () => {
+  const out = JSON.stringify({ origin: location.origin, userAgent: navigator.userAgent, ...state.results }, null, 2);
+  try { await navigator.clipboard.writeText(out); log('results copied'); } catch { log(out); }
+});
+$('reset').addEventListener('click', () => {
+  if (!confirm('Forget the spike account and results on this device?')) return;
+  live?.session.end(); live = null; delete state.cred; state.results = {}; save(); location.reload();
+});
+
+if (!window.isSecureContext) log('Not a secure context: WebAuthn needs HTTPS.');
+renderSetup();
+</script>
+</body>
+</html>

@@ -1,6 +1,96 @@
 # Curtain
 
-Passkey ticketing on Monad. Built for Monad Metropolis, Track 02 (Consumer Products and Payments).
+Pay-on-entry tickets on Monad: the organizer gets paid when you check in with Face ID or fingerprint, and you get
+your money back if the show never happens. Built for Monad Metropolis, Track 02 (Consumer Products and Payments).
+
+Live site: https://curtaintickets.vercel.app
+
+## Escrow v1
+
+- `src/CurtainFactory.sol` deploys one `CurtainEvent` clone per event and emits `EventCreated`. It holds no money and
+  nothing in it can touch an event's escrow.
+- `src/CurtainEvent.sol` is the escrow for one event.
+  - `buy`: the buyer's account signs an EIP-712 `BuyIntent` (buyer, passkey qx and qy, price, nonce, deadline) and an
+    EIP-2612 permit. Anyone may submit, so a relayer pays gas. The ticket binds to the buyer for refunds and to the
+    passkey for the door.
+  - `checkIn`: registered gates only, inside the door window. The challenge is
+    `keccak256(abi.encode(chainid, event, ticketId, gateNonce, challengeBlock))`, single use, at most 300 blocks old.
+    `authenticatorData[0:32]` must equal the event's rpIdHash (OpenZeppelin's WebAuthn check ignores rpId), then
+    `WebAuthn.verify` with UP and UV. The ticket's price moves from escrowed to released.
+  - `withdraw`: the organizer takes up to released minus withdrawn, paid to the payout address.
+  - `cancel`, `settle`: cancelling makes unscanned tickets refundable. After `endTime + settleDelay` anyone can settle:
+    held if `checkedIn * 10000 >= heldThresholdBps * sold` (unscanned money is released), otherwise not held
+    (unscanned tickets are refundable).
+  - `pushRefunds(maxCount)` walks a cursor and pays holders; a failed transfer marks the ticket RefundOwed instead of
+    blocking everyone else. `claimRefund(ticketId)` pays one ticket to its holder.
+  - `listForResale` (at or below face value), `buyResale` (buyer pays the seller directly, holder and passkey rebind,
+    the escrowed face value stays), `setClaim` and `claim` (gift link signed by a claim key; every holder or key change
+    bumps a claim nonce so old links die).
+- Accounting invariant: `totalPaidIn == released + refunded + escrowed`, and the token balance always equals
+  `escrowed + released - withdrawn`.
+
+Changes from the original spec, both so buyers never need gas:
+
+- Holder actions (`listForResale`, `setClaim`) accept either a direct call from the holder or the holder's EIP-712
+  signature (`List`, `SetClaim`) submitted by anyone. Buy intents and holder actions share one nonce per address.
+- `claimRefund` can be called by anyone. The money only ever goes to the ticket's holder.
+
+### Tests
+
+`forge test` runs 68 tests: 14 canary, 49 escrow, 5 invariants.
+
+- Happy paths: buy, check-in, withdraw; cancel then push refunds (scanned tickets stay paid); batched refunds; pull
+  refund; settle held; settle not held; resale with rebind; listing directly by the holder; gift claim; adding a gate;
+  buy after a front-run permit.
+- Unhappy paths, each asserting its exact error: replay (`ChallengeAlreadyUsed`), stale (`ChallengeExpired`), future
+  (`ChallengeFromFuture`), second scan with a fresh nonce (`TicketNotActive`), wrong passkey (`InvalidAssertion`),
+  passkey from another domain (`WrongRpId`), non-gate caller (`NotGate`), before doors (`NotDoorTime`), seller enters
+  after resale (`InvalidAssertion`), resale above face value (`PriceAboveCap`), unlisted resale (`NotListed`), forged
+  listing (`BadSignature`), over-withdraw (`ExceedsReleased`), stranger withdraw or cancel (`NotOrganizer`), check-in
+  after cancel (`EventNotOpen`), sold out (`SoldOut`), sales closed (`SalesClosed`), forged intent (`BadSignature`),
+  replayed intent (`InvalidAccountNonce`), wrong price (`PriceMismatch`), invalid passkey (`InvalidPublicKey`), no
+  allowance (`InsufficientAllowance`), refund while open (`NotRefundable`), refund of a scanned ticket
+  (`NothingToRefund`), gift claim with the wrong key (`BadSignature`), revoked link (`NoClaimKey`), old link after
+  regenerating (`BadSignature`), settle too early or after cancel (`NotSettleable`), bad factory params
+  (`InvalidParams`), re-initializing a clone or the implementation (`InvalidInitialization`).
+- Refund to a holder whose transfers revert: the ticket becomes RefundOwed, other refunds still go through, and
+  `claimRefund` pays once transfers work again.
+- Invariant fuzz (128 runs x 100 calls over buy, check-in, withdraw, cancel, settle, push and pull refunds, resale, gift
+  and time jumps): paid in equals released plus refunded plus escrowed, paid in matches successful buys, the token
+  balance matches the accounting, withdrawn never exceeds released, and escrow matches the tickets still owed.
+
+Gas, median from `forge test --gas-report` (first-time storage writes, so an upper bound):
+
+| Function | Gas |
+| --- | ---: |
+| `createEvent` | 240,505 |
+| `buy` | 247,260 |
+| `checkIn` | 92,431 |
+| `withdraw` | 68,141 |
+| `buyResale` | 134,011 |
+| `listForResale` | 27,776 |
+| `setClaim` | 34,956 |
+| `claim` | 17,229 to 35,232 |
+| `cancel` | 8,345 |
+| `settle` | 7,210 to 19,786 |
+| `pushRefunds` | 75,988 (3 tickets) |
+| `claimRefund` | 24,169 to 59,862 |
+
+### Deployed on Monad testnet (chain 10143)
+
+| Contract | Address | Tx |
+| --- | --- | --- |
+| CurtainFactory | [`0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0`](https://testnet.monadvision.com/address/0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0) | [`0xb171fa23...f88b`](https://testnet.monadvision.com/tx/0xb171fa23fc946d7aa8d5373faf2cef3ac7b524e6def42a98120148851261f88b) |
+| CurtainEvent implementation | [`0x92D55aCB06397392Fec35c7aA72A466e8539f420`](https://testnet.monadvision.com/address/0x92D55aCB06397392Fec35c7aA72A466e8539f420) | same tx |
+| Demo event (clone) | [`0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7`](https://testnet.monadvision.com/address/0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7) | [`0xa3e58cdb...b452c`](https://testnet.monadvision.com/tx/0xa3e58cdb09f701d723b8816665190f3e495d999ead2601ca9c007a338f0b452c) |
+
+Factory and implementation are source-verified (exact match) on Sourcify. The demo event sells 200 tickets at 1 USDC
+(Circle testnet USDC `0x534b2f3A21130d7a60830c2Df862319e593943A3`, EIP-712 domain name `USDC`, version `2`), doors
+open now, ends 30 days after deploy, held threshold 50%, rpId `curtaintickets.vercel.app`.
+
+```sh
+forge script script/DeployCurtain.s.sol --rpc-url monad_testnet --broadcast --slow --gas-estimate-multiplier 110
+```
 
 ## Canary: biometric passkey verified onchain
 

@@ -13,6 +13,10 @@ optimizer_runs = 200
 [profile.noprecompile]
 evm_version = "prague"
 
+[invariant]
+runs = 128
+depth = 100
+
 # Event windows are hours long, so validator timestamp drift of a few seconds does not matter.
 [lint]
 exclude_lints = ["block-timestamp"]

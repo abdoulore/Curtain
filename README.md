@@ -44,9 +44,37 @@ source .env
 forge script script/Deploy.s.sol --rpc-url monad_testnet --private-key $PRIVATE_KEY --broadcast
 ```
 
-### Testnet results
+### Testnet results (Monad testnet, chain 10143)
 
-Filled in after the phone run.
+Contract: [`0x927e3b171db648538072017c9fdb0e31f35bf0d2`](https://testnet.monadvision.com/address/0x927e3b171db648538072017c9fdb0e31f35bf0d2), `maxChallengeAge` 300 blocks.
+
+Real passkey run through the page (synced passkey, authenticator flags `0x1d` = UP, UV, BE, BS). UV proves the authenticator verified the user, but WebAuthn does not reveal the method, so this run is not yet confirmed as Face ID:
+
+| Step | Tx | Result |
+| --- | --- | --- |
+| `register` (ticket 2) | [`0x3c1ac448...5bfc`](https://testnet.monadvision.com/tx/0x3c1ac4489e92f79c0492e532de8c4c49cbff087e1abdaf9c66efe63036725bfc) | success, `Registered(2, burner, qx, qy)` |
+| `checkIn` (passkey, UV set) | [`0x460cf435...4836`](https://testnet.monadvision.com/tx/0x460cf435051a74f4b1e1fd1782c8d23bf6a1c7d0881149805dc41869f5b54836) | success, `CheckedIn(2, 0x3aa4df34...dd78)`, included 11 blocks after `challengeBlock` |
+| replay of the same assertion | [`0x4a74961f...8a61`](https://testnet.monadvision.com/tx/0x4a74961fa32f710e54cbe09ff6020066ef3682d56fc6f162903b51eb17dc8a61) | reverted onchain, `ChallengeAlreadyUsed(0x3aa4df34...dd78)` (selector `0x7b0d632e`) |
+
+Which P-256 path ran, from `debug_traceTransaction` (callTracer) on the passkey check-in:
+
+```
+CALL       PasskeyCanary      gas 90379 (tx gas limit)
+  STATICCALL 0x...0002 (sha256)  gas 132
+  STATICCALL 0x...0002 (sha256)  gas 96
+  STATICCALL 0x...0100 (P256VERIFY) gas 6900 -> 0x...01
+```
+
+`eth_estimateGas` for that `checkIn` was 82,163 including the 21k base and calldata. The Solidity fallback alone
+would add about 240k, so the estimate rules it out on its own.
+
+Note on Monad gas reporting: Monad charges the gas limit, and `receipt.gasUsed` equals the transaction's gas limit
+on every transaction we checked (deploy, register, check-in, replay). Use `eth_estimateGas` or a call trace, not the
+receipt, to see actual execution gas.
+
+A synthetic run with a script-generated P-256 key (`script/SyntheticCheckIn.s.sol`, ticket 1, tx
+[`0xe265d8ca...a046`](https://testnet.monadvision.com/tx/0xe265d8ca1d8819f7cf2f9324e758ab7a726eac0d87d439142d31f86a627da046))
+shows the same 6,900 gas STATICCALL to `0x0100`.
 
 ## License
 

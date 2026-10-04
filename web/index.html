@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Curtain Canary</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --card: #ffffff; --ink: #1c1b19; --muted: #6b6860; --line: #e4e1da;
+    --accent: #5b3df5; --ok: #157f3b; --bad: #b42318; --code: #f0eee9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141312; --card: #1d1c1a; --ink: #f1efe9; --muted: #a29e94; --line: #2f2d2a;
+      --accent: #9d8cff; --ok: #4ade80; --bad: #f87171; --code: #262422;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system, system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  input { width: 100%; margin-top: 4px; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 14px ui-monospace, monospace; }
+  button { appearance: none; border: 0; border-radius: 10px; padding: 12px 14px; font-size: 15px; font-weight: 600; background: var(--accent); color: #fff; width: 100%; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  button:disabled { opacity: .45; cursor: default; }
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+  .kv { font: 13px ui-monospace, monospace; word-break: break-all; margin-top: 10px; }
+  .kv div { padding: 3px 0; }
+  .kv b { font-family: -apple-system, system-ui, sans-serif; font-weight: 600; color: var(--muted); font-size: 12px; display: block; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  a { color: var(--accent); }
+  pre { background: var(--code); border-radius: 8px; padding: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow: auto; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Curtain canary</h1>
+  <p class="sub">A Face ID passkey signs a check-in challenge and Monad testnet verifies it with the P-256 precompile at 0x0100. Testnet only.</p>
+
+  <section>
+    <h2>1. Setup</h2>
+    <label>Contract (PasskeyCanary on Monad testnet)
+      <input id="contract" placeholder="0x..." autocomplete="off" spellcheck="false">
+    </label>
+    <label>Burner private key (testnet only, kept in this browser's storage)
+      <input id="pk" type="password" placeholder="0x..." autocomplete="off" spellcheck="false">
+    </label>
+    <button id="save">Save</button>
+    <div class="kv" id="setupInfo"></div>
+  </section>
+
+  <section>
+    <h2>2. Create passkey</h2>
+    <button id="create">Create passkey (P-256, alg -7)</button>
+    <div class="kv" id="keyInfo"></div>
+  </section>
+
+  <section>
+    <h2>3. Register</h2>
+    <button id="register">Send register(qx, qy)</button>
+    <div class="kv" id="regInfo"></div>
+  </section>
+
+  <section>
+    <h2>4. Check in</h2>
+    <button id="checkin">Sign with Face ID and send checkIn()</button>
+    <div class="kv" id="ciInfo"></div>
+  </section>
+
+  <section>
+    <h2>5. Replay</h2>
+    <button id="replay">Resend the same assertion (should revert)</button>
+    <div class="kv" id="rpInfo"></div>
+  </section>
+
+  <section>
+    <h2>Log</h2>
+    <pre id="log"></pre>
+    <div class="row">
+      <button id="copy" class="secondary">Copy results JSON</button>
+      <button id="reset" class="secondary">Reset passkey and ticket</button>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import {
+  createPublicClient, createWalletClient, http, defineChain, parseAbi, keccak256, encodeAbiParameters,
+  toHex, bytesToHex, hexToBytes, decodeEventLog, formatEther, ContractFunctionRevertedError,
+} from 'https://esm.sh/viem@2.57.2';
+import { privateKeyToAccount } from 'https://esm.sh/viem@2.57.2/accounts';
+
+// Filled in after deploy. Can be overridden with ?c=0x... or the input above.
+const DEFAULT_CONTRACT = '';
+const RPC = new URLSearchParams(location.search).get('rpc') || 'https://testnet-rpc.monad.xyz';
+const EXPLORER = 'https://testnet.monadvision.com';
+const N = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551n;
+const STORE = 'curtain-canary-v1';
+
+const monadTestnet = defineChain({
+  id: 10143, name: 'Monad Testnet',
+  nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
+  rpcUrls: { default: { http: [RPC] } },
+  blockExplorers: { default: { name: 'MonadVision', url: EXPLORER } },
+});
+
+const abi = parseAbi([
+  'struct WebAuthnAuth { bytes32 r; bytes32 s; uint256 challengeIndex; uint256 typeIndex; bytes authenticatorData; string clientDataJSON; }',
+  'function register(bytes32 qx, bytes32 qy) returns (uint256 ticketId)',
+  'function checkIn(uint256 ticketId, bytes32 gateNonce, uint256 challengeBlock, WebAuthnAuth auth) returns (bytes32 challenge)',
+  'function maxChallengeAge() view returns (uint256)',
+  'event Registered(uint256 indexed ticketId, address indexed registrant, bytes32 qx, bytes32 qy)',
+  'event CheckedIn(uint256 indexed ticketId, bytes32 indexed challenge)',
+  'error InvalidPublicKey()',
+  'error UnknownTicket(uint256 ticketId)',
+  'error ChallengeFromFuture(uint256 challengeBlock, uint256 currentBlock)',
+  'error ChallengeExpired(uint256 challengeBlock, uint256 currentBlock)',
+  'error ChallengeAlreadyUsed(bytes32 challenge)',
+  'error InvalidAssertion()',
+]);
+
+const pub = createPublicClient({ chain: monadTestnet, transport: http(RPC) });
+const $ = (id) => document.getElementById(id);
+
+// ---------- state (localStorage, bigints stored as strings) ----------
+let state = {};
+try { state = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch {}
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} };
+
+// A key can arrive in the URL fragment (#pk=0x...). Fragments never reach the server; strip it right away.
+const frag = new URLSearchParams(location.hash.slice(1));
+if (frag.get('pk')) { state.pk = frag.get('pk'); }
+if (frag.get('c')) { state.contract = frag.get('c'); }
+const qc = new URLSearchParams(location.search).get('c');
+if (qc) state.contract = qc;
+if (!state.contract && DEFAULT_CONTRACT) state.contract = DEFAULT_CONTRACT;
+if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+save();
+
+state.results ??= {};
+
+function log(...parts) {
+  const line = `[${new Date().toISOString().slice(11, 19)}] ` + parts.map((p) =>
+    typeof p === 'string' ? p : JSON.stringify(p, (_, v) => (typeof v === 'bigint' ? v.toString() : v))).join(' ');
+  $('log').textContent += line + '\n';
+  $('log').scrollTop = $('log').scrollHeight;
+}
+function kv(el, rows) {
+  el.innerHTML = rows.map(([k, v, cls]) => `<div><b>${k}</b><span class="${cls || ''}">${v}</span></div>`).join('');
+}
+const txLink = (h) => `<a href="${EXPLORER}/tx/${h}" target="_blank" rel="noopener">${h}</a>`;
+
+function account() {
+  if (!state.pk || !/^0x[0-9a-fA-F]{64}$/.test(state.pk)) throw new Error('Paste a 0x-prefixed 32-byte burner key in Setup.');
+  return privateKeyToAccount(state.pk);
+}
+function wallet() {
+  return createWalletClient({ account: account(), chain: monadTestnet, transport: http(RPC) });
+}
+function contract() {
+  if (!state.contract || !/^0x[0-9a-fA-F]{40}$/.test(state.contract)) throw new Error('Set the contract address in Setup.');
+  return state.contract;
+}
+
+// ---------- byte helpers ----------
+const b64urlToBytes = (s) => {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4);
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+};
+const bytesToB64url = (b) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+function indexOfSeq(hay, needle) {
+  outer: for (let i = 0; i <= hay.length - needle.length; i++) {
+    for (let j = 0; j < needle.length; j++) if (hay[i + j] !== needle[j]) continue outer;
+    return i;
+  }
+  return -1;
+}
+
+// P-256 public key from a registration response.
+function extractP256(resp) {
+  if (typeof resp.getPublicKeyAlgorithm === 'function' && resp.getPublicKeyAlgorithm() !== -7) {
+    throw new Error('Authenticator did not create an ES256 (P-256) key');
+  }
+  // Preferred: SPKI DER from getPublicKey(); the uncompressed point 04 || x || y is the last 65 bytes.
+  if (typeof resp.getPublicKey === 'function') {
+    const spki = resp.getPublicKey();
+    if (spki) {
+      const b = new Uint8Array(spki);
+      const pt = b.slice(b.length - 65);
+      if (pt[0] === 0x04) return { x: bytesToHex(pt.slice(1, 33)), y: bytesToHex(pt.slice(33)), via: 'getPublicKey' };
+    }
+  }
+  // Fallback: COSE EC2 key inside attestationObject. -2 (x) is CBOR 0x21, -3 (y) is 0x22, each a 32 byte bstr (58 20).
+  const ao = new Uint8Array(resp.attestationObject);
+  const xi = indexOfSeq(ao, [0x21, 0x58, 0x20]);
+  const yi = indexOfSeq(ao, [0x22, 0x58, 0x20]);
+  if (xi < 0 || yi < 0) throw new Error('Could not find P-256 coordinates in attestationObject');
+  return { x: bytesToHex(ao.slice(xi + 3, xi + 35)), y: bytesToHex(ao.slice(yi + 3, yi + 35)), via: 'COSE' };
+}
+
+// ECDSA DER signature to (r, s) with s normalized to the low half (OZ P256 rejects s > N/2).
+function derToRS(sig) {
+  let i = 0;
+  if (sig[i++] !== 0x30) throw new Error('Bad DER signature');
+  if (sig[i] & 0x80) i += 1 + (sig[i] & 0x7f); else i += 1;
+  const readInt = () => {
+    if (sig[i++] !== 0x02) throw new Error('Bad DER integer');
+    const len = sig[i++];
+    const v = BigInt(bytesToHex(sig.slice(i, i + len)));
+    i += len;
+    return v;
+  };
+  const r = readInt();
+  let s = readInt();
+  const flipped = s > N / 2n;
+  if (flipped) s = N - s;
+  return { r: toHex(r, { size: 32 }), s: toHex(s, { size: 32 }), flipped };
+}
+
+function revertName(err) {
+  const rev = err?.walk?.((e) => e instanceof ContractFunctionRevertedError);
+  if (rev?.data?.errorName) return `${rev.data.errorName}(${(rev.data.args || []).join(', ')})`;
+  return err?.shortMessage || err?.message || String(err);
+}
+
+// ---------- live block number, so the Face ID prompt can open inside the tap handler ----------
+let latestBlock = null;
+async function pollBlock() {
+  try { latestBlock = await pub.getBlockNumber(); } catch {}
+  setTimeout(pollBlock, 800);
+}
+
+// ---------- UI ----------
+async function renderSetup() {
+  $('contract').value = state.contract || '';
+  $('pk').value = state.pk || '';
+  const rows = [['RPC', RPC]];
+  try {
+    const acct = account();
+    const bal = await pub.getBalance({ address: acct.address });
+    rows.push(['Burner', acct.address], ['Balance', `${formatEther(bal)} MON`, bal > 0n ? 'ok' : 'bad']);
+  } catch (e) { rows.push(['Burner', e.message, 'bad']); }
+  try {
+    const maxAge = await pub.readContract({ address: contract(), abi, functionName: 'maxChallengeAge' });
+    rows.push(['Contract', `<a href="${EXPLORER}/address/${state.contract}" target="_blank" rel="noopener">${state.contract}</a>`],
+      ['maxChallengeAge', `${maxAge} blocks`]);
+  } catch (e) { rows.push(['Contract', state.contract ? 'not reachable: ' + revertName(e) : 'not set', 'bad']); }
+  // Probe the precompile with the Wycheproof vector OZ uses. Valid input returns 1, absent precompile returns 0x.
+  try {
+    const { data } = await pub.call({
+      to: '0x0000000000000000000000000000000000000100',
+      data: '0xbb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023' +
+        '0000000000000000000000000000000000000000000000000000000000000005' +
+        '0000000000000000000000000000000000000000000000000000000000000001' +
+        'a71af64de5126a4a4e02b7922d66ce9415ce88a4c9d25514d91082c8725ac957' +
+        '5d47723c8fbe580bb369fec9c2665d8e30a435b9932645482e7c9f11e872296b',
+    });
+    const present = data && BigInt(data) === 1n;
+    rows.push(['P-256 precompile at 0x0100', present ? 'present' : `absent (${data || '0x'})`, present ? 'ok' : 'bad']);
+  } catch (e) { rows.push(['P-256 precompile at 0x0100', 'probe failed: ' + e.message, 'bad']); }
+  rows.push(['WebAuthn rpId', location.hostname]);
+  kv($('setupInfo'), rows);
+}
+
+function renderKey() {
+  if (!state.cred) return kv($('keyInfo'), [['Passkey', 'none yet']]);
+  kv($('keyInfo'), [['Credential id', state.cred.id], ['qx', state.cred.qx], ['qy', state.cred.qy], ['Extracted via', state.cred.via], ['rpId', state.cred.rpId]]);
+}
+function renderReg() {
+  const r = state.results.register;
+  if (!r) return kv($('regInfo'), [['Ticket', 'not registered']]);
+  kv($('regInfo'), [['ticketId', r.ticketId, 'ok'], ['tx', txLink(r.hash)], ['receipt.gasUsed', r.gasUsed]]);
+}
+function renderCheckIn() {
+  const r = state.results.checkIn;
+  if (!r) return kv($('ciInfo'), [['Check-in', 'not yet']]);
+  kv($('ciInfo'), [
+    ['status', r.status, r.status === 'success' ? 'ok' : 'bad'], ['tx', txLink(r.hash)],
+    ['receipt.gasUsed', r.gasUsed], ['tx gas limit', r.gasLimit], ['eth_estimateGas', r.estimate],
+    ['challengeBlock / included in', `${r.challengeBlock} / ${r.blockNumber}`], ['challenge', r.challenge],
+    ['s flipped to low-s', String(r.sFlipped)],
+  ]);
+}
+function renderReplay() {
+  const r = state.results.replay;
+  if (!r) return kv($('rpInfo'), [['Replay', 'not yet']]);
+  kv($('rpInfo'), [
+    ['status', r.status, r.status === 'reverted' ? 'ok' : 'bad'], ['tx', txLink(r.hash)],
+    ['revert reason (eth_call)', r.reason], ['receipt.gasUsed', r.gasUsed],
+  ]);
+}
+function renderAll() { renderSetup(); renderKey(); renderReg(); renderCheckIn(); renderReplay(); }
+
+function guard(btn, fn) {
+  $(btn).addEventListener('click', async () => {
+    $(btn).disabled = true;
+    try { await fn(); } catch (e) { log(`${btn} failed:`, revertName(e)); alert(revertName(e)); }
+    finally { $(btn).disabled = false; renderAll(); }
+  });
+}
+
+$('save').addEventListener('click', () => {
+  state.contract = $('contract').value.trim();
+  state.pk = $('pk').value.trim();
+  save(); renderSetup(); log('setup saved');
+});
+
+// No awaits before navigator.credentials.create so Safari keeps the user gesture.
+guard('create', async () => {
+  const cred = await navigator.credentials.create({
+    publicKey: {
+      rp: { name: 'Curtain Canary', id: location.hostname },
+      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: `canary-${Date.now()}`, displayName: 'Curtain canary' },
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', residentKey: 'preferred', userVerification: 'required' },
+      attestation: 'none',
+      timeout: 60000,
+    },
+  });
+  const { x, y, via } = extractP256(cred.response);
+  state.cred = { id: cred.id, qx: x, qy: y, via, rpId: location.hostname };
+  delete state.results.register; delete state.results.checkIn; delete state.results.replay; delete state.lastCheckIn;
+  save(); log('passkey created', state.cred);
+});
+
+guard('register', async () => {
+  if (!state.cred) throw new Error('Create a passkey first.');
+  const hash = await wallet().writeContract({ address: contract(), abi, functionName: 'register', args: [state.cred.qx, state.cred.qy] });
+  log('register sent', hash);
+  const receipt = await pub.waitForTransactionReceipt({ hash });
+  const ev = receipt.logs.map((l) => { try { return decodeEventLog({ abi, ...l }); } catch { return null; } })
+    .find((e) => e?.eventName === 'Registered');
+  if (!ev) throw new Error(`register ${receipt.status}, no Registered event`);
+  state.results.register = { hash, ticketId: ev.args.ticketId.toString(), gasUsed: receipt.gasUsed.toString(), status: receipt.status };
+  save(); log('registered', state.results.register);
+});
+
+guard('checkin', async () => {
+  if (!state.cred || !state.results.register) throw new Error('Create a passkey and register first.');
+  if (latestBlock === null) throw new Error('No block number yet, try again in a second.');
+  const ticketId = BigInt(state.results.register.ticketId);
+  const challengeBlock = latestBlock;
+  const gateNonce = toHex(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge = keccak256(encodeAbiParameters(
+    [{ type: 'uint256' }, { type: 'bytes32' }, { type: 'uint256' }], [ticketId, gateNonce, challengeBlock]));
+
+  // Face ID prompt opens synchronously from the tap (no network await before it).
+  const assertion = await navigator.credentials.get({
+    publicKey: {
+      challenge: hexToBytes(challenge),
+      rpId: state.cred.rpId,
+      allowCredentials: [{ type: 'public-key', id: b64urlToBytes(state.cred.id) }],
+      userVerification: 'required',
+      timeout: 60000,
+    },
+  });
+  const r = assertion.response;
+  const clientDataJSON = new TextDecoder().decode(r.clientDataJSON);
+  const authenticatorData = bytesToHex(new Uint8Array(r.authenticatorData));
+  const sig = derToRS(new Uint8Array(r.signature));
+  const auth = {
+    r: sig.r, s: sig.s,
+    challengeIndex: BigInt(clientDataJSON.indexOf('"challenge":"')),
+    typeIndex: BigInt(clientDataJSON.indexOf('"type":"webauthn.get"')),
+    authenticatorData, clientDataJSON,
+  };
+  log('assertion', { clientDataJSON, authenticatorData, flags: '0x' + authenticatorData.slice(66, 68), sFlipped: sig.flipped });
+
+  const args = [ticketId, gateNonce, challengeBlock, auth];
+  const acct = account();
+  // Monad bills the gas limit, so keep a small margin over the estimate.
+  const estimate = await pub.estimateContractGas({ address: contract(), abi, functionName: 'checkIn', args, account: acct });
+  const gasLimit = estimate + estimate / 10n;
+  const hash = await wallet().writeContract({ address: contract(), abi, functionName: 'checkIn', args, gas: gasLimit });
+  log('checkIn sent', hash);
+  const receipt = await pub.waitForTransactionReceipt({ hash });
+
+  state.lastCheckIn = JSON.parse(JSON.stringify({ args, gasLimit }, (_, v) => (typeof v === 'bigint' ? v.toString() : v)));
+  state.results.checkIn = {
+    hash, status: receipt.status, gasUsed: receipt.gasUsed.toString(), gasLimit: gasLimit.toString(),
+    estimate: estimate.toString(), challengeBlock: challengeBlock.toString(), blockNumber: receipt.blockNumber.toString(),
+    challenge, sFlipped: sig.flipped, clientDataJSON, authenticatorData,
+  };
+  delete state.results.replay;
+  save(); log('checkIn receipt', state.results.checkIn);
+});
+
+guard('replay', async () => {
+  if (!state.lastCheckIn) throw new Error('Do a successful check-in first.');
+  const [t, n, b, a] = state.lastCheckIn.args;
+  const args = [BigInt(t), n, BigInt(b), { ...a, challengeIndex: BigInt(a.challengeIndex), typeIndex: BigInt(a.typeIndex) }];
+  const acct = account();
+
+  let reason = 'eth_call did not revert';
+  try { await pub.simulateContract({ address: contract(), abi, functionName: 'checkIn', args, account: acct }); }
+  catch (e) { reason = revertName(e); }
+  log('replay eth_call:', reason);
+
+  // Explicit gas skips estimation, so the transaction lands onchain and reverts there.
+  const hash = await wallet().writeContract({ address: contract(), abi, functionName: 'checkIn', args, gas: BigInt(state.lastCheckIn.gasLimit) });
+  log('replay sent', hash);
+  const receipt = await pub.waitForTransactionReceipt({ hash });
+  state.results.replay = { hash, status: receipt.status, reason, gasUsed: receipt.gasUsed.toString() };
+  save(); log('replay receipt', state.results.replay);
+});
+
+$('copy').addEventListener('click', async () => {
+  const out = JSON.stringify({ contract: state.contract, rpId: state.cred?.rpId, cred: state.cred, ...state.results }, null, 2);
+  try { await navigator.clipboard.writeText(out); log('results copied'); } catch { log(out); }
+});
+$('reset').addEventListener('click', () => {
+  if (!confirm('Forget the passkey, ticket and results on this device?')) return;
+  delete state.cred; delete state.lastCheckIn; state.results = {}; save(); renderAll(); log('reset');
+});
+
+if (!window.PublicKeyCredential) log('This browser has no WebAuthn support.');
+if (!isSecureContext) log('Not a secure context: WebAuthn needs HTTPS.');
+pollBlock();
+renderAll();
+</script>
+</body>
+</html>

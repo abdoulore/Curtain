@@ -145,7 +145,9 @@ contract PasskeyCanaryTest is Test {
         vm.roll(challengeBlock + MAX_AGE + 1);
 
         vm.expectRevert(
-            abi.encodeWithSelector(PasskeyCanary.ChallengeExpired.selector, challengeBlock, challengeBlock + MAX_AGE + 1)
+            abi.encodeWithSelector(
+                PasskeyCanary.ChallengeExpired.selector, challengeBlock, challengeBlock + MAX_AGE + 1
+            )
         );
         canary.checkIn(ticketId, GATE_NONCE, challengeBlock, auth);
     }
@@ -238,15 +240,16 @@ contract PasskeyCanaryTest is Test {
 
     /// @dev Wycheproof vector OZ uses to probe for the precompile.
     function _precompilePresent() internal view returns (bool) {
-        (bool ok, bytes memory ret) = address(0x100).staticcall(
-            abi.encode(
-                0xbb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023,
-                uint256(5),
-                uint256(1),
-                0xa71af64de5126a4a4e02b7922d66ce9415ce88a4c9d25514d91082c8725ac957,
-                0x5d47723c8fbe580bb369fec9c2665d8e30a435b9932645482e7c9f11e872296b
-            )
-        );
+        (bool ok, bytes memory ret) = address(0x100)
+            .staticcall(
+                abi.encode(
+                    0xbb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023,
+                    uint256(5),
+                    uint256(1),
+                    0xa71af64de5126a4a4e02b7922d66ce9415ce88a4c9d25514d91082c8725ac957,
+                    0x5d47723c8fbe580bb369fec9c2665d8e30a435b9932645482e7c9f11e872296b
+                )
+            );
         return ok && ret.length == 32 && abi.decode(ret, (uint256)) == 1;
     }
 

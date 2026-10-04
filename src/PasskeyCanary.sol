@@ -55,12 +55,10 @@ contract PasskeyCanary {
 
     /// @notice Checks a ticket in with a WebAuthn assertion over `challengeFor(ticketId, gateNonce, challengeBlock)`.
     /// @dev The challenge is derived onchain rather than passed in, so its freshness can be enforced.
-    function checkIn(
-        uint256 ticketId,
-        bytes32 gateNonce,
-        uint256 challengeBlock,
-        WebAuthn.WebAuthnAuth calldata auth
-    ) external returns (bytes32 challenge) {
+    function checkIn(uint256 ticketId, bytes32 gateNonce, uint256 challengeBlock, WebAuthn.WebAuthnAuth calldata auth)
+        external
+        returns (bytes32 challenge)
+    {
         PublicKey memory key = ticketKey[ticketId];
         if (key.qx == 0 && key.qy == 0) revert UnknownTicket(ticketId);
         if (challengeBlock > block.number) revert ChallengeFromFuture(challengeBlock, block.number);

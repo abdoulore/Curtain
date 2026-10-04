@@ -2,9 +2,9 @@
 
 Passkey ticketing on Monad. Built for Monad Metropolis, Track 02 (Consumer Products and Payments).
 
-## Canary: Face ID verified onchain
+## Canary: biometric passkey verified onchain
 
-Before any product code, this repo proves the core primitive: a Monad contract verifies a real Face ID
+Before any product code, this repo proves the core primitive: a Monad contract verifies a real biometric (Face ID or fingerprint)
 WebAuthn assertion from a phone, using the P-256 precompile at `0x0100` (EIP-7951) rather than a Solidity
 fallback.
 
@@ -15,7 +15,7 @@ fallback.
 - `test/PasskeyCanary.t.sol`: real WebAuthn payloads built with `vm.signP256` (authenticatorData, clientDataJSON
   with a base64url challenge). Covers valid check-in, replay, stale challenge, wrong key, tampered clientDataJSON,
   plus future challenge, cross-ticket reuse, missing UV, high-s and unknown ticket.
-- `web/index.html`: one static page. Creates a passkey (alg -7), sends `register`, signs a challenge with Face ID,
+- `web/index.html`: one static page. Creates a passkey (alg -7), sends `register`, signs a challenge with the device biometric,
   sends `checkIn`, then replays the same assertion. Uses viem. The burner key is pasted into the page and never
   committed.
 
@@ -48,15 +48,15 @@ forge script script/Deploy.s.sol --rpc-url monad_testnet --private-key $PRIVATE_
 
 Contract: [`0x927e3b171db648538072017c9fdb0e31f35bf0d2`](https://testnet.monadvision.com/address/0x927e3b171db648538072017c9fdb0e31f35bf0d2), `maxChallengeAge` 300 blocks.
 
-Real passkey run through the page (synced passkey, authenticator flags `0x1d` = UP, UV, BE, BS). UV proves the authenticator verified the user, but WebAuthn does not reveal the method, so this run is not yet confirmed as Face ID:
+Real biometric run through the page: Samsung Android phone, fingerprint, synced passkey (authenticator flags `0x1d` = UP, UV, BE, BS). The flags prove user verification but not its method; the method is as reported by the tester. iPhone Face ID uses the same ES256 (P-256) passkey format and has not been run yet:
 
 | Step | Tx | Result |
 | --- | --- | --- |
 | `register` (ticket 2) | [`0x3c1ac448...5bfc`](https://testnet.monadvision.com/tx/0x3c1ac4489e92f79c0492e532de8c4c49cbff087e1abdaf9c66efe63036725bfc) | success, `Registered(2, burner, qx, qy)` |
-| `checkIn` (passkey, UV set) | [`0x460cf435...4836`](https://testnet.monadvision.com/tx/0x460cf435051a74f4b1e1fd1782c8d23bf6a1c7d0881149805dc41869f5b54836) | success, `CheckedIn(2, 0x3aa4df34...dd78)`, included 11 blocks after `challengeBlock` |
+| `checkIn` (fingerprint) | [`0x460cf435...4836`](https://testnet.monadvision.com/tx/0x460cf435051a74f4b1e1fd1782c8d23bf6a1c7d0881149805dc41869f5b54836) | success, `CheckedIn(2, 0x3aa4df34...dd78)`, included 11 blocks after `challengeBlock` |
 | replay of the same assertion | [`0x4a74961f...8a61`](https://testnet.monadvision.com/tx/0x4a74961fa32f710e54cbe09ff6020066ef3682d56fc6f162903b51eb17dc8a61) | reverted onchain, `ChallengeAlreadyUsed(0x3aa4df34...dd78)` (selector `0x7b0d632e`) |
 
-Which P-256 path ran, from `debug_traceTransaction` (callTracer) on the passkey check-in:
+Which P-256 path ran, from `debug_traceTransaction` (callTracer) on the fingerprint check-in:
 
 ```
 CALL       PasskeyCanary      gas 90379 (tx gas limit)

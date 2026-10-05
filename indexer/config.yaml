@@ -10,9 +10,11 @@ contracts:
     abi_file_path: abis/CurtainFactory.json
     events:
       - event: EventCreated
+      - event: ShowDetails
   - name: CurtainEvent
     abi_file_path: abis/CurtainEvent.json
     events:
+      - event: GateSet
       - event: Purchased
       - event: CheckedIn
       - event: Withdrawn
@@ -26,9 +28,9 @@ contracts:
       - event: Claimed
 chains:
   - id: 10143 # Monad testnet, served by HyperSync
-    start_block: 68380447 # CurtainFactory deployment
+    start_block: 68494066 # CurtainFactory deployment
     contracts:
       - name: CurtainFactory
-        address: "0x00CC023C3BFB01eb3E5470247c7976966b04d0Db"
+        address: "0x13391D9E0dD62d01c62821671F47A12eE320Ca58"
       - name: CurtainEvent
         # Clones are registered from EventCreated, see src/handlers/CurtainFactory.ts

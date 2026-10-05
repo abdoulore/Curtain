@@ -31,7 +31,9 @@ enum ActivityKind {
 # Invariant mirrored from the contract: paidIn == escrowed + released + refunded.
 type Show {
   id: ID! # escrow address
-  organizer: String!
+  organizer: String! @index
+  name: String! # from ShowDetails; empty for shows made without details
+  venue: String!
   token: String!
   price: BigInt!
   capacity: BigInt!
@@ -77,4 +79,13 @@ type Activity {
   amount: BigInt!
   timestamp: BigInt! @index
   txHash: String!
+}
+
+# A gate device paired with a show. Check-ins need a pass signed by an allowed gate.
+type Gate {
+  id: ID! # escrow address-gate address
+  show: Show!
+  gate: String!
+  allowed: Boolean!
+  updatedAt: BigInt!
 }

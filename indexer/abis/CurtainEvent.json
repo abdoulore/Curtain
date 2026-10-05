@@ -71,6 +71,19 @@
   },
   {
     "type": "function",
+    "name": "GATE_PASS_TYPEHASH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "LIST_TYPEHASH",
     "inputs": [],
     "outputs": [
@@ -421,6 +434,11 @@
         "name": "challengeBlock",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "gatePass",
+        "type": "bytes",
+        "internalType": "bytes"
       },
       {
         "name": "auth",

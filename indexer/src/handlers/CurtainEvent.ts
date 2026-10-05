@@ -110,3 +110,16 @@ indexer.onEvent({ contract: "CurtainEvent", event: "Claimed" }, async ({ event, 
   context.Ticket.set({ ...ticket, holder: to, resalePrice: 0n });
   recordActivity(context.Activity, event, "Claimed", { ticketId, account: to });
 });
+
+// Gate devices paired (or removed) by the organizer. Gates set at creation are logged before the factory's
+// EventCreated, so the dashboard also checks isGate on chain.
+indexer.onEvent({ contract: "CurtainEvent", event: "GateSet" }, async ({ event, context }) => {
+  const show = event.srcAddress;
+  context.Gate.set({
+    id: `${show}-${event.params.gate}`,
+    show_id: show,
+    gate: event.params.gate,
+    allowed: event.params.allowed,
+    updatedAt: timestampOf(event),
+  });
+});

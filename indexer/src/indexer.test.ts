@@ -21,7 +21,7 @@ function at<T extends object>(item: T) {
   seq += 1;
   return {
     ...item,
-    block: { number: 68_400_000 + seq, timestamp: 1_791_200_000 + seq }, // after config.yaml start_block
+    block: { number: 68_500_000 + seq, timestamp: 1_791_200_000 + seq }, // after config.yaml start_block
     transaction: { hash: `0x${seq.toString(16).padStart(64, "0")}` as Hex },
     logIndex: 0,
   };
@@ -167,5 +167,34 @@ describe("Curtain indexer", () => {
     ]);
     t.expect([one.holder, one.resalePrice, one.state]).toEqual([CAROL, 0n, "CheckedIn"]);
     t.expect([two.holder, two.state]).toEqual([ALICE, "Active"]);
+  });
+
+  it("names a show from ShowDetails and tracks paired gates", async (t) => {
+    const indexer = createTestIndexer();
+    await indexer.process({
+      chains: {
+        [CHAIN]: {
+          simulate: [
+            created(),
+            at({
+              contract: "CurtainFactory",
+              event: "ShowDetails",
+              params: { eventAddress: SHOW, name: "Lagos Laughs", venue: "Terra Kulture" },
+            }),
+            at({ contract: "CurtainEvent", event: "GateSet", srcAddress: SHOW, params: { gate: GATE, allowed: true } }),
+            at({ contract: "CurtainEvent", event: "GateSet", srcAddress: SHOW, params: { gate: ALICE, allowed: true } }),
+            at({ contract: "CurtainEvent", event: "GateSet", srcAddress: SHOW, params: { gate: ALICE, allowed: false } }),
+          ],
+        },
+      },
+    });
+
+    const show = await indexer.Show.getOrThrow(SHOW);
+    t.expect([show.name, show.venue, show.organizer]).toEqual(["Lagos Laughs", "Terra Kulture", ORGANIZER]);
+    const [gate, removed] = await Promise.all([
+      indexer.Gate.getOrThrow(`${SHOW}-${GATE}`),
+      indexer.Gate.getOrThrow(`${SHOW}-${ALICE}`),
+    ]);
+    t.expect([gate.allowed, removed.allowed]).toEqual([true, false]);
   });
 });

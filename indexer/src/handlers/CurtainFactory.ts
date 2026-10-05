@@ -12,6 +12,8 @@ indexer.onEvent({ contract: "CurtainFactory", event: "EventCreated" }, async ({ 
   context.Show.set({
     id: show,
     organizer: event.params.organizer,
+    name: "",
+    venue: "",
     token: event.params.token,
     price: event.params.price,
     capacity: event.params.capacity,
@@ -31,4 +33,10 @@ indexer.onEvent({ contract: "CurtainFactory", event: "EventCreated" }, async ({ 
     updatedAt: at,
   });
   recordActivity(context.Activity, event, "Created", { show, account: event.params.organizer });
+});
+
+// Emitted right after EventCreated in the same transaction, for shows created with a name and venue.
+indexer.onEvent({ contract: "CurtainFactory", event: "ShowDetails" }, async ({ event, context }) => {
+  const show = await context.Show.getOrThrow(event.params.eventAddress, `Show ${event.params.eventAddress} missing`);
+  context.Show.set({ ...show, name: event.params.name, venue: event.params.venue });
 });

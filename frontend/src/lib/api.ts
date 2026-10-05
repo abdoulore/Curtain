@@ -31,13 +31,22 @@ const FRIENDLY: Record<string, string> = {
   ChallengeAlreadyUsed: "That gate code was already used. Scan the gate again.",
   ChallengeExpired: "That gate code expired. Scan the gate again.",
   ChallengeFromFuture: "That gate code isn't valid yet. Scan the gate again.",
-  GateTokenExpired: "That gate code expired. Scan the gate again.",
-  GateTokenInvalid: "That code didn't come from a Curtain gate.",
   GateTokenWrongEvent: "That gate is for a different show.",
   NotDoorTime: "Doors aren't open right now.",
-  NotGate: "This gate isn't set up for the show.",
-  GateUnauthorized: "Wrong gate code.",
-  GateNotRegistered: "This gate isn't set up for the show.",
+  NotGate: "That code didn't come from a gate paired for this show.",
+  GateUnauthorized: "This screen isn't a paired gate for the show.",
+  GateAuthExpired: "This gate's clock is off. Reload the gate screen.",
+  // Resale
+  PriceAboveCap: "Tickets can only be resold at face value or less.",
+  NotListed: "That resale ticket was just taken. Refresh to see what's left.",
+  WrongSale: "That offer changed. Refresh and try again.",
+  NotHolder: "Only the ticket's holder can do that.",
+  // Organizers
+  NotOrganizer: "Only the show's organizer can do that.",
+  ExceedsReleased: "That's more than is ready to withdraw.",
+  CreateLimitIp: "You've created the most shows allowed today from this network.",
+  CreateLimitGlobal: "Lots of shows are being created right now. Try again in an hour.",
+  NotCreated: "The show wasn't created. Please try again.",
 };
 
 /** The plain-language message for a relayer or contract error code. */

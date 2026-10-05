@@ -2,29 +2,23 @@
 // a fresh buyer with no MON gets USDC from the treasury, buys a ticket gaslessly, then checks in
 // through a gate with a software P-256 passkey bound to the production rpId.
 //
-//   BASE_URL=http://localhost:3000 npm run e2e:relay      (reads GATE_ACCESS_CODE from .env.local)
-//   BASE_URL=https://curtaintickets.vercel.app GATE_ACCESS_CODE=... npm run e2e:relay
+//   BASE_URL=http://localhost:3000 npm run e2e:relay      (the gate key comes from the repo .env)
+//   BASE_URL=https://curtaintickets.vercel.app npm run e2e:relay
 //   BUY_ONLY=1 ... leaves the ticket unused, owned by a throwaway buyer (for testing someone else's ticket at the door)
-import { readFileSync } from "node:fs";
 import { p256 } from "@noble/curves/nist.js";
 import { sha256 as sha256Bytes } from "@noble/hashes/sha2.js";
 import {
   bytesToHex, concat, createPublicClient, encodeAbiParameters, erc20Abi, http, keccak256, parseAbi, toBytes,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { issueGatePass } from "./gate-device.mjs";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const RPC = "https://testnet-rpc.monad.xyz";
 const CHAIN_ID = 10143;
-const EVENT = "0xd3F22B52F74D658318C29E0475E1833214eCA005";
+const EVENT = "0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D";
 const USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
 const RP_ID = "curtaintickets.vercel.app";
-
-function gateCode() {
-  if (process.env.GATE_ACCESS_CODE) return process.env.GATE_ACCESS_CODE;
-  const line = readFileSync(new URL("../.env.local", import.meta.url), "utf8").split(/\r?\n/).find((l) => l.startsWith("GATE_ACCESS_CODE="));
-  return line?.slice("GATE_ACCESS_CODE=".length);
-}
 
 const pub = createPublicClient({ transport: http(RPC) });
 const eventAbi = parseAbi([
@@ -89,8 +83,8 @@ if (process.env.BUY_ONLY) {
   process.exit(0);
 }
 
-// 4. The gate issues a nonce (what its rotating QR carries).
-const gate = must("gate nonce", await api("/api/gate/nonce", { event: EVENT, code: gateCode() }));
+// 4. The paired gate device signs a nonce (what its rotating QR carries).
+const gate = await issueGatePass(EVENT);
 
 // 5. The passkey signs a WebAuthn assertion over the contract's challenge, for the production rpId.
 const challenge = keccak256(encodeAbiParameters(

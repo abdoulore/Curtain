@@ -1,13 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPublicClient, webSocket } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { curtainEventAbi } from "@/lib/abis";
-import { ApiError, friendlyMessage, postJson } from "@/lib/api";
+import { friendlyMessage, postJson } from "@/lib/api";
 import { monadTestnet } from "@/lib/chain";
 import type { EventMeta } from "@/lib/events";
-import { checkInUrl, type GateToken } from "@/lib/gate";
+import { checkInUrl, gateCode, gateResultsMessage, issueGateToken, type GateToken } from "@/lib/gate";
+import { useDeviceKey, writeDeviceKey } from "@/lib/gate-device";
 import { useHydrated } from "@/lib/hooks";
 import { formatNaira } from "@/lib/money";
 import { browserClient } from "@/lib/reads";
@@ -17,35 +20,15 @@ const RESULTS_MS = 2_000;
 const FLASH_MS = 2_800;
 // Green arrives over the public RPC's WebSocket (one log subscription, no keys); red comes from the relay's log.
 const PUBLIC_WSS_URL = "wss://testnet-rpc.monad.xyz";
-const CODE_KEY = "curtain.gateCode.v1";
-const CODE_EVENT = "curtain:gatecode";
-
-function readCode(): string | null {
-  try {
-    return localStorage.getItem(CODE_KEY);
-  } catch {
-    return null;
-  }
-}
-function writeCode(code: string | null) {
-  try {
-    if (code) localStorage.setItem(CODE_KEY, code);
-    else localStorage.removeItem(CODE_KEY);
-  } catch {}
-  window.dispatchEvent(new Event(CODE_EVENT));
-}
-function subscribeCode(onChange: () => void) {
-  window.addEventListener(CODE_EVENT, onChange);
-  return () => window.removeEventListener(CODE_EVENT, onChange);
-}
 
 type Entry = { key: string; ok: boolean; ticketId: string; at: number; amount?: bigint; reason?: string };
 type ResultRow = { at: number; ok: boolean; ticketId: string; code?: string; hash?: string };
 
 export function GateView({ meta }: { meta: EventMeta }) {
   const hydrated = useHydrated();
-  const code = useSyncExternalStore(subscribeCode, readCode, () => null);
-  const [draft, setDraft] = useState("");
+  const deviceKey = useDeviceKey(meta.address);
+  const device = useMemo(() => (deviceKey ? privateKeyToAccount(deviceKey) : null), [deviceKey]);
+  const [paired, setPaired] = useState<{ gate: string; ok: boolean } | null>(null);
   const [token, setToken] = useState<GateToken | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<Entry[]>([]);
@@ -54,6 +37,7 @@ export function GateView({ meta }: { meta: EventMeta }) {
   const [live, setLive] = useState(false);
   const seen = useRef(new Set<string>());
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const isPaired = Boolean(device && paired?.gate === device.address && paired.ok);
 
   function show(entry: Entry) {
     if (seen.current.has(entry.key)) return;
@@ -64,33 +48,48 @@ export function GateView({ meta }: { meta: EventMeta }) {
     flashTimer.current = setTimeout(() => setFlash(null), FLASH_MS);
   }
 
-  // A fresh gate code every few seconds.
+  // Is this device still a gate for the show? The organizer can remove it from the dashboard.
   useEffect(() => {
-    if (!code) return;
+    if (!device) return;
     let alive = true;
-    const fetchToken = () =>
-      postJson<GateToken>("/api/gate/nonce", { event: meta.address, code })
+    const check = () =>
+      browserClient
+        .readContract({ address: meta.address, abi: curtainEventAbi, functionName: "isGate", args: [device.address] })
+        .then((ok) => alive && setPaired({ gate: device.address, ok }))
+        .catch(() => {});
+    check();
+    const id = setInterval(check, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [device, meta.address]);
+
+  // A fresh gate code every few seconds, signed here by this device's gate key.
+  useEffect(() => {
+    if (!device || !isPaired) return;
+    let alive = true;
+    const makeToken = () =>
+      browserClient
+        .getBlockNumber()
+        .then((block) => issueGateToken(device, meta.address, block))
         .then((t) => {
           if (!alive) return;
           setToken(t);
           setError(null);
         })
-        .catch((e) => {
-          if (!alive) return;
-          if (e instanceof ApiError && e.code === "GateUnauthorized") writeCode(null);
-          setError(e instanceof Error ? e.message : "Could not reach the server");
-        });
-    fetchToken();
-    const id = setInterval(fetchToken, ROTATE_MS);
+        .catch(() => alive && setError("Can't reach Monad. Check this tablet's connection."));
+    makeToken();
+    const id = setInterval(makeToken, ROTATE_MS);
     return () => {
       alive = false;
       clearInterval(id);
     };
-  }, [code, meta.address]);
+  }, [device, isPaired, meta.address]);
 
   // Counters, then live green check-ins straight from the chain.
   useEffect(() => {
-    if (!code) return;
+    if (!isPaired) return;
     let alive = true;
     const refreshCounts = () =>
       Promise.all([
@@ -134,62 +133,60 @@ export function GateView({ meta }: { meta: EventMeta }) {
       alive = false;
       unwatch();
     };
-  }, [code, meta.address]);
+  }, [isPaired, meta.address]);
 
-  // Refused check-ins (and any green the socket missed) from the relay's log.
+  // Refused check-ins (and any green the socket missed) from the relay's log. The device signs each request.
   useEffect(() => {
-    if (!code) return;
+    if (!device || !isPaired) return;
     let alive = true;
     const since = Date.now();
-    const poll = () =>
-      postJson<{ results: ResultRow[] }>("/api/gate/results", { event: meta.address, code })
-        .then(({ results }) => {
-          if (!alive) return;
-          for (const r of [...results].reverse()) {
-            if (r.at < since) continue;
-            show({
-              key: r.hash ?? `${r.ticketId}-${r.at}`,
-              ok: r.ok,
-              ticketId: r.ticketId,
-              at: r.at,
-              reason: r.ok ? undefined : friendlyMessage(r.code),
-            });
-          }
-        })
-        .catch(() => {});
-    const id = setInterval(poll, RESULTS_MS);
+    const poll = async () => {
+      const at = Math.floor(Date.now() / 1000);
+      const sig = await device.signMessage({ message: gateResultsMessage(meta.address, at) });
+      const { results } = await postJson<{ results: ResultRow[] }>("/api/gate/results", { event: meta.address, at, sig });
+      if (!alive) return;
+      for (const r of [...results].reverse()) {
+        if (r.at < since) continue;
+        show({
+          key: r.hash ?? `${r.ticketId}-${r.at}`,
+          ok: r.ok,
+          ticketId: r.ticketId,
+          at: r.at,
+          reason: r.ok ? undefined : friendlyMessage(r.code),
+        });
+      }
+    };
+    const id = setInterval(() => poll().catch(() => {}), RESULTS_MS);
     return () => {
       alive = false;
       clearInterval(id);
     };
-  }, [code, meta.address]);
+  }, [device, isPaired, meta.address]);
 
   useEffect(() => () => clearTimeout(flashTimer.current), []);
 
   if (!hydrated) return null;
 
-  if (!code) {
+  if (!device || (paired?.gate === device.address && !paired.ok)) {
     return (
-      <main className="mx-auto max-w-md pt-10 lg:pt-20">
-        <h1 className="text-2xl font-semibold">Open the gate for {meta.name}</h1>
-        <p className="mt-2 text-muted">Enter the gate code the organizer gave you.</p>
-        <form
-          className="mt-6 flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (draft.trim()) writeCode(draft.trim());
-          }}
-        >
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            autoComplete="off"
-            className="flex-1 rounded-xl border border-line bg-surface px-3 py-3 outline-none focus:border-velvet"
-            placeholder="Gate code"
-          />
-          <button className="rounded-xl bg-velvet px-5 font-semibold text-velvet-ink">Open</button>
-        </form>
-        {error && <p className="mt-3 text-sm text-stop">{error}</p>}
+      <main className="mx-auto max-w-md pt-10 text-center lg:pt-20">
+        <h1 className="text-2xl font-semibold">{device ? "This gate was removed" : "Pair this screen as a gate"}</h1>
+        <p className="mt-3 text-muted">
+          {device
+            ? "The organizer removed this device from the show. Pair it again from the organizer dashboard."
+            : `On the organizer dashboard for ${meta.name}, tap "Add a gate device" and scan the code with this tablet's camera.`}
+        </p>
+        <Link href={`/organizer/${meta.slug}`} className="mt-6 inline-block text-sm font-semibold text-velvet underline">
+          Open the organizer dashboard
+        </Link>
+        {device && (
+          <button
+            onClick={() => writeDeviceKey(meta.address, null)}
+            className="mt-4 block w-full text-xs text-muted underline"
+          >
+            Forget this gate key
+          </button>
+        )}
       </main>
     );
   }
@@ -202,9 +199,7 @@ export function GateView({ meta }: { meta: EventMeta }) {
           role="status"
         >
           <p className="text-7xl lg:text-9xl">{flash.ok ? "✓" : "✕"}</p>
-          <p className="mt-4 text-4xl font-semibold lg:text-6xl">
-            {flash.ok ? "Welcome in" : "Not let in"}
-          </p>
+          <p className="mt-4 text-4xl font-semibold lg:text-6xl">{flash.ok ? "Welcome in" : "Not let in"}</p>
           <p className="mt-3 text-2xl lg:text-4xl">Ticket #{flash.ticketId}</p>
           <p className="mt-4 max-w-xl text-lg opacity-90 lg:text-2xl">
             {flash.ok ? `${formatNaira(flash.amount ?? 0n)} released to the organizer.` : flash.reason}
@@ -218,7 +213,7 @@ export function GateView({ meta }: { meta: EventMeta }) {
             <>
               <QRCodeSVG
                 value={checkInUrl(window.location.origin, token)}
-                level="M"
+                level="L"
                 marginSize={2}
                 className="mx-auto h-auto w-full max-w-sm lg:max-w-[560px]"
               />
@@ -238,7 +233,7 @@ export function GateView({ meta }: { meta: EventMeta }) {
 
       <section className="mt-6 lg:mt-0">
         <div className="flex items-center justify-between text-sm">
-          <p className="font-medium">Gate</p>
+          <p className="font-medium">Gate {gateCode(device.address)}</p>
           <p className={live ? "text-go" : "text-muted"}>{live ? "● Live" : "○ Connecting"}</p>
         </div>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight lg:text-4xl">{meta.name}</h1>
@@ -271,9 +266,9 @@ export function GateView({ meta }: { meta: EventMeta }) {
             ))}
           </ul>
         )}
-        <button onClick={() => writeCode(null)} className="mt-6 text-xs text-muted underline">
-          Close this gate
-        </button>
+        <p className="mt-6 text-xs text-muted">
+          This screen signs each code with its own gate key. The organizer can remove it from the dashboard.
+        </p>
       </section>
     </main>
   );

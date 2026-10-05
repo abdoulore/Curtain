@@ -1,19 +1,19 @@
 // End-to-end check of "Send to my phone" on Monad testnet, standing in for a laptop and a phone with different
 // passkeys. Uses the app's own claim-key derivation (Node 24 runs the TypeScript file directly).
 //
-//   BASE_URL=http://localhost:3000 npm run e2e:claim      (reads GATE_ACCESS_CODE from .env.local)
-import { readFileSync } from "node:fs";
+//   BASE_URL=http://localhost:3000 npm run e2e:claim      (the gate key comes from the repo .env)
 import { p256 } from "@noble/curves/nist.js";
 import { sha256 as sha256Bytes } from "@noble/hashes/sha2.js";
 import {
   bytesToHex, concat, createPublicClient, encodeAbiParameters, http, keccak256, parseAbi, toBytes, zeroAddress,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { issueGatePass } from "./gate-device.mjs";
 import { deriveClaimKey } from "../src/lib/claim-key.ts";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const CHAIN_ID = 10143;
-const EVENT = "0xd3F22B52F74D658318C29E0475E1833214eCA005";
+const EVENT = "0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D";
 const USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
 const RP_ID = "curtaintickets.vercel.app";
 const pub = createPublicClient({ transport: http("https://testnet-rpc.monad.xyz") });
@@ -24,11 +24,6 @@ const eventAbi = parseAbi([
 ]);
 const domain = { name: "Curtain", version: "1", chainId: CHAIN_ID, verifyingContract: EVENT };
 
-function gateCode() {
-  if (process.env.GATE_ACCESS_CODE) return process.env.GATE_ACCESS_CODE;
-  const line = readFileSync(new URL("../.env.local", import.meta.url), "utf8").split(/\r?\n/).find((l) => l.startsWith("GATE_ACCESS_CODE="));
-  return line?.slice("GATE_ACCESS_CODE=".length);
-}
 async function api(path, body) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
@@ -136,7 +131,7 @@ console.log("reusing the used link:", reused.status, reused.json.error);
 if (reused.status !== 400) throw new Error("used link was accepted again");
 
 // The phone's passkey opens the door.
-const gate = must("gate nonce", await api("/api/gate/nonce", { event: EVENT, code: gateCode() }));
+const gate = await issueGatePass(EVENT);
 const challenge = keccak256(encodeAbiParameters(
   [{ type: "uint256" }, { type: "address" }, { type: "uint256" }, { type: "bytes32" }, { type: "uint256" }],
   [BigInt(CHAIN_ID), EVENT, ticketId, gate.gateNonce, BigInt(gate.challengeBlock)],

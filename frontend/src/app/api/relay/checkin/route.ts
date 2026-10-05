@@ -5,10 +5,9 @@ import { txUrl } from "@/lib/chain";
 import { walletFor } from "@/server/clients";
 import { env } from "@/server/env";
 import { assertCurtainEvent } from "@/server/events";
-import { verifyGateToken } from "@/server/gate-token";
 import { address, bytes32, fail, hexBytes, ok, parse, uint } from "@/server/http";
 import { gateLog } from "@/server/gate-log";
-import { sendContract, toRelayError } from "@/server/relay";
+import { RelayError, sendContract, toRelayError } from "@/server/relay";
 
 const body = z.object({
   event: address,
@@ -17,8 +16,7 @@ const body = z.object({
     event: address,
     gateNonce: bytes32,
     challengeBlock: z.string().regex(/^\d+$/),
-    exp: z.number().int(),
-    tag: bytes32,
+    pass: hexBytes,
   }),
   auth: z.object({
     r: bytes32,
@@ -30,19 +28,22 @@ const body = z.object({
   }),
 });
 
-/** The buyer's phone sends its passkey assertion over the gate's nonce; the gate key submits it. */
+/**
+ * The buyer's phone sends its passkey assertion over the gate's nonce, with the pass the gate device signed for that
+ * nonce. The relayer submits; the contract checks the pass came from a paired gate.
+ */
 export async function POST(request: Request) {
   let parsed: z.output<typeof body> | undefined;
   try {
     parsed = await parse(request, body);
     const { event, ticketId, gate, auth } = parsed;
-    verifyGateToken(gate, event);
+    if (gate.event !== event) throw new RelayError(400, "GateTokenWrongEvent", "That gate code is for another show");
     const eventAddress = await assertCurtainEvent(event);
-    const sent = await sendContract(walletFor(env.gateKey()), {
+    const sent = await sendContract(walletFor(env.relayerKey()), {
       address: eventAddress,
       abi: curtainEventAbi,
       functionName: "checkIn",
-      args: [ticketId, gate.gateNonce, BigInt(gate.challengeBlock), auth],
+      args: [ticketId, gate.gateNonce, BigInt(gate.challengeBlock), gate.pass, auth],
     });
     const [checkedIn] = parseEventLogs({ abi: curtainEventAbi, logs: sent.receipt.logs, eventName: "CheckedIn" });
     await record(event, { at: Date.now(), ok: true, ticketId: ticketId.toString(), hash: sent.hash });

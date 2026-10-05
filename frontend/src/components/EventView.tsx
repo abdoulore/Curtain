@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { EventMeta } from "@/lib/events";
 import { formatNaira } from "@/lib/money";
@@ -58,6 +59,9 @@ export function EventView({ meta }: { meta: EventMeta }) {
           <li>The organizer is paid the moment your ticket is scanned.</li>
           <li>Show cancelled? Your money comes back automatically.</li>
         </ul>
+        <Link href={`/board/${meta.slug}`} className="mt-3 inline-block text-sm font-medium text-velvet underline underline-offset-2">
+          See where the money is, live
+        </Link>
         <div className="mt-5">
           {loadError && <p className="text-sm text-stop">{loadError}</p>}
           {info && <BuyPanel meta={meta} info={info} onBought={() => setVersion((v) => v + 1)} />}

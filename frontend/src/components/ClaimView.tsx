@@ -6,7 +6,7 @@ import { friendlyPasskeyError, isPrfUnavailable, signUp, unlock } from "@/lib/ac
 import { ApiError } from "@/lib/api";
 import { claimWithLink } from "@/lib/claim";
 import { parseClaimFragment } from "@/lib/claim-key";
-import { findEvent } from "@/lib/events";
+import { useShowMeta } from "@/lib/show-details";
 import { useAccount, useHydrated } from "@/lib/hooks";
 import { readTicket, type TicketInfo } from "@/lib/reads";
 import { saveTicket } from "@/lib/tickets";
@@ -24,7 +24,7 @@ export function ClaimView() {
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => "");
   const link = useMemo(() => (hash ? parseClaimFragment(hash) : null), [hash]);
   const account = useAccount();
-  const meta = link ? findEvent(link.event) : undefined;
+  const meta = useShowMeta(link?.event);
 
   const [ticket, setTicket] = useState<TicketInfo | null>(null);
   const [name, setName] = useState("");

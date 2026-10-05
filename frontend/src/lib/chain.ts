@@ -12,8 +12,8 @@ export const monadTestnet = defineChain({
   blockExplorers: { default: { name: "MonadVision", url: EXPLORER_URL } },
 });
 
-export const CURTAIN_FACTORY: Address = "0x00CC023C3BFB01eb3E5470247c7976966b04d0Db";
-export const DEMO_EVENT: Address = "0xd3F22B52F74D658318C29E0475E1833214eCA005";
+export const CURTAIN_FACTORY: Address = "0x13391D9E0dD62d01c62821671F47A12eE320Ca58";
+export const DEMO_EVENT: Address = "0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D";
 
 /** Circle USDC on Monad testnet. Its EIP-712 domain is name "USDC", version "2". */
 export const USDC: Address = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
@@ -23,6 +23,7 @@ export const USDC_PERMIT_DOMAIN = { name: "USDC", version: "2", chainId: monadTe
 export const RP_ID = "curtaintickets.vercel.app";
 
 export const CURTAIN_EIP712 = { name: "Curtain", version: "1" } as const;
+export const FACTORY_EIP712 = { name: "CurtainFactory", version: "1", chainId: 10143, verifyingContract: CURTAIN_FACTORY } as const;
 
 export const buyIntentTypes = {
   BuyIntent: [
@@ -43,6 +44,50 @@ export const permitTypes = {
     { name: "value", type: "uint256" },
     { name: "nonce", type: "uint256" },
     { name: "deadline", type: "uint256" },
+  ],
+} as const;
+
+/** A gate device signs each nonce it shows, so the relayer can submit the check-in. */
+export const gatePassTypes = {
+  GatePass: [
+    { name: "gateNonce", type: "bytes32" },
+    { name: "challengeBlock", type: "uint256" },
+  ],
+} as const;
+
+/** A ticket holder lists at or below face value; zero delists. */
+export const listTypes = {
+  List: [
+    { name: "ticketId", type: "uint256" },
+    { name: "price", type: "uint256" },
+    { name: "nonce", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+  ],
+} as const;
+
+/** An organizer creates a show; the relayer submits `createEventFor`. Must match CurtainFactory. */
+export const createShowTypes = {
+  CreateShow: [
+    { name: "organizer", type: "address" },
+    { name: "name", type: "string" },
+    { name: "venue", type: "string" },
+    { name: "show", type: "Show" },
+    { name: "nonce", type: "uint256" },
+    { name: "deadline", type: "uint256" },
+  ],
+  Show: [
+    { name: "payout", type: "address" },
+    { name: "token", type: "address" },
+    { name: "price", type: "uint96" },
+    { name: "capacity", type: "uint32" },
+    { name: "salesEnd", type: "uint64" },
+    { name: "doorsOpen", type: "uint64" },
+    { name: "endTime", type: "uint64" },
+    { name: "settleDelay", type: "uint64" },
+    { name: "heldThresholdBps", type: "uint16" },
+    { name: "maxChallengeAge", type: "uint32" },
+    { name: "rpIdHash", type: "bytes32" },
+    { name: "gates", type: "address[]" },
   ],
 } as const;
 

@@ -40,6 +40,11 @@ const FRIENDLY: Record<string, string> = {
   GateNotRegistered: "This gate isn't set up for the show.",
 };
 
+/** The plain-language message for a relayer or contract error code. */
+export function friendlyMessage(code: string | undefined): string {
+  return (code && FRIENDLY[code]) || "Something went wrong. Please try again.";
+}
+
 export async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, {
     method: "POST",

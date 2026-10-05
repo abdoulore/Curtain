@@ -7,7 +7,8 @@ import { env } from "@/server/env";
 import { assertCurtainEvent } from "@/server/events";
 import { verifyGateToken } from "@/server/gate-token";
 import { address, bytes32, fail, hexBytes, ok, parse, uint } from "@/server/http";
-import { sendContract } from "@/server/relay";
+import { gateLog } from "@/server/gate-log";
+import { sendContract, toRelayError } from "@/server/relay";
 
 const body = z.object({
   event: address,
@@ -31,8 +32,10 @@ const body = z.object({
 
 /** The buyer's phone sends its passkey assertion over the gate's nonce; the gate key submits it. */
 export async function POST(request: Request) {
+  let parsed: z.output<typeof body> | undefined;
   try {
-    const { event, ticketId, gate, auth } = await parse(request, body);
+    parsed = await parse(request, body);
+    const { event, ticketId, gate, auth } = parsed;
     verifyGateToken(gate, event);
     const eventAddress = await assertCurtainEvent(event);
     const sent = await sendContract(walletFor(env.gateKey()), {
@@ -42,6 +45,7 @@ export async function POST(request: Request) {
       args: [ticketId, gate.gateNonce, BigInt(gate.challengeBlock), auth],
     });
     const [checkedIn] = parseEventLogs({ abi: curtainEventAbi, logs: sent.receipt.logs, eventName: "CheckedIn" });
+    await record(event, { at: Date.now(), ok: true, ticketId: ticketId.toString(), hash: sent.hash });
     return ok({
       hash: sent.hash,
       explorer: txUrl(sent.hash),
@@ -51,6 +55,18 @@ export async function POST(request: Request) {
       gasLimit: sent.gasLimit,
     });
   } catch (error) {
+    // Refused check-ins never reach the chain; the gate screen learns about them from this log.
+    if (parsed) {
+      await record(parsed.event, { at: Date.now(), ok: false, ticketId: parsed.ticketId.toString(), code: toRelayError(error).code });
+    }
     return fail(error);
+  }
+}
+
+async function record(event: string, result: Parameters<ReturnType<typeof gateLog>["push"]>[1]) {
+  try {
+    await gateLog().push(event, result);
+  } catch {
+    // The gate feed is best effort; never fail a check-in over it.
   }
 }

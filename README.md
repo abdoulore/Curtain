@@ -42,7 +42,7 @@ Changes from the original spec, so buyers and organizers never need gas:
 
 ### Tests
 
-`forge test` runs 78 tests: 14 canary, 59 escrow, 5 invariants. The web app adds 27 Vitest tests (`npm test` in
+`forge test` runs 96 tests: 14 canary, 59 escrow, 5 invariants, 18 keeper. The web app adds 27 Vitest tests (`npm test` in
 `frontend/`): top-up limits, token allowlist, passkey key recovery and ES256-only options, in-app browser detection,
 claim-key derivation and links, PRF capability detection, the gate result log, organizer typed data and the packed
 gate token.
@@ -116,6 +116,46 @@ an account, "My tickets" and sign-in read each escrow directly.
 The money board, https://curtaintickets.vercel.app/board/demo, shows those totals and the feed, and pops each
 purchase and check-in the moment it happens from a WebSocket log subscription. "My tickets" also reads the
 indexer, so a buyer's tickets show on any device.
+
+### Automatic settlement and refunds (Chainlink CRE)
+
+Nobody has to remember to refund a cancelled show. [`cre/curtain-keeper`](cre/curtain-keeper) is a CRE workflow in
+TypeScript that runs every 5 minutes:
+
+1. It asks the Envio indexer for every show that could still need work (open, cancelled or not held), plus a fixed
+   list in its config in case the indexer is down.
+2. It reads `CurtainKeeper.pending(shows)` on Monad. The rule lives onchain in one tested place: an open show past
+   `endTime + settleDelay` needs `settle`, and a cancelled or not-held show whose refund cursor hasn't reached the
+   last ticket needs `pushRefunds`.
+3. If anything is due, it signs one report listing every job, and the Chainlink forwarder delivers it to
+   `CurtainKeeper.onReport`, which settles and pushes refunds in batches of 10. A show that settles as not held
+   is refunded in the same report.
+
+[`src/CurtainKeeper.sol`](src/CurtainKeeper.sol) holds no money and has no special role on the escrows, since
+`settle` and `pushRefunds` are open to anyone. It accepts reports only from the forwarder, acts only on genuine
+CurtainEvent clones (matched by code hash), and never reverts on a stale or failing job: it logs `Skipped` with the
+reason, so one show can't hold up the rest and a replayed report does nothing.
+
+Run on Monad testnet with `cre workflow simulate --broadcast` (CRE CLI 1.37.0, SDK 1.23.0), Oct 5, against two
+shows made by [`script/DeployKeeper.s.sol`](script/DeployKeeper.s.sol): one cancelled with 3 tickets, one ended
+with 2 tickets and nobody checked in.
+
+| Step | Result | Tx or log |
+| --- | --- | --- |
+| Deploy CurtainKeeper (Sourcify exact match) | [`0x010F096F...bADe`](https://testnet.monadvision.com/address/0x010F096F8dC260b68A07025C00404aaf9F33bADe) | [`0x6458f5da...5c2d`](https://testnet.monadvision.com/tx/0x6458f5da713f8c7c000b794feb94abfcdd7fc68e3c739037cb768caa517a5c2d) |
+| Cancel the first show | 3 tickets refundable | [`0x9d50956a...514f`](https://testnet.monadvision.com/tx/0x9d50956aa2da0c930829410de08a5f9ac30d5beb888eacf72a573465e725514f) |
+| Workflow run 1 | settled the ended show as not held, refunded all 5 buyers 0.20 USDC each, in one report through the MockKeystoneForwarder | [`0xf0b0c6d0...6290`](https://testnet.monadvision.com/tx/0xf0b0c6d010af6e6b95efa04b1a72ba4a41ed4eae1eb69d988704e3ac0ef06290), [log](docs/cre/simulate-broadcast-1.log) |
+| Workflow run 2 | nothing due, no transaction | [log](docs/cre/simulate-broadcast-2-idle.log) |
+| Shows found through Envio alone (config list empty) | 3 | [log](docs/cre/simulate-envio-discovery.log) |
+
+```sh
+cd cre && cre workflow simulate ./curtain-keeper --target staging-settings --broadcast
+```
+
+`cre/.env` holds `CRE_ETH_PRIVATE_KEY` for the simulation's transactions (gitignored). For a deployed workflow,
+`CurtainKeeper.setForwarder` switches to the production KeystoneForwarder
+`0xF8344CFd5c43616a4366C34E3EEE75af79a74482`. Tests: 18 Foundry tests for the keeper and 9 workflow unit tests
+(`bun test`) with the SDK's EVM and HTTP mocks.
 
 ### Deployed on Monad testnet (chain 10143)
 

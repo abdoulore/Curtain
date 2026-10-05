@@ -10,14 +10,18 @@ Live site: https://curtaintickets.vercel.app
 - `src/CurtainFactory.sol` deploys one `CurtainEvent` clone per event and emits `EventCreated`. It holds no money and
   nothing in it can touch an event's escrow.
 - `src/CurtainEvent.sol` is the escrow for one event.
-  - `buy`: the buyer's account signs an EIP-712 `BuyIntent` (buyer, passkey qx and qy, price, nonce, deadline) and an
-    EIP-2612 permit. Anyone may submit, so a relayer pays gas. The ticket binds to the buyer for refunds and to the
-    passkey for the door.
+  - `buy`: the buyer's account signs an EIP-712 `BuyIntent` (buyer, ticketId, passkey qx and qy, price, nonce,
+    deadline) and an EIP-2612 permit. Anyone may submit, so a relayer pays gas. The ticket binds to the buyer for
+    refunds and to the passkey for the door. `ticketId` is 0 for a primary sale and the listed ticket for a resale, so
+    an intent signed for one sale reverts `WrongSale` anywhere else.
   - `checkIn`: registered gates only, inside the door window. The challenge is
     `keccak256(abi.encode(chainid, event, ticketId, gateNonce, challengeBlock))`, single use, at most 300 blocks old.
     `authenticatorData[0:32]` must equal the event's rpIdHash (OpenZeppelin's WebAuthn check ignores rpId), then
     `WebAuthn.verify` with UP and UV. The ticket's price moves from escrowed to released.
-  - `withdraw`: the organizer takes up to released minus withdrawn, paid to the payout address.
+  - `withdraw`: the organizer takes up to released minus withdrawn, paid to the payout address fixed at creation.
+  - `withdraw`, `cancel` and `setGate` take the organizer's EIP-712 signature (`Withdraw`, `Cancel`, `SetGate`), so the
+    organizer signs in a browser wallet and the relayer submits. An empty signature means a direct call from the
+    organizer.
   - `cancel`, `settle`: cancelling makes unscanned tickets refundable. After `endTime + settleDelay` anyone can settle:
     held if `checkedIn * 10000 >= heldThresholdBps * sold` (unscanned money is released), otherwise not held
     (unscanned tickets are refundable).
@@ -29,15 +33,19 @@ Live site: https://curtaintickets.vercel.app
 - Accounting invariant: `totalPaidIn == released + refunded + escrowed`, and the token balance always equals
   `escrowed + released - withdrawn`.
 
-Changes from the original spec, both so buyers never need gas:
+Changes from the original spec, so buyers and organizers never need gas:
 
 - Holder actions (`listForResale`, `setClaim`) accept either a direct call from the holder or the holder's EIP-712
-  signature (`List`, `SetClaim`) submitted by anyone. Buy intents and holder actions share one nonce per address.
+  signature (`List`, `SetClaim`) submitted by anyone. Organizer actions work the same way. Buy intents, holder actions
+  and organizer actions share one nonce per address.
 - `claimRefund` can be called by anyone. The money only ever goes to the ticket's holder.
 
 ### Tests
 
-`forge test` runs 68 tests: 14 canary, 49 escrow, 5 invariants.
+`forge test` runs 78 tests: 14 canary, 59 escrow, 5 invariants. The web app adds 27 Vitest tests (`npm test` in
+`frontend/`): top-up limits, token allowlist, passkey key recovery and ES256-only options, in-app browser detection,
+claim-key derivation and links, PRF capability detection, the gate result log, organizer typed data and the packed
+gate token.
 
 - Happy paths: buy, check-in, withdraw; cancel then push refunds (scanned tickets stay paid); batched refunds; pull
   refund; settle held; settle not held; resale with rebind; listing directly by the holder; gift claim; adding a gate;
@@ -48,7 +56,9 @@ Changes from the original spec, both so buyers never need gas:
   after resale (`InvalidAssertion`), resale above face value (`PriceAboveCap`), unlisted resale (`NotListed`), forged
   listing (`BadSignature`), over-withdraw (`ExceedsReleased`), stranger withdraw or cancel (`NotOrganizer`), check-in
   after cancel (`EventNotOpen`), sold out (`SoldOut`), sales closed (`SalesClosed`), forged intent (`BadSignature`),
-  replayed intent (`InvalidAccountNonce`), wrong price (`PriceMismatch`), invalid passkey (`InvalidPublicKey`), no
+  replayed intent (`InvalidAccountNonce`), primary intent used on a resale, resale intent used on a primary sale or on
+  another listing (`WrongSale`), forged, replayed or expired organizer signature, holder action with no signature from
+  a non-holder (`NotHolder`), wrong price (`PriceMismatch`), invalid passkey (`InvalidPublicKey`), no
   allowance (`InsufficientAllowance`), refund while open (`NotRefundable`), refund of a scanned ticket
   (`NothingToRefund`), gift claim with the wrong key (`BadSignature`), revoked link (`NoClaimKey`), old link after
   regenerating (`BadSignature`), settle too early or after cancel (`NotSettleable`), bad factory params
@@ -59,22 +69,27 @@ Changes from the original spec, both so buyers never need gas:
   and time jumps): paid in equals released plus refunded plus escrowed, paid in matches successful buys, the token
   balance matches the accounting, withdrawn never exceeds released, and escrow matches the tickets still owed.
 
-Gas, median from `forge test --gas-report` (first-time storage writes, so an upper bound):
+Gas from `forge test --gas-report` (first-time storage writes, so an upper bound). Medians mix direct calls and
+signed calls; the max is the signed, successful path. Reverting calls set the min.
 
-| Function | Gas |
-| --- | ---: |
-| `createEvent` | 240,505 |
-| `buy` | 247,260 |
-| `checkIn` | 92,431 |
-| `withdraw` | 68,141 |
-| `buyResale` | 134,011 |
-| `listForResale` | 27,776 |
-| `setClaim` | 34,956 |
-| `claim` | 17,229 to 35,232 |
-| `cancel` | 8,345 |
-| `settle` | 7,210 to 19,786 |
-| `pushRefunds` | 75,988 (3 tickets) |
-| `claimRefund` | 24,169 to 59,862 |
+| Function | Median | Max |
+| --- | ---: | ---: |
+| `createEvent` | 240,572 | 240,572 |
+| `buy` | 247,264 | 247,264 |
+| `checkIn` | 92,343 | 92,343 |
+| `withdraw` | 55,569 | 98,169 |
+| `cancel` | 8,978 | 38,321 |
+| `setGate` | 43,850 | 58,520 |
+| `buyResale` | 10,033 | 134,058 |
+| `listForResale` | 39,617 | 45,742 |
+| `setClaim` | 34,912 | 47,162 |
+| `claim` | 17,251 | 35,254 |
+| `settle` | 7,188 | 19,764 |
+| `pushRefunds` | 75,966 | 86,450 |
+| `claimRefund` | 24,147 | 59,840 |
+
+Binding `BuyIntent` to one sale added 4 gas to `buy`. A signed organizer action costs about 30k more than a direct
+call (one ECDSA recovery, a nonce write).
 
 ### One passkey for the account and the door
 
@@ -94,7 +109,9 @@ the P-256 key from the registration response, so the same passkey signs check-in
 [`indexer/`](indexer) is an Envio HyperIndex that follows `CurtainFactory`, registers each event escrow it creates,
 and keeps per-show totals (escrowed, released, withdrawn, refunded), every ticket's holder and state, and an
 activity feed. It runs on Envio Cloud over HyperSync; on Oct 5 its totals matched the contract exactly and a new
-purchase appeared in the index 680 ms after it confirmed.
+purchase appeared in the index 680 ms after it confirmed. Those numbers were measured on the previous factory; the
+indexer config now follows the factory below. If the indexer is down, "My tickets" and sign-in read the chain
+directly.
 
 The money board, https://curtaintickets.vercel.app/board/demo, shows those totals and the feed, and pops each
 purchase and check-in the moment it happens from a WebSocket log subscription. "My tickets" also reads the
@@ -104,17 +121,73 @@ indexer, so a buyer's tickets show on any device.
 
 | Contract | Address | Tx |
 | --- | --- | --- |
-| CurtainFactory | [`0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0`](https://testnet.monadvision.com/address/0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0) | [`0xb171fa23...f88b`](https://testnet.monadvision.com/tx/0xb171fa23fc946d7aa8d5373faf2cef3ac7b524e6def42a98120148851261f88b) |
-| CurtainEvent implementation | [`0x92D55aCB06397392Fec35c7aA72A466e8539f420`](https://testnet.monadvision.com/address/0x92D55aCB06397392Fec35c7aA72A466e8539f420) | same tx |
-| Demo event (clone) | [`0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7`](https://testnet.monadvision.com/address/0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7) | [`0xa3e58cdb...b452c`](https://testnet.monadvision.com/tx/0xa3e58cdb09f701d723b8816665190f3e495d999ead2601ca9c007a338f0b452c) |
+| CurtainFactory | [`0x00CC023C3BFB01eb3E5470247c7976966b04d0Db`](https://testnet.monadvision.com/address/0x00CC023C3BFB01eb3E5470247c7976966b04d0Db) | [`0xe5ee3f74...503f`](https://testnet.monadvision.com/tx/0xe5ee3f74a2ab62ac6957eef1a3ad333429aa4a7bc5056e555a75d6f8781d503f) |
+| CurtainEvent implementation | [`0xd146CF2CbaF58A941127CE4900901429d4160E26`](https://testnet.monadvision.com/address/0xd146CF2CbaF58A941127CE4900901429d4160E26) | same tx |
+| Demo event (clone) | [`0xd3F22B52F74D658318C29E0475E1833214eCA005`](https://testnet.monadvision.com/address/0xd3F22B52F74D658318C29E0475E1833214eCA005) | [`0x8b7cdb20...9ba5`](https://testnet.monadvision.com/tx/0x8b7cdb2035272761abaa802409077b446d0491a50f708d0e410b644371bb9ba5) |
 
 Factory and implementation are source-verified (exact match) on Sourcify. The demo event sells 200 tickets at 1 USDC
 (Circle testnet USDC `0x534b2f3A21130d7a60830c2Df862319e593943A3`, EIP-712 domain name `USDC`, version `2`), doors
-open now, ends 30 days after deploy, held threshold 50%, rpId `curtaintickets.vercel.app`.
+open now, ends 30 days after deploy, held threshold 50%, rpId `curtaintickets.vercel.app`. The first escrow
+deployment (factory `0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0`, demo event
+`0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7`) is retired.
 
 ```sh
 forge script script/DeployCurtain.s.sol --rpc-url monad_testnet --broadcast --slow --gas-estimate-multiplier 110
 ```
+
+The relayer key deploys the factory; the organizer key creates the demo event and is its payout; the gate key's
+address is the event's first gate.
+
+End-to-end runs against the live site on this deployment:
+
+| Run | Step | Tx |
+| --- | --- | --- |
+| `npm run e2e:relay` | gasless buy | [`0xb9842e57...37a7`](https://testnet.monadvision.com/tx/0xb9842e5773939319b4e82aff40c74e5fa7ad251cb6d67a8e993f490ae1f937a7) |
+| `npm run e2e:claim` | set a send-to-phone link | [`0xc9588b1c...4be6`](https://testnet.monadvision.com/tx/0xc9588b1c88e90de1b6a5ff84d3b822c67e03dbf08d3bdce6c9a8f55875ec4be6) |
+| | revoke it (the phone's claim is then refused, `NoClaimKey`) | [`0xd0738ffb...b64c`](https://testnet.monadvision.com/tx/0xd0738ffb4f691095a5f448f877e357c9186d4409d5384dd409811443349bb64c) |
+| | set a fresh link | [`0x3f46147a...1ab8`](https://testnet.monadvision.com/tx/0x3f46147a2b4ebbccc2ea24ebe104dc779474de208c44f10e466de3b9ca971ab8) |
+| | phone claims (ticket rebinds to the phone's passkey; reusing the link is refused) | [`0x6b3a4de3...4b9e`](https://testnet.monadvision.com/tx/0x6b3a4de3016e51c7ec3f4cb7d8c90864428af6872ca7580df318276bece84b9e) |
+| | phone checks in | [`0xfe276830...ea13`](https://testnet.monadvision.com/tx/0xfe276830027347d020baf04105d2be055f957f27e302f473c9e7b6fa1b73ea13) |
+| `npm run e2e:organizer` | signed withdraw to the payout | [`0x59b180f6...9cb2`](https://testnet.monadvision.com/tx/0x59b180f6a8e30833f3f39e041199d68685404f88bb1de861380f749794509cb2) |
+| | signed add gate | [`0x84fc7af6...6b4c`](https://testnet.monadvision.com/tx/0x84fc7af68dd270264e3eab824df421c0314221723a3c89d9a96b1b5bc2446b4c) |
+| | signed remove gate (a stranger's signature is refused before any gas) | [`0xaab44704...fcb8`](https://testnet.monadvision.com/tx/0xaab4470411dab324250e0579f9539e6bba8049d45d98fa202a1d3962c4e2fcb8) |
+
+## The web app
+
+Next.js on Vercel at https://curtaintickets.vercel.app. Screenshots at 375 px and 1440 px are in
+[`docs/screens/`](docs/screens).
+
+- Sign in on any browser. Passkeys are discoverable, so "Sign in" lists the user's passkeys with no username. The
+  door key (the passkey's P-256 public key) comes back from the user's tickets, through the indexer or straight from
+  the chain if the indexer is down. With no tickets yet, it is recovered from the sign-in signature (two candidates,
+  settled by the next signature). Passkeys are ES256 only (alg -7), because the contract verifies P-256.
+- In-app browsers (WhatsApp, Instagram, X, Facebook, TikTok, Snapchat, LINE, Android WebView) get a notice to open
+  the page in Chrome or Safari, since passkeys are unreliable there.
+- Laptop to phone. A browser without passkey PRF shows a "Continue on your phone" QR. On a laptop that can buy, the
+  ticket page says it is ready for the phone two ways: sign in on the phone with the same synced passkey (path A),
+  or "Send to my phone" (path B), which sets a claim key derived from the passkey's PRF output, shows it as a QR, and
+  lets the phone claim the ticket to its own passkey through the relayer. The laptop can revoke the link until it is
+  used.
+- The gate screen is landscape-first: a big rotating QR, a full-screen green or red result for each scan, and a feed
+  of the last 20 results (refused scans included) behind the gate code.
+- The organizer dashboard (`/organizer/demo`) shows what is ready to withdraw, what is held and refunded, and signs
+  withdraw, gate and cancel actions in a browser wallet; the relayer submits them.
+- The money board and organizer dashboard use two-column layouts on desktop; buyer pages use two columns from 1024 px.
+
+### Keys
+
+Four separate keys, each with one job:
+
+| Role | Address | Where it lives |
+| --- | --- | --- |
+| Relayer (submits buys, claims and organizer actions; pays gas) | `0xf3B5F191cDd51d78ec117B0f09239c532Fb6d0F6` | Vercel |
+| Gate (submits check-ins) | `0x31f7e1FcBD820cA29cece6Ac6386172557511fF5` | Vercel |
+| Treasury (sends demo USDC for top-ups) | `0x4f930C2CF8Da49F8Ddf362DC77AC8754563D9d06` | Vercel |
+| Organizer and payout | `0x0ab5384bC2669C2B9E26Fcf40e4B31af2e294937` | never on Vercel; signs in a wallet |
+
+https://curtaintickets.vercel.app/api/health reports each address, its balance, and the demo event's organizer. The
+relayer only touches Curtain clones from the factory whose token is testnet USDC. `/api/topup` allows 3 top-ups per
+IP per day and 10 per hour across everyone (Upstash when configured, in memory otherwise).
 
 ## Canary: biometric passkey verified onchain
 

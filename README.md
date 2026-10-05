@@ -152,6 +152,14 @@ End-to-end runs against the live site on this deployment:
 | | signed add gate | [`0x84fc7af6...6b4c`](https://testnet.monadvision.com/tx/0x84fc7af68dd270264e3eab824df421c0314221723a3c89d9a96b1b5bc2446b4c) |
 | | signed remove gate (a stranger's signature is refused before any gas) | [`0xaab44704...fcb8`](https://testnet.monadvision.com/tx/0xaab4470411dab324250e0579f9539e6bba8049d45d98fa202a1d3962c4e2fcb8) |
 
+Two-phone run on this deployment, Oct 5: Samsung Android (fingerprint) as the buyer, a Windows laptop as the gate.
+
+| Step | Result | Tx |
+| --- | --- | --- |
+| Gasless buy, ticket #4 | success | [`0xae206d9d...8902`](https://testnet.monadvision.com/tx/0xae206d9d7f13bc462fd735b5e80761d35d28b77b0e9dc0e2dfd0fcf7b8fe8902) |
+| Check-in with fingerprint | green on phone and gate, 1 USDC released | [`0x82ce15ee...a2ae`](https://testnet.monadvision.com/tx/0x82ce15ee74ac0084589884596fc6bda74664700bb371a75bb836dbe3da7ca2ae) |
+| Second scan of the same ticket | red on phone and gate, refused at simulation (`TicketNotActive`), no gas spent | none |
+
 ## The web app
 
 Next.js on Vercel at https://curtaintickets.vercel.app. Screenshots at 375 px and 1440 px are in

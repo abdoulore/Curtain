@@ -42,10 +42,11 @@ Changes from the original spec, so buyers and organizers never need gas:
 
 ### Tests
 
-`forge test` runs 96 tests: 14 canary, 59 escrow, 5 invariants, 18 keeper. The web app adds 27 Vitest tests (`npm test` in
-`frontend/`): top-up limits, token allowlist, passkey key recovery and ES256-only options, in-app browser detection,
-claim-key derivation and links, PRF capability detection, the gate result log, organizer typed data and the packed
-gate token.
+`forge test` runs 96 tests: 14 canary, 59 escrow, 5 invariants, 18 keeper. The web app adds 36 Vitest tests
+(`npm test` in `frontend/`): top-up limits, token allowlist, passkey key recovery and ES256-only options, in-app
+browser detection, claim-key derivation and links, PRF capability detection, the gate result log, organizer typed
+data, the packed gate token, the chain fallback for held tickets, and which ticket the check-in page presents. The
+CRE workflow adds 9 (`bun test` in `cre/curtain-keeper/`).
 
 - Happy paths: buy, check-in, withdraw; cancel then push refunds (scanned tickets stay paid); batched refunds; pull
   refund; settle held; settle not held; resale with rebind; listing directly by the holder; gift claim; adding a gate;

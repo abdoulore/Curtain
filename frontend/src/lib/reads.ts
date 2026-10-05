@@ -1,11 +1,21 @@
 "use client";
 
-import { createPublicClient, erc20Abi, http, type Address, type Hex } from "viem";
+import { createPublicClient, erc20Abi, fallback, http, type Address, type Hex } from "viem";
 import { curtainEventAbi } from "./abis";
 import { monadTestnet, PUBLIC_RPC_URL, USDC } from "./chain";
 
-// Browser reads use the public RPC, on demand only (no polling). No keys ever reach the browser.
-export const browserClient = createPublicClient({ chain: monadTestnet, transport: http(PUBLIC_RPC_URL) });
+/** Other public Monad testnet RPCs that allow this site's origin, tried in order when the main one fails. */
+export const FALLBACK_RPC_URLS = [
+  "https://rpc-testnet.monadinfra.com",
+  "https://monad-testnet.drpc.org",
+  "https://rpc.ankr.com/monad_testnet",
+] as const;
+
+// Browser reads use public RPCs, on demand only (no polling). No keys ever reach the browser.
+export const browserClient = createPublicClient({
+  chain: monadTestnet,
+  transport: fallback([PUBLIC_RPC_URL, ...FALLBACK_RPC_URLS].map((url) => http(url, { timeout: 8_000 }))),
+});
 
 export const EVENT_STATUS = ["Open", "Cancelled", "Held", "NotHeld"] as const;
 export type EventStatus = (typeof EVENT_STATUS)[number];

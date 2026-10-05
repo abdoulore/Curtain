@@ -10,7 +10,15 @@ import { sendContract } from "@/server/relay";
 
 const body = z.object({
   event: address,
-  intent: z.object({ buyer: address, qx: bytes32, qy: bytes32, price: uint, nonce: uint, deadline: uint }),
+  intent: z.object({
+    buyer: address,
+    ticketId: uint,
+    qx: bytes32,
+    qy: bytes32,
+    price: uint,
+    nonce: uint,
+    deadline: uint,
+  }),
   buyerSig: hexBytes,
   // Omit to rely on an existing allowance.
   permit: z

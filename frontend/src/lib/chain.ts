@@ -12,8 +12,8 @@ export const monadTestnet = defineChain({
   blockExplorers: { default: { name: "MonadVision", url: EXPLORER_URL } },
 });
 
-export const CURTAIN_FACTORY: Address = "0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0";
-export const DEMO_EVENT: Address = "0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7";
+export const CURTAIN_FACTORY: Address = "0x00CC023C3BFB01eb3E5470247c7976966b04d0Db";
+export const DEMO_EVENT: Address = "0xd3F22B52F74D658318C29E0475E1833214eCA005";
 
 /** Circle USDC on Monad testnet. Its EIP-712 domain is name "USDC", version "2". */
 export const USDC: Address = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
@@ -27,6 +27,7 @@ export const CURTAIN_EIP712 = { name: "Curtain", version: "1" } as const;
 export const buyIntentTypes = {
   BuyIntent: [
     { name: "buyer", type: "address" },
+    { name: "ticketId", type: "uint256" },
     { name: "qx", type: "bytes32" },
     { name: "qy", type: "bytes32" },
     { name: "price", type: "uint256" },

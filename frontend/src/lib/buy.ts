@@ -22,7 +22,8 @@ export async function buyTicket(event: Address, stored: StoredAccount, account: 
     browserClient.readContract({ address: USDC, abi: permitNoncesAbi, functionName: "nonces", args: [account.address] }),
   ]);
 
-  const intent = { buyer: account.address, qx: stored.qx, qy: stored.qy, price, nonce, deadline };
+  // ticketId 0: a primary buy. The contract refuses this intent anywhere else.
+  const intent = { buyer: account.address, ticketId: 0n, qx: stored.qx, qy: stored.qy, price, nonce, deadline };
   const buyerSig = await account.signTypedData({
     domain: { ...CURTAIN_EIP712, chainId: monadTestnet.id, verifyingContract: event },
     types: buyIntentTypes,

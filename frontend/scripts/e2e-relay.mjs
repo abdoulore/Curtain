@@ -16,7 +16,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const RPC = "https://testnet-rpc.monad.xyz";
 const CHAIN_ID = 10143;
-const EVENT = "0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7";
+const EVENT = "0xd3F22B52F74D658318C29E0475E1833214eCA005";
 const USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
 const RP_ID = "curtaintickets.vercel.app";
 
@@ -60,11 +60,11 @@ const price = await pub.readContract({ address: EVENT, abi: eventAbi, functionNa
 
 // 3. Gasless buy: the buyer signs an EIP-712 intent and a USDC permit, the relayer submits.
 const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-const intent = { buyer: buyer.address, qx, qy, price, nonce: await pub.readContract({ address: EVENT, abi: eventAbi, functionName: "nonces", args: [buyer.address] }), deadline };
+const intent = { buyer: buyer.address, ticketId: 0n, qx, qy, price, nonce: await pub.readContract({ address: EVENT, abi: eventAbi, functionName: "nonces", args: [buyer.address] }), deadline };
 const buyerSig = await buyer.signTypedData({
   domain: { name: "Curtain", version: "1", chainId: CHAIN_ID, verifyingContract: EVENT },
   types: { BuyIntent: [
-    { name: "buyer", type: "address" }, { name: "qx", type: "bytes32" }, { name: "qy", type: "bytes32" },
+    { name: "buyer", type: "address" }, { name: "ticketId", type: "uint256" }, { name: "qx", type: "bytes32" }, { name: "qy", type: "bytes32" },
     { name: "price", type: "uint256" }, { name: "nonce", type: "uint256" }, { name: "deadline", type: "uint256" },
   ] },
   primaryType: "BuyIntent",

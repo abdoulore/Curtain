@@ -21,6 +21,9 @@ const FRIENDLY: Record<string, string> = {
   InvalidPublicKey: "This passkey can't be used for tickets.",
   UnknownEvent: "We couldn't find this show.",
   RpcError: "The network is busy. Please try again in a moment.",
+  TopupLimitIp: "You've had your free test money for today on this network. Try again tomorrow.",
+  TopupLimitGlobal: "Lots of people are topping up right now. Try again in an hour.",
+  UnsupportedToken: "This show isn't priced in a currency Curtain supports yet.",
   // At the door
   TicketNotActive: "This ticket has already been used or refunded.",
   InvalidAssertion: "This ticket belongs to someone else's fingerprint or Face ID.",

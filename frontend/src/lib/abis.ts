@@ -21,6 +21,19 @@ export const curtainEventAbi = [
   },
   {
     "type": "function",
+    "name": "CANCEL_TYPEHASH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "CLAIM_TYPEHASH",
     "inputs": [],
     "outputs": [
@@ -86,6 +99,32 @@ export const curtainEventAbi = [
   },
   {
     "type": "function",
+    "name": "SET_GATE_TYPEHASH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "WITHDRAW_TYPEHASH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "availableToWithdraw",
     "inputs": [],
     "outputs": [
@@ -110,6 +149,11 @@ export const curtainEventAbi = [
             "name": "buyer",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "ticketId",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "qx",
@@ -205,6 +249,11 @@ export const curtainEventAbi = [
             "internalType": "address"
           },
           {
+            "name": "ticketId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
             "name": "qx",
             "type": "bytes32",
             "internalType": "bytes32"
@@ -275,7 +324,23 @@ export const curtainEventAbi = [
   {
     "type": "function",
     "name": "cancel",
-    "inputs": [],
+    "inputs": [
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "organizerSig",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -962,6 +1027,21 @@ export const curtainEventAbi = [
         "name": "allowed",
         "type": "bool",
         "internalType": "bool"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "organizerSig",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [],
@@ -1047,6 +1127,21 @@ export const curtainEventAbi = [
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "organizerSig",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [],
@@ -1503,6 +1598,11 @@ export const curtainEventAbi = [
   },
   {
     "type": "error",
+    "name": "NotHolder",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotInitializing",
     "inputs": []
   },
@@ -1621,6 +1721,22 @@ export const curtainEventAbi = [
     "type": "error",
     "name": "WrongRpId",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WrongSale",
+    "inputs": [
+      {
+        "name": "intentTicketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "ticketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

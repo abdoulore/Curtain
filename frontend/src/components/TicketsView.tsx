@@ -19,6 +19,21 @@ const whenFmt = new Intl.DateTimeFormat("en-NG", { weekday: "short", day: "numer
 
 const noSubscribe = () => () => {};
 
+/** Several cards often share a show; read its details once per page load. */
+const showInfo = new Map<string, Promise<EventInfo>>();
+function readShowOnce(event: SavedTicket["event"]): Promise<EventInfo> {
+  const key = event.toLowerCase();
+  let hit = showInfo.get(key);
+  if (!hit) {
+    hit = readEventInfo(event).catch((e) => {
+      showInfo.delete(key);
+      throw e;
+    });
+    showInfo.set(key, hit);
+  }
+  return hit;
+}
+
 const DOOR_HINT = "At the door, scan the gate code with your camera and confirm with your fingerprint or Face ID.";
 
 function statusLine(status: CardStatus, price: string): { text: string; tone: string } {
@@ -68,7 +83,7 @@ function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account
   useEffect(() => {
     let alive = true;
     refresh();
-    readEventInfo(ticket.event)
+    readShowOnce(ticket.event)
       .then((s) => alive && setShow(s))
       .catch(() => {});
     return () => {

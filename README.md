@@ -76,6 +76,19 @@ Gas, median from `forge test --gas-report` (first-time storage writes, so an upp
 | `pushRefunds` | 75,988 (3 tickets) |
 | `claimRefund` | 24,169 to 59,862 |
 
+### One passkey for the account and the door
+
+Buyers sign up with Mera, which derives their account from the passkey's PRF output but does not expose the
+passkey's public key. Curtain passes Mera a custom WebAuthn client that makes the same browser calls and also keeps
+the P-256 key from the registration response, so the same passkey signs check-ins. Spike page:
+[`site/spike/mera.html`](site/spike/mera.html). Run on Samsung Android with Google Password Manager, Oct 5:
+
+- Sign-up and sign-in took one biometric prompt each and derived the same account.
+- That account signed an EIP-712 `BuyIntent` for the demo event.
+- The same credential checked in onchain:
+  [`0xc1dbf3b1...a3d3`](https://testnet.monadvision.com/tx/0xc1dbf3b165613de318b68bf23a1e8a387686cfbb61fcd5d4c6611863e31aa3d3)
+  (P256VERIFY at `0x0100`, 6,900 gas), and its rpIdHash matches the demo event's.
+
 ### Deployed on Monad testnet (chain 10143)
 
 | Contract | Address | Tx |

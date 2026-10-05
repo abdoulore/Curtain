@@ -75,7 +75,7 @@ contract CurtainEventTest is CurtainTestBase {
         _checkIn(a, alice.passkey);
 
         vm.prank(organizer);
-        ev.withdraw(PRICE);
+        ev.withdraw(PRICE, 0, 0, "");
         assertEq(usdc.balanceOf(payout), PRICE);
         assertEq(ev.withdrawn(), PRICE);
         assertEq(ev.availableToWithdraw(), 0);
@@ -90,7 +90,7 @@ contract CurtainEventTest is CurtainTestBase {
         _checkIn(a, alice.passkey);
 
         vm.prank(organizer);
-        ev.cancel();
+        ev.cancel(0, 0, "");
         vm.prank(relayer);
         uint256 processed = ev.pushRefunds(10);
 
@@ -106,7 +106,7 @@ contract CurtainEventTest is CurtainTestBase {
 
         // Scanned money stays paid to the organizer.
         vm.prank(organizer);
-        ev.withdraw(PRICE);
+        ev.withdraw(PRICE, 0, 0, "");
         assertEq(usdc.balanceOf(payout), PRICE);
         assertEq(usdc.balanceOf(address(ev)), 0);
     }
@@ -116,7 +116,7 @@ contract CurtainEventTest is CurtainTestBase {
         _buy(bob);
         _buy(carol);
         vm.prank(organizer);
-        ev.cancel();
+        ev.cancel(0, 0, "");
 
         assertEq(ev.pushRefunds(2), 2);
         assertEq(ev.refundCursor(), 2);
@@ -129,7 +129,7 @@ contract CurtainEventTest is CurtainTestBase {
     function test_claimRefund_paysHolderAfterCancel() public {
         uint256 id = _buy(alice);
         vm.prank(organizer);
-        ev.cancel();
+        ev.cancel(0, 0, "");
         vm.prank(relayer); // anyone may trigger it; the money goes to the holder
         ev.claimRefund(id);
         assertEq(usdc.balanceOf(alice.addr), 100e6);
@@ -151,7 +151,7 @@ contract CurtainEventTest is CurtainTestBase {
         assertEq(ev.released(), 2 * uint256(PRICE));
         assertEq(ev.escrowed(), 0);
         vm.prank(organizer);
-        ev.withdraw(2 * uint256(PRICE));
+        ev.withdraw(2 * uint256(PRICE), 0, 0, "");
         assertEq(usdc.balanceOf(payout), 2 * uint256(PRICE));
     }
 
@@ -237,7 +237,7 @@ contract CurtainEventTest is CurtainTestBase {
     function test_setGate_organizerAddsGate() public {
         address gate2 = makeAddr("gate2");
         vm.prank(organizer);
-        ev.setGate(gate2, true);
+        ev.setGate(gate2, true, 0, 0, "");
         assertTrue(ev.isGate(gate2));
     }
 
@@ -387,20 +387,20 @@ contract CurtainEventTest is CurtainTestBase {
         _checkIn(id, alice.passkey);
         vm.expectRevert(abi.encodeWithSelector(CurtainEvent.ExceedsReleased.selector, PRICE + 1, PRICE));
         vm.prank(organizer);
-        ev.withdraw(PRICE + 1);
+        ev.withdraw(PRICE + 1, 0, 0, "");
     }
 
     function test_revert_withdrawByStranger_NotOrganizer() public {
         vm.expectRevert(CurtainEvent.NotOrganizer.selector);
         vm.prank(relayer);
-        ev.withdraw(0);
+        ev.withdraw(0, 0, 0, "");
     }
 
     function test_revert_checkInAfterCancel_EventNotOpen() public {
         uint256 id = _buy(alice);
         _openDoors();
         vm.prank(organizer);
-        ev.cancel();
+        ev.cancel(0, 0, "");
         bytes32 nonce = _gateNonce(id);
         WebAuthn.WebAuthnAuth memory auth = _assertion(alice.passkey, ev.challengeFor(id, nonce, block.number), RP_ID);
         vm.expectRevert(CurtainEvent.EventNotOpen.selector);
@@ -474,7 +474,7 @@ contract CurtainEventTest is CurtainTestBase {
         uint256 a = _buy(alice);
         uint256 b = _buy(bob);
         vm.prank(organizer);
-        ev.cancel();
+        ev.cancel(0, 0, "");
         usdc.setBlocked(alice.addr, true);
 
         vm.expectEmit(address(ev));
@@ -507,7 +507,7 @@ contract CurtainEventTest is CurtainTestBase {
         _openDoors();
         _checkIn(id, alice.passkey);
         vm.prank(organizer);
-        ev.cancel();
+        ev.cancel(0, 0, "");
         vm.expectRevert(abi.encodeWithSelector(CurtainEvent.NothingToRefund.selector, id));
         ev.claimRefund(id);
     }
@@ -563,7 +563,7 @@ contract CurtainEventTest is CurtainTestBase {
 
     function test_revert_settleAfterCancel_NotSettleable() public {
         vm.prank(organizer);
-        ev.cancel();
+        ev.cancel(0, 0, "");
         vm.warp(uint256(endTime) + SETTLE_DELAY);
         vm.expectRevert(CurtainEvent.NotSettleable.selector);
         ev.settle();
@@ -571,7 +571,115 @@ contract CurtainEventTest is CurtainTestBase {
 
     function test_revert_cancelByStranger_NotOrganizer() public {
         vm.expectRevert(CurtainEvent.NotOrganizer.selector);
-        ev.cancel();
+        ev.cancel(0, 0, "");
+    }
+
+    // =====================================================================
+    // A BuyIntent is bound to one sale
+    // =====================================================================
+
+    function test_revert_primaryIntentSpentOnResale_WrongSale() public {
+        uint256 id = _buy(alice);
+        _list(alice, id, PRICE);
+        // Bob signed a primary buy (ticketId 0) at the same price; a relayer tries it on the resale.
+        CurtainEvent.BuyIntent memory i = _intent(bob, PRICE);
+        bytes memory sig = _signIntent(bob.key, i);
+        CurtainEvent.Permit memory p = _permit(bob, PRICE);
+        vm.expectRevert(abi.encodeWithSelector(CurtainEvent.WrongSale.selector, 0, id));
+        vm.prank(relayer);
+        ev.buyResale(id, i, sig, p);
+    }
+
+    function test_revert_resaleIntentSpentOnAnotherTicket_WrongSale() public {
+        uint256 a = _buy(alice);
+        uint256 c = _buy(carol);
+        _list(alice, a, PRICE);
+        _list(carol, c, PRICE);
+        // Bob agreed to buy Alice's ticket; a relayer tries to use that intent on Carol's.
+        CurtainEvent.BuyIntent memory i = _intentFor(bob, a, PRICE);
+        bytes memory sig = _signIntent(bob.key, i);
+        CurtainEvent.Permit memory p = _permit(bob, PRICE);
+        vm.expectRevert(abi.encodeWithSelector(CurtainEvent.WrongSale.selector, a, c));
+        vm.prank(relayer);
+        ev.buyResale(c, i, sig, p);
+    }
+
+    function test_revert_resaleIntentSpentOnPrimaryBuy_WrongSale() public {
+        CurtainEvent.BuyIntent memory i = _intentFor(bob, 1, PRICE);
+        bytes memory sig = _signIntent(bob.key, i);
+        CurtainEvent.Permit memory p = _permit(bob, PRICE);
+        vm.expectRevert(abi.encodeWithSelector(CurtainEvent.WrongSale.selector, 1, 0));
+        ev.buy(i, sig, p);
+    }
+
+    // =====================================================================
+    // Organizer actions by signature (the organizer key stays off servers)
+    // =====================================================================
+
+    function _orgSig(bytes32 structHash) internal view returns (bytes memory) {
+        return _sign(ORGANIZER_KEY, structHash);
+    }
+
+    function test_withdrawBySignature_paysTheFixedPayout() public {
+        uint256 id = _buy(alice);
+        _openDoors();
+        _checkIn(id, alice.passkey);
+        uint256 nonce = ev.nonces(organizer);
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _orgSig(keccak256(abi.encode(ev.WITHDRAW_TYPEHASH(), PRICE, nonce, deadline)));
+
+        vm.prank(relayer);
+        ev.withdraw(PRICE, nonce, deadline, sig);
+        assertEq(usdc.balanceOf(payout), PRICE);
+        assertEq(usdc.balanceOf(relayer), 0);
+        assertEq(ev.nonces(organizer), nonce + 1);
+    }
+
+    function test_cancelBySignature() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _orgSig(keccak256(abi.encode(ev.CANCEL_TYPEHASH(), 0, deadline)));
+        vm.prank(relayer);
+        ev.cancel(0, deadline, sig);
+        assertEq(uint8(ev.status()), uint8(CurtainEvent.EventStatus.Cancelled));
+    }
+
+    function test_setGateBySignature() public {
+        address gate2 = makeAddr("gate2");
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _orgSig(keccak256(abi.encode(ev.SET_GATE_TYPEHASH(), gate2, true, 0, deadline)));
+        vm.prank(relayer);
+        ev.setGate(gate2, true, 0, deadline, sig);
+        assertTrue(ev.isGate(gate2));
+    }
+
+    function test_revert_withdrawWithForgedSignature_BadSignature() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _sign(bob.key, keccak256(abi.encode(ev.WITHDRAW_TYPEHASH(), 0, 0, deadline)));
+        vm.expectRevert(CurtainEvent.BadSignature.selector);
+        vm.prank(relayer);
+        ev.withdraw(0, 0, deadline, sig);
+    }
+
+    function test_revert_organizerSignatureReplayed_InvalidAccountNonce() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _orgSig(keccak256(abi.encode(ev.WITHDRAW_TYPEHASH(), 0, 0, deadline)));
+        ev.withdraw(0, 0, deadline, sig);
+        vm.expectRevert(abi.encodeWithSelector(Nonces.InvalidAccountNonce.selector, organizer, 1));
+        ev.withdraw(0, 0, deadline, sig);
+    }
+
+    function test_revert_organizerSignatureExpired_SignatureExpired() public {
+        uint256 deadline = block.timestamp - 1;
+        bytes memory sig = _orgSig(keccak256(abi.encode(ev.CANCEL_TYPEHASH(), 0, deadline)));
+        vm.expectRevert(CurtainEvent.SignatureExpired.selector);
+        ev.cancel(0, deadline, sig);
+    }
+
+    function test_revert_strangerHolderActionWithoutSignature_NotHolder() public {
+        uint256 id = _buy(alice);
+        vm.expectRevert(CurtainEvent.NotHolder.selector);
+        vm.prank(bob.addr);
+        ev.listForResale(id, PRICE, 0, 0, "");
     }
 
     // =====================================================================

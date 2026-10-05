@@ -35,7 +35,8 @@ abstract contract CurtainTestBase is Test {
     CurtainFactory internal factory;
     CurtainEvent internal ev;
 
-    address internal organizer = makeAddr("organizer");
+    uint256 internal constant ORGANIZER_KEY = 0x0a11ce0f0a11ce0f;
+    address internal organizer = vm.addr(ORGANIZER_KEY);
     address internal payout = makeAddr("payout");
     address internal gate = makeAddr("gate");
     address internal relayer = makeAddr("relayer");
@@ -107,17 +108,34 @@ abstract contract CurtainTestBase is Test {
     }
 
     function _intent(Buyer memory b, uint256 price) internal view returns (CurtainEvent.BuyIntent memory i) {
+        return _intentFor(b, 0, price);
+    }
+
+    /// @dev ticketId 0 is a primary buy; otherwise the listed ticket this intent may buy.
+    function _intentFor(Buyer memory b, uint256 ticketId, uint256 price)
+        internal
+        view
+        returns (CurtainEvent.BuyIntent memory i)
+    {
         (bytes32 qx, bytes32 qy) = _passkeyXY(b.passkey);
         i = CurtainEvent.BuyIntent({
-            buyer: b.addr, qx: qx, qy: qy, price: price, nonce: ev.nonces(b.addr), deadline: block.timestamp + 1 hours
+            buyer: b.addr,
+            ticketId: ticketId,
+            qx: qx,
+            qy: qy,
+            price: price,
+            nonce: ev.nonces(b.addr),
+            deadline: block.timestamp + 1 hours
         });
     }
 
     function _signIntent(uint256 key, CurtainEvent.BuyIntent memory i) internal view returns (bytes memory) {
-        return
-            _sign(
-                key, keccak256(abi.encode(ev.BUY_INTENT_TYPEHASH(), i.buyer, i.qx, i.qy, i.price, i.nonce, i.deadline))
-            );
+        return _sign(
+            key,
+            keccak256(
+                abi.encode(ev.BUY_INTENT_TYPEHASH(), i.buyer, i.ticketId, i.qx, i.qy, i.price, i.nonce, i.deadline)
+            )
+        );
     }
 
     function _permit(Buyer memory b, uint256 value) internal view returns (CurtainEvent.Permit memory p) {
@@ -180,7 +198,7 @@ abstract contract CurtainTestBase is Test {
     }
 
     function _buyResale(Buyer memory b, uint256 ticketId, uint256 price) internal {
-        CurtainEvent.BuyIntent memory i = _intent(b, price);
+        CurtainEvent.BuyIntent memory i = _intentFor(b, ticketId, price);
         bytes memory sig = _signIntent(b.key, i);
         CurtainEvent.Permit memory p = _permit(b, price);
         vm.prank(relayer);

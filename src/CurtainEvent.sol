@@ -61,9 +61,11 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         uint96 resalePrice; // zero when not listed
     }
 
-    /// @notice Signed by the buyer's account. Binds the payer and refund address to the passkey used at the door.
+    /// @notice Signed by the buyer's account. Binds the payer and refund address to the passkey used at the door,
+    /// and to one sale: ticketId is 0 for a primary buy and the listed ticket's id for a resale.
     struct BuyIntent {
         address buyer;
+        uint256 ticketId;
         bytes32 qx;
         bytes32 qy;
         uint256 price;
@@ -83,8 +85,13 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     uint16 public constant DEFAULT_HELD_THRESHOLD_BPS = 5000;
     uint32 public constant DEFAULT_MAX_CHALLENGE_AGE = 300;
 
-    bytes32 public constant BUY_INTENT_TYPEHASH =
-        keccak256("BuyIntent(address buyer,bytes32 qx,bytes32 qy,uint256 price,uint256 nonce,uint256 deadline)");
+    bytes32 public constant BUY_INTENT_TYPEHASH = keccak256(
+        "BuyIntent(address buyer,uint256 ticketId,bytes32 qx,bytes32 qy,uint256 price,uint256 nonce,uint256 deadline)"
+    );
+    bytes32 public constant WITHDRAW_TYPEHASH = keccak256("Withdraw(uint256 amount,uint256 nonce,uint256 deadline)");
+    bytes32 public constant CANCEL_TYPEHASH = keccak256("Cancel(uint256 nonce,uint256 deadline)");
+    bytes32 public constant SET_GATE_TYPEHASH =
+        keccak256("SetGate(address gate,bool allowed,uint256 nonce,uint256 deadline)");
     bytes32 public constant LIST_TYPEHASH =
         keccak256("List(uint256 ticketId,uint256 price,uint256 nonce,uint256 deadline)");
     bytes32 public constant SET_CLAIM_TYPEHASH =
@@ -136,6 +143,8 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
 
     error InvalidParams();
     error NotOrganizer();
+    error NotHolder();
+    error WrongSale(uint256 intentTicketId, uint256 ticketId);
     error NotGate();
     error EventNotOpen();
     error SalesClosed();
@@ -160,11 +169,6 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     error NotListed(uint256 ticketId);
     error NoClaimKey(uint256 ticketId);
     error ZeroAddress();
-
-    modifier onlyOrganizer() {
-        if (msg.sender != organizer) revert NotOrganizer();
-        _;
-    }
 
     constructor() EIP712("Curtain", "1") {
         _disableInitializers();
@@ -211,6 +215,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         if (sold >= capacity) revert SoldOut();
         uint256 p = price;
         if (intent.price != p) revert PriceMismatch();
+        if (intent.ticketId != 0) revert WrongSale(intent.ticketId, 0);
         _verifyBuyIntent(intent, buyerSig);
 
         ticketId = ++sold;
@@ -271,13 +276,28 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     // Organizer
     // ---------------------------------------------------------------------
 
-    function setGate(address gate, bool allowed) external onlyOrganizer {
+    // Each organizer action works when the organizer calls it, or when anyone submits the organizer's EIP-712
+    // signature, so the organizer key never has to sit on a server and never needs gas.
+
+    /// @notice Adds or removes a gate.
+    function setGate(address gate, bool allowed, uint256 nonce, uint256 deadline, bytes calldata organizerSig)
+        external
+    {
+        _authorizeOrganizer(
+            keccak256(abi.encode(SET_GATE_TYPEHASH, gate, allowed, nonce, deadline)), nonce, deadline, organizerSig
+        );
         if (status != EventStatus.Open) revert EventNotOpen();
         _setGate(gate, allowed);
     }
 
-    /// @notice Pays released money to the payout address.
-    function withdraw(uint256 amount) external onlyOrganizer nonReentrant {
+    /// @notice Pays released money to the payout address fixed at creation; a relayer cannot redirect it.
+    function withdraw(uint256 amount, uint256 nonce, uint256 deadline, bytes calldata organizerSig)
+        external
+        nonReentrant
+    {
+        _authorizeOrganizer(
+            keccak256(abi.encode(WITHDRAW_TYPEHASH, amount, nonce, deadline)), nonce, deadline, organizerSig
+        );
         uint256 available = released - withdrawn;
         if (amount > available) revert ExceedsReleased(amount, available);
         withdrawn += amount;
@@ -287,7 +307,8 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     }
 
     /// @notice Cancels the event. Unscanned tickets become refundable; scanned tickets stay paid.
-    function cancel() external onlyOrganizer {
+    function cancel(uint256 nonce, uint256 deadline, bytes calldata organizerSig) external {
+        _authorizeOrganizer(keccak256(abi.encode(CANCEL_TYPEHASH, nonce, deadline)), nonce, deadline, organizerSig);
         if (status != EventStatus.Open) revert EventNotOpen();
         status = EventStatus.Cancelled;
         emit Cancelled();
@@ -395,6 +416,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         uint256 listPrice = t.resalePrice;
         if (listPrice == 0) revert NotListed(ticketId);
         if (intent.price != listPrice) revert PriceMismatch();
+        if (intent.ticketId != ticketId) revert WrongSale(intent.ticketId, ticketId);
         _verifyBuyIntent(intent, buyerSig);
 
         address seller = t.holder;
@@ -496,13 +518,8 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         if (block.timestamp > intent.deadline) revert SignatureExpired();
         if (!P256.isValidPublicKey(intent.qx, intent.qy)) revert InvalidPublicKey();
         _useCheckedNonce(intent.buyer, intent.nonce);
-        bytes32 digest = _hashTypedDataV4(
-            keccak256(
-                abi.encode(
-                    BUY_INTENT_TYPEHASH, intent.buyer, intent.qx, intent.qy, intent.price, intent.nonce, intent.deadline
-                )
-            )
-        );
+        // BuyIntent is all static fields, so encoding the struct equals encoding its fields in order.
+        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(BUY_INTENT_TYPEHASH, intent)));
         if (!SignatureChecker.isValidSignatureNowCalldata(intent.buyer, digest, sig)) revert BadSignature();
     }
 
@@ -510,9 +527,24 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         internal
     {
         if (msg.sender == holder) return;
+        if (sig.length == 0) revert NotHolder();
+        _checkSignature(holder, structHash, nonce, deadline, sig);
+    }
+
+    function _authorizeOrganizer(bytes32 structHash, uint256 nonce, uint256 deadline, bytes calldata sig) internal {
+        address org = organizer;
+        if (msg.sender == org) return;
+        if (sig.length == 0) revert NotOrganizer();
+        _checkSignature(org, structHash, nonce, deadline, sig);
+    }
+
+    /// @dev Holder and organizer signatures share the account's nonce with its buy intents.
+    function _checkSignature(address signer, bytes32 structHash, uint256 nonce, uint256 deadline, bytes calldata sig)
+        internal
+    {
         if (block.timestamp > deadline) revert SignatureExpired();
-        _useCheckedNonce(holder, nonce);
-        if (!SignatureChecker.isValidSignatureNowCalldata(holder, _hashTypedDataV4(structHash), sig)) {
+        _useCheckedNonce(signer, nonce);
+        if (!SignatureChecker.isValidSignatureNowCalldata(signer, _hashTypedDataV4(structHash), sig)) {
             revert BadSignature();
         }
     }

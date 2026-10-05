@@ -71,7 +71,7 @@ contract EscrowHandler is CurtainTestBase {
         ++calls;
         uint256 amount = bound(amountSeed, 0, ev.availableToWithdraw() + 1);
         vm.prank(organizer);
-        try ev.withdraw(amount) {
+        try ev.withdraw(amount, 0, 0, "") {
             ++ok["withdraw"];
         } catch {}
     }
@@ -81,7 +81,7 @@ contract EscrowHandler is CurtainTestBase {
         // Hashed so the fuzzer's favourite small seeds do not cancel most runs; about one run in four cancels.
         if (uint256(keccak256(abi.encode(seed))) % 32 != 0) return;
         vm.prank(organizer);
-        try ev.cancel() {
+        try ev.cancel(0, 0, "") {
             ++ok["cancel"];
         } catch {}
     }

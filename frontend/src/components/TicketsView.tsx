@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { txUrl } from "@/lib/chain";
-import { signOut } from "@/lib/account";
+import { signOut, type StoredAccount } from "@/lib/account";
 import { findEvent } from "@/lib/events";
 import { useAccount, useHydrated } from "@/lib/hooks";
 import { useMyTickets } from "@/lib/use-my-tickets";
 import { formatNaira } from "@/lib/money";
 import { readBalance, readTicket, type TicketState } from "@/lib/reads";
 import type { SavedTicket } from "@/lib/tickets";
+import { SendToPhone } from "./SendToPhone";
 import { SignInButton } from "./SignInButton";
 
 const STATE_LABEL: Record<TicketState, { text: string; tone: string }> = {
@@ -20,7 +21,8 @@ const STATE_LABEL: Record<TicketState, { text: string; tone: string }> = {
   Refunded: { text: "Refunded", tone: "text-muted" },
 };
 
-function TicketCard({ ticket, owner }: { ticket: SavedTicket; owner: string }) {
+function TicketCard({ ticket, account }: { ticket: SavedTicket; account: StoredAccount }) {
+  const owner = account.address;
   const meta = findEvent(ticket.event);
   const [state, setState] = useState<TicketState | null>(null);
   const [moved, setMoved] = useState(false);
@@ -52,6 +54,11 @@ function TicketCard({ ticket, owner }: { ticket: SavedTicket; owner: string }) {
         </div>
         <p className="font-mono text-3xl font-semibold text-velvet">#{ticket.ticketId}</p>
       </div>
+      {state === "Active" && !moved && (
+        <div className="px-5 pb-4">
+          <SendToPhone account={account} event={ticket.event} ticketId={ticket.ticketId} />
+        </div>
+      )}
       <div className="flex items-center justify-between border-t border-dashed border-line px-5 py-3 text-xs text-muted">
         <span>{ticket.boughtAt > 0 ? `Bought ${new Date(ticket.boughtAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}` : ""}</span>
         {ticket.hash.length === 66 && (
@@ -120,7 +127,7 @@ export function TicketsView() {
       ) : (
         <ul className="mt-6 space-y-4">
           {mine.map((t) => (
-            <TicketCard key={`${t.event}-${t.ticketId}`} ticket={t} owner={account.address} />
+            <TicketCard key={`${t.event}-${t.ticketId}`} ticket={t} account={account} />
           ))}
         </ul>
       )}

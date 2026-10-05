@@ -23,3 +23,20 @@ export function useHydrated(): boolean {
     () => false,
   );
 }
+
+const FINE_POINTER = "(pointer: fine)";
+
+function subscribeFinePointer(onChange: () => void) {
+  const m = window.matchMedia(FINE_POINTER);
+  m.addEventListener("change", onChange);
+  return () => m.removeEventListener("change", onChange);
+}
+
+/** True on a laptop or desktop (a fine pointer such as a mouse or trackpad). */
+export function useIsDesktop(): boolean {
+  return useSyncExternalStore(
+    subscribeFinePointer,
+    () => window.matchMedia(FINE_POINTER).matches,
+    () => false,
+  );
+}

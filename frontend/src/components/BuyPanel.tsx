@@ -6,7 +6,7 @@ import { friendlyPasskeyError, signUp, unlock } from "@/lib/account";
 import { ApiError } from "@/lib/api";
 import { buyTicket, hasBalanceFor, requestTopup, type BuyResult } from "@/lib/buy";
 import type { EventMeta } from "@/lib/events";
-import { useAccount, useHydrated } from "@/lib/hooks";
+import { useAccount, useHydrated, useIsDesktop } from "@/lib/hooks";
 import { formatNaira } from "@/lib/money";
 import type { EventInfo } from "@/lib/reads";
 import { saveTicket } from "@/lib/tickets";
@@ -24,6 +24,7 @@ const STEP_TEXT: Record<Step, string> = {
 
 export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: EventInfo; onBought: () => void }) {
   const hydrated = useHydrated();
+  const desktop = useIsDesktop();
   const account = useAccount();
   const [name, setName] = useState("");
   const [step, setStep] = useState<Step>("idle");
@@ -78,10 +79,20 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
     return (
       <div className="rounded-2xl bg-go/10 p-4">
         <p className="text-lg font-semibold text-go">You&apos;re in.</p>
-        <p className="mt-1 text-sm">
-          Ticket #{bought.ticketId} is on this phone. At the door, scan the gate code and confirm with your fingerprint
-          or Face ID.
-        </p>
+        {desktop ? (
+          <div className="mt-1 space-y-2 text-sm">
+            <p className="font-medium">Ticket #{bought.ticketId} is ready for your phone.</p>
+            <p>
+              On your phone, open curtaintickets.vercel.app and sign in with your passkey. If your passkey isn&apos;t on
+              your phone, open My tickets here and choose Send to my phone.
+            </p>
+          </div>
+        ) : (
+          <p className="mt-1 text-sm">
+            Ticket #{bought.ticketId} is on this phone. At the door, scan the gate code and confirm with your fingerprint
+            or Face ID.
+          </p>
+        )}
         <div className="mt-4 flex gap-3">
           <Link
             href="/tickets"

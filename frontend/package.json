@@ -9,7 +9,8 @@
     "lint": "eslint",
     "sync-abis": "node scripts/sync-abis.mjs",
     "e2e:relay": "node scripts/e2e-relay.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e:claim": "node scripts/e2e-claim.mjs"
   },
   "dependencies": {
     "@category-labs/mera": "^0.2.0",

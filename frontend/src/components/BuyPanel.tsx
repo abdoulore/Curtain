@@ -10,6 +10,7 @@ import type { EventMeta } from "@/lib/events";
 import { useAccount, useHydrated, useIsDesktop } from "@/lib/hooks";
 import { formatNaira } from "@/lib/money";
 import type { EventInfo } from "@/lib/reads";
+import type { Listing } from "@/lib/resale";
 import { saveTicket } from "@/lib/tickets";
 import { ContinueOnPhone } from "./ContinueOnPhone";
 import { SignInButton } from "./SignInButton";
@@ -24,7 +25,18 @@ const STEP_TEXT: Record<Step, string> = {
   done: "",
 };
 
-export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: EventInfo; onBought: () => void }) {
+/** Buys a new ticket, or with `listing`, a resale ticket at the seller's price (paid straight to the seller). */
+export function BuyPanel({
+  meta,
+  info,
+  onBought,
+  listing,
+}: {
+  meta: EventMeta;
+  info: EventInfo;
+  onBought: () => void;
+  listing?: Listing;
+}) {
   const hydrated = useHydrated();
   const desktop = useIsDesktop();
   const account = useAccount();
@@ -44,14 +56,19 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
   }, []);
 
   const busy = step !== "idle" && step !== "done";
+  const price = listing ? listing.price : info.price;
   const closed =
     info.status !== "Open"
       ? "This show isn't selling tickets anymore."
-      : info.readAt >= info.salesEnd
-        ? "Ticket sales have closed."
-        : info.sold >= info.capacity
-          ? "Sold out. Every ticket has been taken."
-          : null;
+      : listing
+        ? info.readAt >= info.endTime
+          ? "This show has ended."
+          : null
+        : info.readAt >= info.salesEnd
+          ? "Ticket sales have closed."
+          : info.sold >= info.capacity
+            ? "Sold out. Every ticket has been taken."
+            : null;
 
   async function purchase() {
     setError(null);
@@ -61,14 +78,14 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
       const stored = account ?? (await signUp(name.trim()));
       const { signer, account: ready } = await unlock(stored);
 
-      if (!(await hasBalanceFor(stored.address, info.price))) {
-        if (!meta.isDemo) throw new Error("Your balance is too low for this ticket.");
+      // Testnet: a low balance gets free test money from the treasury, within its daily limits.
+      if (!(await hasBalanceFor(stored.address, price))) {
         setStep("funding");
         await requestTopup(stored.address);
       }
 
       setStep("paying");
-      const result = await buyTicket(meta.address, ready, signer, info.price);
+      const result = await buyTicket(meta.address, ready, signer, price, listing?.ticketId ?? 0n);
       saveTicket({
         event: meta.address,
         ticketId: result.ticketId,
@@ -152,7 +169,15 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
         disabled={busy || (!account && name.trim().length === 0)}
         className="w-full rounded-2xl bg-velvet px-5 py-4 text-base font-semibold text-velvet-ink disabled:opacity-50"
       >
-        {busy ? STEP_TEXT[step] : account ? `Buy for ${formatNaira(info.price)}` : "Get my ticket"}
+        {busy
+          ? listing && step === "paying"
+            ? "Paying the seller"
+            : STEP_TEXT[step]
+          : listing
+            ? `Buy resale ticket for ${formatNaira(price)}`
+            : account
+              ? `Buy for ${formatNaira(price)}`
+              : "Get my ticket"}
       </button>
       <p className="mt-3 text-center text-xs text-muted">
         {account

@@ -26,22 +26,28 @@ const body = z.object({
     .nullish(),
 });
 
-/** Gasless primary purchase: the buyer signs, the relayer pays gas. */
+/**
+ * Gasless purchase: the buyer signs, the relayer pays gas. An intent for ticket 0 buys a new ticket; an intent for a
+ * listed ticket buys it on resale, paying the seller directly.
+ */
 export async function POST(request: Request) {
   try {
     const { event, intent, buyerSig, permit } = await parse(request, body);
     const eventAddress = await assertCurtainEvent(event);
-    const sent = await sendContract(walletFor(env.relayerKey()), {
-      address: eventAddress,
-      abi: curtainEventAbi,
-      functionName: "buy",
-      args: [intent, buyerSig, permit ?? { value: 0n, deadline: 0n, v: 0, r: zeroHash, s: zeroHash }],
-    });
+    const p = permit ?? { value: 0n, deadline: 0n, v: 0, r: zeroHash, s: zeroHash };
+    const resale = intent.ticketId !== 0n;
+    const sent = await sendContract(
+      walletFor(env.relayerKey()),
+      resale
+        ? { address: eventAddress, abi: curtainEventAbi, functionName: "buyResale", args: [intent.ticketId, intent, buyerSig, p] }
+        : { address: eventAddress, abi: curtainEventAbi, functionName: "buy", args: [intent, buyerSig, p] },
+    );
     const [purchased] = parseEventLogs({ abi: curtainEventAbi, logs: sent.receipt.logs, eventName: "Purchased" });
     return ok({
       hash: sent.hash,
       explorer: txUrl(sent.hash),
-      ticketId: purchased?.args.ticketId,
+      ticketId: resale ? intent.ticketId : purchased?.args.ticketId,
+      resale,
       estimate: sent.estimate,
       gasLimit: sent.gasLimit,
     });

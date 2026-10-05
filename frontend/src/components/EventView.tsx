@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { Address } from "viem";
 import type { EventMeta } from "@/lib/events";
+import { useAccount } from "@/lib/hooks";
+import { fetchListings } from "@/lib/indexer";
 import { formatNaira } from "@/lib/money";
-import { readEventInfo, type EventInfo } from "@/lib/reads";
+import { readEventInfo, readTicket, type EventInfo, type TicketState } from "@/lib/reads";
+import { listingsFor, type Listing } from "@/lib/resale";
 import { BuyPanel } from "./BuyPanel";
 
 const dateFmt = new Intl.DateTimeFormat("en-NG", { weekday: "short", day: "numeric", month: "short" });
@@ -15,7 +19,29 @@ function whenText(info: EventInfo): string {
   return `Doors open ${dateFmt.format(new Date(info.doorsOpen * 1000))}`;
 }
 
+type RawListing = { ticketId: bigint; state: TicketState; resalePrice: bigint; holder: Address };
+
+/** Tickets on resale: from the indexer, or read from the escrow when the indexer has nothing and the show is small. */
+async function loadResale(event: Address, sold: number): Promise<RawListing[]> {
+  const indexed = await fetchListings(event).catch(() => []);
+  if (indexed.length > 0) {
+    return indexed.map((t) => ({
+      ticketId: BigInt(t.ticketId),
+      state: t.state as TicketState,
+      resalePrice: BigInt(t.resalePrice),
+      holder: t.holder as Address,
+    }));
+  }
+  if (sold === 0 || sold > 60) return [];
+  const ids = Array.from({ length: sold }, (_, i) => BigInt(i + 1));
+  const infos = await Promise.all(ids.map((id) => readTicket(event, id).catch(() => null)));
+  return infos.flatMap((t, i) => (t ? [{ ticketId: ids[i]!, state: t.state, resalePrice: t.resalePrice, holder: t.holder }] : []));
+}
+
 export function EventView({ meta }: { meta: EventMeta }) {
+  const account = useAccount();
+  const [raw, setRaw] = useState<RawListing[]>([]);
+  const [buyingResale, setBuyingResale] = useState(false);
   const [info, setInfo] = useState<EventInfo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -30,7 +56,18 @@ export function EventView({ meta }: { meta: EventMeta }) {
     };
   }, [meta.address, version]);
 
+  useEffect(() => {
+    if (!info || info.status !== "Open") return;
+    let alive = true;
+    loadResale(meta.address, info.sold).then((r) => alive && setRaw(r));
+    return () => {
+      alive = false;
+    };
+  }, [meta.address, info]);
+
   const left = info ? info.capacity - info.sold : null;
+  const listings: Listing[] = listingsFor(raw, account?.address);
+  const cheapest = listings[0];
 
   return (
     <main className="pt-6 lg:grid lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-12 lg:pt-12">
@@ -85,8 +122,41 @@ export function EventView({ meta }: { meta: EventMeta }) {
         </Link>
         <div className="mt-5">
           {loadError && <p className="text-sm text-stop">{loadError}</p>}
-          {info && <BuyPanel meta={meta} info={info} onBought={() => setVersion((v) => v + 1)} />}
+          {info && !buyingResale && <BuyPanel meta={meta} info={info} onBought={() => setVersion((v) => v + 1)} />}
         </div>
+        {info && cheapest && (
+          <div className="mt-5 rounded-2xl border border-line p-4">
+            <p className="font-medium">
+              {listings.length} resale ticket{listings.length === 1 ? "" : "s"} at {formatNaira(cheapest.price)}
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              Resold at face value or less. You pay the seller; the ticket and its refund move to you, and only your
+              fingerprint or Face ID opens the door with it.
+            </p>
+            {buyingResale ? (
+              <div className="mt-4">
+                <BuyPanel
+                  meta={meta}
+                  info={info}
+                  listing={cheapest}
+                  onBought={() => {
+                    setVersion((v) => v + 1);
+                  }}
+                />
+                <button onClick={() => setBuyingResale(false)} className="mt-3 text-sm text-muted underline">
+                  Back to new tickets
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setBuyingResale(true)}
+                className="mt-3 w-full rounded-xl border border-velvet px-4 py-2.5 text-sm font-semibold text-velvet"
+              >
+                Buy a resale ticket
+              </button>
+            )}
+          </div>
+        )}
       </section>
     </main>
   );

@@ -10,7 +10,7 @@ import { browserClient } from "./reads";
 
 const permitNoncesAbi = parseAbi(["function nonces(address owner) view returns (uint256)"]);
 
-export type BuyResult = { ticketId: string; hash: Hash; explorer: string };
+export type BuyResult = { ticketId: string; hash: Hash; explorer: string; resale?: boolean };
 
 /**
  * Signs a BuyIntent (binding this account and its door passkey) and a USDC permit, then hands both to the
@@ -21,6 +21,7 @@ export async function buyTicket(
   stored: StoredAccount & DoorKey,
   account: LocalAccount,
   price: bigint,
+  resaleTicketId = 0n,
 ): Promise<BuyResult> {
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
   const [nonce, permitNonce] = await Promise.all([
@@ -28,8 +29,8 @@ export async function buyTicket(
     browserClient.readContract({ address: USDC, abi: permitNoncesAbi, functionName: "nonces", args: [account.address] }),
   ]);
 
-  // ticketId 0: a primary buy. The contract refuses this intent anywhere else.
-  const intent = { buyer: account.address, ticketId: 0n, qx: stored.qx, qy: stored.qy, price, nonce, deadline };
+  // ticketId 0 is a new ticket; otherwise this listed ticket on resale. The contract refuses the intent anywhere else.
+  const intent = { buyer: account.address, ticketId: resaleTicketId, qx: stored.qx, qy: stored.qy, price, nonce, deadline };
   const buyerSig = await account.signTypedData({
     domain: { ...CURTAIN_EIP712, chainId: monadTestnet.id, verifyingContract: event },
     types: buyIntentTypes,

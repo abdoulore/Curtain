@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { getAddress } from "viem";
 import { ApiError } from "@/lib/api";
 import { checkIn, type CheckInResult } from "@/lib/checkin";
-import { eventPath, findEvent } from "@/lib/events";
+import { eventPath } from "@/lib/events";
+import { useShowMeta } from "@/lib/show-details";
 import { parseCheckInFragment } from "@/lib/gate";
 import { useAccount, useHydrated } from "@/lib/hooks";
 import { useMyTickets } from "@/lib/use-my-tickets";
@@ -27,7 +28,7 @@ export function CheckInView() {
   const token = useMemo(() => (hash ? parseCheckInFragment(hash) : null), [hash]);
   const account = useAccount();
   const held = useMyTickets(account);
-  const meta = token ? findEvent(token.event) : undefined;
+  const meta = useShowMeta(token?.event);
 
   const mine = useMemo(
     () =>
@@ -43,13 +44,21 @@ export function CheckInView() {
   useEffect(() => {
     if (!token || mine.length === 0) return;
     let alive = true;
-    Promise.all(mine.map((t) => readTicket(token.event, BigInt(t.ticketId)).then((r) => [t.ticketId, r.state] as const)))
+    // A ticket this account sold or passed on reads as "None": still presented last, so the door shows red.
+    Promise.all(
+      mine.map((t) =>
+        readTicket(token.event, BigInt(t.ticketId)).then((r) => {
+          const held = account && r.holder.toLowerCase() === account.address.toLowerCase();
+          return [t.ticketId, held ? r.state : ("None" as TicketState)] as const;
+        }),
+      ),
+    )
       .then((pairs) => alive && setStates(Object.fromEntries(pairs)))
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [token, mine]);
+  }, [token, mine, account]);
 
   const choice = chooseTicket(mine, states, typed);
   const ticketId = choice?.ticketId;
@@ -131,7 +140,13 @@ export function CheckInView() {
               <p className="text-lg font-semibold">
                 Ticket <span className="font-mono text-velvet">#{choice.ticketId}</span>
               </p>
-              {!choice.usable && <p className="mt-1 text-sm text-stop">This ticket has already been used.</p>}
+              {!choice.usable && (
+                <p className="mt-1 text-sm text-stop">
+                  {states[choice.ticketId] === "None"
+                    ? "You sold or passed on this ticket. It now opens the door only for its new holder."
+                    : "This ticket has already been used."}
+                </p>
+              )}
             </>
           ) : (
             <p className="text-sm text-muted">No ticket for this show on this phone.</p>

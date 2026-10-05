@@ -4,6 +4,7 @@
 //
 //   BASE_URL=http://localhost:3000 npm run e2e:relay      (reads GATE_ACCESS_CODE from .env.local)
 //   BASE_URL=https://curtaintickets.vercel.app GATE_ACCESS_CODE=... npm run e2e:relay
+//   BUY_ONLY=1 ... leaves the ticket unused, owned by a throwaway buyer (for testing someone else's ticket at the door)
 import { readFileSync } from "node:fs";
 import { p256 } from "@noble/curves/nist.js";
 import { sha256 as sha256Bytes } from "@noble/hashes/sha2.js";
@@ -83,6 +84,10 @@ const permit = { value: price.toString(), deadline: deadline.toString(), v: Numb
 const asStrings = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "bigint" ? v.toString() : v]));
 const bought = must("buy", await api("/api/relay/buy", { event: EVENT, intent: asStrings(intent), buyerSig, permit }));
 const ticketId = BigInt(bought.ticketId);
+if (process.env.BUY_ONLY) {
+  console.log(`BUY_ONLY: ticket #${ticketId} is unused and belongs to ${buyer.address}`);
+  process.exit(0);
+}
 
 // 4. The gate issues a nonce (what its rotating QR carries).
 const gate = must("gate nonce", await api("/api/gate/nonce", { event: EVENT, code: gateCode() }));

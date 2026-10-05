@@ -10,6 +10,7 @@ import { useAccount, useHydrated } from "@/lib/hooks";
 import { formatNaira } from "@/lib/money";
 import type { EventInfo } from "@/lib/reads";
 import { saveTicket } from "@/lib/tickets";
+import { SignInButton } from "./SignInButton";
 
 type Step = "idle" | "passkey" | "funding" | "paying" | "done";
 
@@ -45,7 +46,7 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
       // The passkey prompt must open straight from the tap, before any network call.
       setStep("passkey");
       const stored = account ?? (await signUp(name.trim()));
-      const signer = await unlock(stored);
+      const { signer, account: ready } = await unlock(stored);
 
       if (!(await hasBalanceFor(stored.address, info.price))) {
         if (!meta.isDemo) throw new Error("Your balance is too low for this ticket.");
@@ -54,7 +55,7 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
       }
 
       setStep("paying");
-      const result = await buyTicket(meta.address, stored, signer, info.price);
+      const result = await buyTicket(meta.address, ready, signer, info.price);
       saveTicket({
         event: meta.address,
         ticketId: result.ticketId,
@@ -132,6 +133,11 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
           : "No password, no app. Your fingerprint or Face ID is your ticket."}
       </p>
       {error && <p className="mt-3 text-sm text-stop">{error}</p>}
+      {!account && (
+        <div className="mt-4 text-center">
+          <SignInButton variant="link" label="Already have a Curtain passkey? Sign in" />
+        </div>
+      )}
     </div>
   );
 }

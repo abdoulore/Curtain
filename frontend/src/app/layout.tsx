@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { InAppBrowserNotice } from "@/components/InAppBrowserNotice";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             My tickets
           </Link>
         </header>
+        <InAppBrowserNotice />
         <div className="mx-auto w-full max-w-xl flex-1 px-4 pb-16">{children}</div>
       </body>
     </html>

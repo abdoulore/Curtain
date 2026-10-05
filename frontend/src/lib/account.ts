@@ -11,20 +11,28 @@ import { toViemAccount } from "@category-labs/mera/viem";
 import { HDKey } from "@scure/bip32";
 import { entropyToMnemonic, mnemonicToSeedSync } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
-import { bytesToHex, type Address, type Hex, type LocalAccount } from "viem";
+import { bytesToHex, getAddress, type Address, type Hex, type LocalAccount } from "viem";
 import { RP_ID } from "./chain";
+import { CATALOG_EVENTS } from "./events";
+import { fetchTicketsOf } from "./indexer";
+import { readTicket, ticketsHeldOnChain } from "./reads";
+import { creationOptions, ES256, pickDoorKey, recoverDoorKeys, type DoorKey } from "./webauthn";
 
 /**
  * One passkey does two jobs. Mera derives the buyer's account from its PRF output, and its P-256 public key
- * (which Mera does not expose) is what the escrow checks at the door. This client makes the same WebAuthn
- * calls as Mera's browser client and also keeps that public key from the registration response.
+ * (which Mera does not expose) is what the escrow checks at the door. Our WebAuthn client makes the same calls as
+ * Mera's browser client, asks for ES256 only, keeps the public key at registration, and keeps each assertion so a
+ * new browser can recover the key from signatures.
  */
 export type StoredAccount = {
   address: Address;
   credentialId: string;
   transports?: string[];
-  qx: Hex;
-  qy: Hex;
+  /** The door key. Missing only on a new browser until a ticket or a second signature reveals it. */
+  qx?: Hex;
+  qy?: Hex;
+  /** The two keys one signature could have come from; the next passkey use picks the real one. */
+  keyCandidates?: DoorKey[];
   name: string;
   createdAt: number;
 };
@@ -32,11 +40,9 @@ export type StoredAccount = {
 const STORAGE_KEY = "curtain.account.v1";
 const CHANGE_EVENT = "curtain:account";
 
-type DoorKey = { qx: Hex; qy: Hex } | { error: string };
-
-function extractP256(resp: AuthenticatorAttestationResponse): DoorKey {
-  const alg = typeof resp.getPublicKeyAlgorithm === "function" ? resp.getPublicKeyAlgorithm() : -7;
-  if (alg !== -7) return { error: `This device made a passkey type Curtain cannot use at the door (${alg}).` };
+function extractP256(resp: AuthenticatorAttestationResponse): DoorKey | { error: string } {
+  const alg = typeof resp.getPublicKeyAlgorithm === "function" ? resp.getPublicKeyAlgorithm() : ES256;
+  if (alg !== ES256) return { error: `This device made a passkey type Curtain cannot use at the door (${alg}).` };
   const spki = typeof resp.getPublicKey === "function" ? resp.getPublicKey() : null;
   if (spki) {
     const point = new Uint8Array(spki).slice(-65);
@@ -57,27 +63,14 @@ const toBytes = (buf: BufferSource | ArrayLike<number>): Uint8Array =>
     : new Uint8Array(buf as ArrayBuffer);
 
 type PrfResults = { prf?: { enabled?: boolean; results?: { first?: BufferSource } } };
+type Assertion = { authenticatorData: Uint8Array; clientDataJSON: Uint8Array; signature: Uint8Array };
 
-let lastDoorKey: DoorKey | null = null;
+let lastDoorKey: DoorKey | { error: string } | null = null;
+let lastAssertion: Assertion | null = null;
 
 const curtainWebAuthnClient: WebAuthnClient = {
   async createCredential(req) {
-    const cred = (await navigator.credentials.create({
-      publicKey: {
-        rp: req.rp,
-        user: req.user,
-        challenge: req.challenge,
-        pubKeyCredParams: req.algorithms.map((alg) => ({ type: "public-key" as const, alg })),
-        ...(req.timeout !== undefined ? { timeout: req.timeout } : {}),
-        attestation: req.attestation,
-        authenticatorSelection: {
-          residentKey: req.residentKey,
-          requireResidentKey: true,
-          userVerification: req.userVerification,
-        },
-        extensions: { prf: { eval: { first: req.prfSalt } } } as AuthenticationExtensionsClientInputs,
-      },
-    })) as PublicKeyCredential | null;
+    const cred = (await navigator.credentials.create({ publicKey: creationOptions(req) })) as PublicKeyCredential | null;
     if (!cred) throw new Error("No passkey was created");
     const resp = cred.response as AuthenticatorAttestationResponse;
     lastDoorKey = extractP256(resp);
@@ -100,6 +93,7 @@ const curtainWebAuthnClient: WebAuthnClient = {
         ...(req.timeout !== undefined ? { timeout: req.timeout } : {}),
         userVerification: req.userVerification,
         extensions: { prf: { eval: { first: req.prfSalt } } } as AuthenticationExtensionsClientInputs,
+        // No allowCredentials means "any Curtain passkey on this device": sign-in on a new browser.
         ...(allow
           ? {
               allowCredentials: [
@@ -114,6 +108,12 @@ const curtainWebAuthnClient: WebAuthnClient = {
       },
     })) as PublicKeyCredential | null;
     if (!cred) throw new Error("No passkey was used");
+    const resp = cred.response as AuthenticatorAssertionResponse;
+    lastAssertion = {
+      authenticatorData: new Uint8Array(resp.authenticatorData),
+      clientDataJSON: new Uint8Array(resp.clientDataJSON),
+      signature: new Uint8Array(resp.signature),
+    };
     const first = (cred.getClientExtensionResults() as PrfResults).prf?.results?.first;
     return { credentialId: new Uint8Array(cred.rawId), ...(first ? { prfOutput: toBytes(first) } : {}) };
   },
@@ -169,7 +169,36 @@ function saveAccount(account: StoredAccount | null) {
 }
 
 // ---------------------------------------------------------------------------
-// Sign up, unlock, sign out
+// The door key on a new browser
+// ---------------------------------------------------------------------------
+
+/** The key bound to any ticket this account holds: from the indexer, or read straight from each listed escrow. */
+async function doorKeyFromTickets(holder: Address): Promise<DoorKey | undefined> {
+  try {
+    const rows = await fetchTicketsOf(holder);
+    const row = rows[0];
+    if (row) {
+      const t = await readTicket(getAddress(row.show_id), BigInt(row.ticketId));
+      return { qx: t.qx, qy: t.qy };
+    }
+    return undefined;
+  } catch {
+    const held = await ticketsHeldOnChain(holder, CATALOG_EVENTS).catch(() => []);
+    const first = held[0];
+    return first ? { qx: first.info.qx, qy: first.info.qy } : undefined;
+  }
+}
+
+function candidatesFromLastAssertion(): DoorKey[] | undefined {
+  if (!lastAssertion) return undefined;
+  const keys = recoverDoorKeys(lastAssertion.authenticatorData, lastAssertion.clientDataJSON, lastAssertion.signature);
+  return keys.length > 0 ? keys : undefined;
+}
+
+export const hasDoorKey = (a: StoredAccount): a is StoredAccount & DoorKey => Boolean(a.qx && a.qy);
+
+// ---------------------------------------------------------------------------
+// Sign up, sign in, unlock, sign out
 // ---------------------------------------------------------------------------
 
 /** Creates the passkey and account. One biometric prompt on devices that return PRF at creation. */
@@ -180,7 +209,7 @@ export async function signUp(name: string): Promise<StoredAccount> {
     user: { name: name || "Curtain account", displayName: name || "Curtain account" },
     webAuthnClient: curtainWebAuthnClient,
   });
-  const doorKey = lastDoorKey as DoorKey | null;
+  const doorKey = lastDoorKey as DoorKey | { error: string } | null;
   if (!doorKey || "error" in doorKey) throw new Error(doorKey?.error ?? "Could not read this passkey");
   live?.session.end();
   live = deriveSession(created.prfOutput);
@@ -197,9 +226,38 @@ export async function signUp(name: string): Promise<StoredAccount> {
   return account;
 }
 
-/** Returns the signing account, asking for the biometric only if it is not already unlocked. */
-export async function unlock(stored: StoredAccount): Promise<LocalAccount> {
-  if (live && live.account.address === stored.address) return live.account;
+/**
+ * Signs in with any Curtain passkey this device can use (for example one synced through iCloud Keychain or Google
+ * Password Manager). One biometric prompt. Restores the account and, from its tickets or the signature, the door key.
+ */
+export async function signIn(): Promise<StoredAccount> {
+  lastAssertion = null;
+  const got = await getPasskeyPrfOutput({ rpId: RP_ID, webAuthnClient: curtainWebAuthnClient });
+  live?.session.end();
+  live = deriveSession(got.prfOutput);
+  const address = live.account.address;
+  const candidates = candidatesFromLastAssertion();
+  const fromTickets = await doorKeyFromTickets(address);
+  const account: StoredAccount = {
+    address,
+    credentialId: got.credentialId,
+    ...(fromTickets ?? { keyCandidates: candidates }),
+    name: "",
+    createdAt: Date.now(),
+  };
+  saveAccount(account);
+  return account;
+}
+
+/**
+ * Returns the signing account and the stored account with its door key, asking for the biometric only when the
+ * account is locked or the door key still needs a second signature.
+ */
+export async function unlock(stored: StoredAccount): Promise<{ signer: LocalAccount; account: StoredAccount & DoorKey }> {
+  if (live && live.account.address === stored.address && hasDoorKey(stored)) {
+    return { signer: live.account, account: stored };
+  }
+  lastAssertion = null;
   const { prfOutput } = await getPasskeyPrfOutput({
     rpId: RP_ID,
     credential: {
@@ -213,8 +271,15 @@ export async function unlock(stored: StoredAccount): Promise<LocalAccount> {
     next.session.end();
     throw new Error("That passkey belongs to a different account");
   }
+  live?.session.end();
   live = next;
-  return live.account;
+
+  if (hasDoorKey(stored)) return { signer: live.account, account: stored };
+  const picked = stored.keyCandidates && pickDoorKey(stored.keyCandidates, candidatesFromLastAssertion() ?? []);
+  if (!picked) throw new Error("We couldn't confirm your door key. Please try again.");
+  const updated: StoredAccount & DoorKey = { ...stored, ...picked, keyCandidates: undefined };
+  saveAccount(updated);
+  return { signer: live.account, account: updated };
 }
 
 export function signOut() {
@@ -227,7 +292,7 @@ export function signOut() {
 export function friendlyPasskeyError(error: unknown): string {
   if (isMeraError(error)) {
     if (error.code === "PRF_UNAVAILABLE") {
-      return "This device can't hold a Curtain ticket yet. Use Chrome with Google Password Manager on Android, or Safari on iPhone (iOS 18 or later).";
+      return "This browser can't hold a Curtain ticket. Use Chrome with Google Password Manager on Android, Safari on iPhone (iOS 18 or later), or continue on your phone.";
     }
     if (error.code === "PASSKEY_OPERATION_FAILED") return "Cancelled. Try again when you're ready.";
     if (error.code === "CRYPTO_UNAVAILABLE") return "Open Curtain over https to continue.";

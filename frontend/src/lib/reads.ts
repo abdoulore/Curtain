@@ -1,6 +1,6 @@
 "use client";
 
-import { createPublicClient, erc20Abi, http, type Address } from "viem";
+import { createPublicClient, erc20Abi, http, type Address, type Hex } from "viem";
 import { curtainEventAbi } from "./abis";
 import { monadTestnet, PUBLIC_RPC_URL, USDC } from "./chain";
 
@@ -53,7 +53,7 @@ export async function readBalance(owner: Address): Promise<bigint> {
 export const TICKET_STATE = ["None", "Active", "CheckedIn", "RefundOwed", "Refunded"] as const;
 export type TicketState = (typeof TICKET_STATE)[number];
 
-export type TicketInfo = { holder: Address; state: TicketState; resalePrice: bigint };
+export type TicketInfo = { holder: Address; state: TicketState; resalePrice: bigint; qx: Hex; qy: Hex };
 
 export async function readTicket(event: Address, ticketId: bigint): Promise<TicketInfo> {
   const t = await browserClient.readContract({
@@ -62,5 +62,22 @@ export async function readTicket(event: Address, ticketId: bigint): Promise<Tick
     functionName: "getTicket",
     args: [ticketId],
   });
-  return { holder: t.holder, state: TICKET_STATE[t.state] ?? "None", resalePrice: t.resalePrice };
+  return { holder: t.holder, state: TICKET_STATE[t.state] ?? "None", resalePrice: t.resalePrice, qx: t.qx, qy: t.qy };
+}
+
+/**
+ * Fallback when the indexer is down: the tickets an account holds in the given events, read straight from each
+ * escrow. A few calls per event, unlike a log scan from the factory's deployment block.
+ */
+export async function ticketsHeldOnChain(holder: Address, events: readonly Address[]) {
+  const found: { event: Address; ticketId: bigint; info: TicketInfo }[] = [];
+  for (const event of events) {
+    const sold = Number(await browserClient.readContract({ address: event, abi: curtainEventAbi, functionName: "sold" }));
+    const ids = Array.from({ length: sold }, (_, i) => BigInt(i + 1));
+    const infos = await Promise.all(ids.map((id) => readTicket(event, id)));
+    infos.forEach((info, i) => {
+      if (info.holder.toLowerCase() === holder.toLowerCase()) found.push({ event, ticketId: ids[i]!, info });
+    });
+  }
+  return found;
 }

@@ -4,6 +4,7 @@ import { erc20Abi, parseAbi, parseSignature, type Address, type Hash, type Local
 import { curtainEventAbi } from "./abis";
 import { buyIntentTypes, CURTAIN_EIP712, monadTestnet, permitTypes, USDC, USDC_PERMIT_DOMAIN } from "./chain";
 import type { StoredAccount } from "./account";
+import type { DoorKey } from "./webauthn";
 import { postJson } from "./api";
 import { browserClient } from "./reads";
 
@@ -15,7 +16,12 @@ export type BuyResult = { ticketId: string; hash: Hash; explorer: string };
  * Signs a BuyIntent (binding this account and its door passkey) and a USDC permit, then hands both to the
  * relayer, which pays gas. Call `unlock` first, straight from the tap, so the biometric prompt is not delayed.
  */
-export async function buyTicket(event: Address, stored: StoredAccount, account: LocalAccount, price: bigint): Promise<BuyResult> {
+export async function buyTicket(
+  event: Address,
+  stored: StoredAccount & DoorKey,
+  account: LocalAccount,
+  price: bigint,
+): Promise<BuyResult> {
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
   const [nonce, permitNonce] = await Promise.all([
     browserClient.readContract({ address: event, abi: curtainEventAbi, functionName: "nonces", args: [account.address] }),

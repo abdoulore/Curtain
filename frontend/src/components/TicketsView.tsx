@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getAddress, type Hash } from "viem";
 import { txUrl } from "@/lib/chain";
 import { signOut } from "@/lib/account";
 import { findEvent } from "@/lib/events";
-import { useAccount, useHydrated, useSavedTickets } from "@/lib/hooks";
+import { useAccount, useHydrated } from "@/lib/hooks";
+import { useMyTickets } from "@/lib/use-my-tickets";
 import { formatNaira } from "@/lib/money";
-import { fetchTicketsOf } from "@/lib/indexer";
 import { readBalance, readTicket, type TicketState } from "@/lib/reads";
 import type { SavedTicket } from "@/lib/tickets";
+import { SignInButton } from "./SignInButton";
 
 const STATE_LABEL: Record<TicketState, { text: string; tone: string }> = {
   None: { text: "Not found", tone: "text-muted" },
@@ -53,10 +53,12 @@ function TicketCard({ ticket, owner }: { ticket: SavedTicket; owner: string }) {
         <p className="font-mono text-3xl font-semibold text-velvet">#{ticket.ticketId}</p>
       </div>
       <div className="flex items-center justify-between border-t border-dashed border-line px-5 py-3 text-xs text-muted">
-        <span>Bought {new Date(ticket.boughtAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}</span>
-        <a href={txUrl(ticket.hash)} target="_blank" rel="noopener" className="underline underline-offset-2">
-          Proof of payment
-        </a>
+        <span>{ticket.boughtAt > 0 ? `Bought ${new Date(ticket.boughtAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}` : ""}</span>
+        {ticket.hash.length === 66 && (
+          <a href={txUrl(ticket.hash)} target="_blank" rel="noopener" className="underline underline-offset-2">
+            Proof of payment
+          </a>
+        )}
       </div>
     </li>
   );
@@ -65,31 +67,15 @@ function TicketCard({ ticket, owner }: { ticket: SavedTicket; owner: string }) {
 export function TicketsView() {
   const hydrated = useHydrated();
   const account = useAccount();
-  const saved = useSavedTickets();
   const [balance, setBalance] = useState<bigint | null>(null);
-  // Tickets the indexer knows this account holds, so they show on any device, not just the one that bought them.
-  const [indexed, setIndexed] = useState<SavedTicket[]>([]);
+  // Tickets bought here plus the ones the indexer says this account holds, so they show on any device.
+  const mine = useMyTickets(account);
 
   useEffect(() => {
     if (!account) return;
     let alive = true;
     readBalance(account.address)
       .then((b) => alive && setBalance(b))
-      .catch(() => {});
-    fetchTicketsOf(account.address)
-      .then(
-        (rows) =>
-          alive &&
-          setIndexed(
-            rows.map((r) => ({
-              event: getAddress(r.show_id),
-              ticketId: r.ticketId,
-              owner: account.address,
-              hash: r.boughtTx as Hash,
-              boughtAt: Number(r.boughtAt) * 1000,
-            })),
-          ),
-      )
       .catch(() => {});
     return () => {
       alive = false;
@@ -101,23 +87,19 @@ export function TicketsView() {
   if (!account) {
     return (
       <main className="pt-10 text-center">
-        <h1 className="text-2xl font-semibold">No tickets on this phone yet</h1>
-        <p className="mt-2 text-muted">Get one with your fingerprint or Face ID. It takes under a minute.</p>
-        <Link
-          href="/e/demo"
-          className="mt-6 inline-block rounded-2xl bg-velvet px-5 py-3 font-semibold text-velvet-ink"
-        >
-          See the demo show
+        <h1 className="text-2xl font-semibold">Your tickets</h1>
+        <p className="mt-2 text-muted">
+          Already bought on another device? Sign in with the same passkey and your tickets come with you.
+        </p>
+        <div className="mx-auto mt-6 max-w-sm">
+          <SignInButton />
+        </div>
+        <Link href="/e/demo" className="mt-5 inline-block text-sm font-semibold text-velvet underline">
+          New here? See the demo show
         </Link>
       </main>
     );
   }
-
-  const local = saved.filter((t) => t.owner.toLowerCase() === account.address.toLowerCase());
-  const seen = new Set(local.map((t) => `${t.event.toLowerCase()}-${t.ticketId}`));
-  const mine = [...local, ...indexed.filter((t) => !seen.has(`${t.event.toLowerCase()}-${t.ticketId}`))].sort(
-    (a, b) => b.boughtAt - a.boughtAt,
-  );
 
   return (
     <main className="pt-6">

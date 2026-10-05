@@ -7,9 +7,11 @@ import { ApiError } from "@/lib/api";
 import { checkIn, type CheckInResult } from "@/lib/checkin";
 import { eventPath, findEvent } from "@/lib/events";
 import { parseCheckInFragment } from "@/lib/gate";
-import { useAccount, useHydrated, useSavedTickets } from "@/lib/hooks";
+import { useAccount, useHydrated } from "@/lib/hooks";
+import { useMyTickets } from "@/lib/use-my-tickets";
 import { formatNaira } from "@/lib/money";
 import { readTicket, type TicketState } from "@/lib/reads";
+import { SignInButton } from "./SignInButton";
 
 function subscribeHash(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
@@ -23,19 +25,13 @@ export function CheckInView() {
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => "");
   const token = useMemo(() => (hash ? parseCheckInFragment(hash) : null), [hash]);
   const account = useAccount();
-  const saved = useSavedTickets();
+  const held = useMyTickets(account);
   const meta = token ? findEvent(token.event) : undefined;
 
   const mine = useMemo(
     () =>
-      token && account
-        ? saved.filter(
-            (t) =>
-              getAddress(t.event) === getAddress(token.event) &&
-              t.owner.toLowerCase() === account.address.toLowerCase(),
-          )
-        : [],
-    [saved, token, account],
+      token ? held.filter((t) => getAddress(t.event) === getAddress(token.event)) : [],
+    [held, token],
   );
 
   const [states, setStates] = useState<Record<string, TicketState>>({});
@@ -103,10 +99,14 @@ export function CheckInView() {
 
       {!account ? (
         <div className="mt-6 rounded-3xl border border-line bg-surface p-5">
-          <p className="font-medium">There&apos;s no Curtain ticket on this phone yet.</p>
+          <p className="font-medium">Sign in to check in</p>
+          <p className="mt-1 text-sm text-muted">Use the passkey you bought your ticket with. Your tickets load right after.</p>
+          <div className="mt-4">
+            <SignInButton />
+          </div>
           {meta && (
-            <Link href={eventPath(meta)} className="mt-3 inline-block font-semibold text-velvet underline">
-              Get a ticket first
+            <Link href={eventPath(meta)} className="mt-4 inline-block text-sm font-semibold text-velvet underline">
+              No ticket yet? Get one
             </Link>
           )}
         </div>

@@ -24,6 +24,9 @@ const CATALOG: EventMeta[] = [
   },
 ];
 
+/** Events this app lists. */
+export const CATALOG_EVENTS: readonly Address[] = CATALOG.map((e) => e.address);
+
 export function findEvent(id: string): EventMeta | undefined {
   const bySlug = CATALOG.find((e) => e.slug === id);
   if (bySlug) return bySlug;

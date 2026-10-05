@@ -1,30 +1,11 @@
 "use client";
 
-import { bytesToHex, hexToBytes, toHex, type Hash } from "viem";
+import { bytesToHex, hexToBytes, type Hash } from "viem";
 import type { StoredAccount } from "./account";
 import { postJson } from "./api";
 import { RP_ID } from "./chain";
 import { challengeFor, type GateToken } from "./gate";
-
-const P256_N = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551n;
-
-/** DER ECDSA signature to (r, s), with s normalized low: the escrow rejects high-s signatures. */
-function derToRS(sig: Uint8Array) {
-  let i = 0;
-  if (sig[i++] !== 0x30) throw new Error("Unexpected signature format");
-  i += sig[i] & 0x80 ? 1 + (sig[i] & 0x7f) : 1;
-  const readInt = () => {
-    if (sig[i++] !== 0x02) throw new Error("Unexpected signature format");
-    const len = sig[i++];
-    const value = BigInt(bytesToHex(sig.slice(i, i + len)));
-    i += len;
-    return value;
-  };
-  const r = readInt();
-  let s = readInt();
-  if (s > P256_N / 2n) s = P256_N - s;
-  return { r: toHex(r, { size: 32 }), s: toHex(s, { size: 32 }) };
-}
+import { derToRS } from "./webauthn";
 
 const b64urlToBytes = (s: string) =>
   Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) =>

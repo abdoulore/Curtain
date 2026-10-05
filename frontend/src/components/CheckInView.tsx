@@ -11,6 +11,7 @@ import { useAccount, useHydrated } from "@/lib/hooks";
 import { useMyTickets } from "@/lib/use-my-tickets";
 import { formatNaira } from "@/lib/money";
 import { readTicket, type TicketState } from "@/lib/reads";
+import { chooseTicket } from "@/lib/ticket-choice";
 import { SignInButton } from "./SignInButton";
 
 function subscribeHash(onChange: () => void) {
@@ -50,8 +51,8 @@ export function CheckInView() {
     };
   }, [token, mine]);
 
-  const ready = mine.find((t) => states[t.ticketId] === "Active");
-  const ticketId = typed.trim() !== "" ? typed.trim() : ready?.ticketId;
+  const choice = chooseTicket(mine, states, typed);
+  const ticketId = choice?.ticketId;
 
   async function go() {
     if (!token || !account || !ticketId) return;
@@ -92,6 +93,19 @@ export function CheckInView() {
     );
   }
 
+  if (outcome && !outcome.ok) {
+    return (
+      <main className="mx-auto mt-6 flex min-h-[70vh] max-w-md flex-col items-center justify-center rounded-3xl bg-stop p-6 text-center text-white">
+        <p className="text-5xl">✕</p>
+        <h1 className="mt-4 text-3xl font-semibold">Not let in</h1>
+        <p className="mt-2 text-lg">{outcome.message}</p>
+        <button onClick={() => setOutcome(null)} className="mt-8 rounded-2xl bg-white/15 px-5 py-3 font-semibold">
+          Back
+        </button>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-md pt-6 lg:pt-12">
       <p className="text-sm text-muted">Checking in to</p>
@@ -112,14 +126,15 @@ export function CheckInView() {
         </div>
       ) : (
         <div className="mt-6 rounded-3xl border border-line bg-surface p-5">
-          {ready ? (
-            <p className="text-lg font-semibold">
-              Ticket <span className="font-mono text-velvet">#{typed.trim() || ready.ticketId}</span>
-            </p>
+          {choice ? (
+            <>
+              <p className="text-lg font-semibold">
+                Ticket <span className="font-mono text-velvet">#{choice.ticketId}</span>
+              </p>
+              {!choice.usable && <p className="mt-1 text-sm text-stop">This ticket has already been used.</p>}
+            </>
           ) : (
-            <p className="text-sm text-muted">
-              {mine.length > 0 ? "Your tickets on this phone have already been used." : "No ticket for this show on this phone."}
-            </p>
+            <p className="text-sm text-muted">No ticket for this show on this phone.</p>
           )}
 
           <button
@@ -143,12 +158,6 @@ export function CheckInView() {
         </div>
       )}
 
-      {outcome && !outcome.ok && (
-        <div className="mt-4 rounded-3xl bg-stop p-5 text-white">
-          <p className="text-lg font-semibold">Not let in</p>
-          <p className="mt-1">{outcome.message}</p>
-        </div>
-      )}
     </main>
   );
 }

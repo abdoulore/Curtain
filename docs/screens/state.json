@@ -1,0 +1,23 @@
+{
+  "persona": "0xC232d182B55C123A1cC09946b9b5AB702A866831",
+  "tickets": [
+    {
+      "event": "0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D",
+      "ticketId": "4"
+    },
+    {
+      "event": "0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D",
+      "ticketId": "5",
+      "listedHere": true
+    },
+    {
+      "event": "0xC0731dA73709F548f28f9d373E36e79d1a1Ed29A",
+      "ticketId": "1"
+    }
+  ],
+  "resale": {
+    "ticketId": "6",
+    "listTx": "0xd7215260f1fc05acd9a4e6862d02679612537f7a62947d761e86be12b9b009d8",
+    "resoldTx": "0x37e8b70785b789d0ef5001698dff4370b8080d8f5da9dbf2ade39a187d28e7ae"
+  }
+}

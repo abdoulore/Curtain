@@ -127,8 +127,14 @@ function deriveSession(prfOutput: Uint8Array) {
   return { session, account: toViemAccount(session) as LocalAccount };
 }
 
-// The unlocked account lives only in memory, for this page visit.
+// The unlocked account and its PRF output live only in memory, for this page visit.
 let live: ReturnType<typeof deriveSession> | null = null;
+let livePrf: Uint8Array | null = null;
+
+/** The unlocked passkey's PRF output, used to derive per-ticket claim keys. Null until unlocked. */
+export function unlockedPrf(address: Address): Uint8Array | null {
+  return live && live.account.address === address ? livePrf : null;
+}
 
 // ---------------------------------------------------------------------------
 // Storage
@@ -213,6 +219,7 @@ export async function signUp(name: string): Promise<StoredAccount> {
   if (!doorKey || "error" in doorKey) throw new Error(doorKey?.error ?? "Could not read this passkey");
   live?.session.end();
   live = deriveSession(created.prfOutput);
+  livePrf = new Uint8Array(created.prfOutput);
   const account: StoredAccount = {
     address: live.account.address,
     credentialId: created.credentialId,
@@ -235,6 +242,7 @@ export async function signIn(): Promise<StoredAccount> {
   const got = await getPasskeyPrfOutput({ rpId: RP_ID, webAuthnClient: curtainWebAuthnClient });
   live?.session.end();
   live = deriveSession(got.prfOutput);
+  livePrf = new Uint8Array(got.prfOutput);
   const address = live.account.address;
   const candidates = candidatesFromLastAssertion();
   const fromTickets = await doorKeyFromTickets(address);
@@ -254,7 +262,7 @@ export async function signIn(): Promise<StoredAccount> {
  * account is locked or the door key still needs a second signature.
  */
 export async function unlock(stored: StoredAccount): Promise<{ signer: LocalAccount; account: StoredAccount & DoorKey }> {
-  if (live && live.account.address === stored.address && hasDoorKey(stored)) {
+  if (live && livePrf && live.account.address === stored.address && hasDoorKey(stored)) {
     return { signer: live.account, account: stored };
   }
   lastAssertion = null;
@@ -273,6 +281,7 @@ export async function unlock(stored: StoredAccount): Promise<{ signer: LocalAcco
   }
   live?.session.end();
   live = next;
+  livePrf = new Uint8Array(prfOutput);
 
   if (hasDoorKey(stored)) return { signer: live.account, account: stored };
   const picked = stored.keyCandidates && pickDoorKey(stored.keyCandidates, candidatesFromLastAssertion() ?? []);
@@ -285,6 +294,7 @@ export async function unlock(stored: StoredAccount): Promise<{ signer: LocalAcco
 export function signOut() {
   live?.session.end();
   live = null;
+  livePrf = null;
   saveAccount(null);
 }
 

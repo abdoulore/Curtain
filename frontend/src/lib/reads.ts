@@ -53,7 +53,15 @@ export async function readBalance(owner: Address): Promise<bigint> {
 export const TICKET_STATE = ["None", "Active", "CheckedIn", "RefundOwed", "Refunded"] as const;
 export type TicketState = (typeof TICKET_STATE)[number];
 
-export type TicketInfo = { holder: Address; state: TicketState; resalePrice: bigint; qx: Hex; qy: Hex };
+export type TicketInfo = {
+  holder: Address;
+  state: TicketState;
+  resalePrice: bigint;
+  qx: Hex;
+  qy: Hex;
+  claimKey: Address;
+  claimNonce: bigint;
+};
 
 export async function readTicket(event: Address, ticketId: bigint): Promise<TicketInfo> {
   const t = await browserClient.readContract({
@@ -62,7 +70,15 @@ export async function readTicket(event: Address, ticketId: bigint): Promise<Tick
     functionName: "getTicket",
     args: [ticketId],
   });
-  return { holder: t.holder, state: TICKET_STATE[t.state] ?? "None", resalePrice: t.resalePrice, qx: t.qx, qy: t.qy };
+  return {
+    holder: t.holder,
+    state: TICKET_STATE[t.state] ?? "None",
+    resalePrice: t.resalePrice,
+    qx: t.qx,
+    qy: t.qy,
+    claimKey: t.claimKey,
+    claimNonce: BigInt(t.claimNonce),
+  };
 }
 
 /**

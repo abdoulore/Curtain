@@ -298,6 +298,11 @@ export function signOut() {
   saveAccount(null);
 }
 
+/** True when the browser made or used a passkey but cannot give its PRF output (no Curtain account possible here). */
+export function isPrfUnavailable(error: unknown): boolean {
+  return isMeraError(error) && error.code === "PRF_UNAVAILABLE";
+}
+
 /** Words a buyer should see for passkey failures. */
 export function friendlyPasskeyError(error: unknown): string {
   if (isMeraError(error)) {

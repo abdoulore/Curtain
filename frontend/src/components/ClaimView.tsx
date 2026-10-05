@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { friendlyPasskeyError, signUp, unlock } from "@/lib/account";
+import { friendlyPasskeyError, isPrfUnavailable, signUp, unlock } from "@/lib/account";
 import { ApiError } from "@/lib/api";
 import { claimWithLink } from "@/lib/claim";
 import { parseClaimFragment } from "@/lib/claim-key";
@@ -10,6 +10,7 @@ import { findEvent } from "@/lib/events";
 import { useAccount, useHydrated } from "@/lib/hooks";
 import { readTicket, type TicketInfo } from "@/lib/reads";
 import { saveTicket } from "@/lib/tickets";
+import { ContinueOnPhone } from "./ContinueOnPhone";
 import { SignInButton } from "./SignInButton";
 
 function subscribeHash(onChange: () => void) {
@@ -30,6 +31,7 @@ export function ClaimView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [needsPhone, setNeedsPhone] = useState(false);
 
   useEffect(() => {
     if (!link) return;
@@ -60,7 +62,8 @@ export function ClaimView() {
       });
       setDone(true);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : friendlyPasskeyError(e));
+      if (isPrfUnavailable(e)) setNeedsPhone(true);
+      else setError(e instanceof ApiError ? e.message : friendlyPasskeyError(e));
     } finally {
       setBusy(false);
     }
@@ -70,7 +73,7 @@ export function ClaimView() {
 
   if (!link) {
     return (
-      <main className="pt-10 text-center">
+      <main className="mx-auto max-w-md pt-10 text-center lg:pt-20">
         <h1 className="text-2xl font-semibold">This link is incomplete</h1>
         <p className="mt-2 text-muted">Ask for the ticket link again, or scan the code once more.</p>
       </main>
@@ -79,7 +82,7 @@ export function ClaimView() {
 
   if (done) {
     return (
-      <main className="mt-6 flex min-h-[60vh] flex-col items-center justify-center rounded-3xl bg-go p-6 text-center text-white">
+      <main className="mx-auto mt-6 flex min-h-[60vh] max-w-md flex-col items-center justify-center rounded-3xl bg-go p-6 text-center text-white">
         <p className="text-5xl">✓</p>
         <h1 className="mt-4 text-3xl font-semibold">Ticket #{link.ticketId.toString()} is on this phone</h1>
         <p className="mt-3 max-w-xs opacity-90">At the door, scan the gate code and confirm with your fingerprint or Face ID.</p>
@@ -93,7 +96,7 @@ export function ClaimView() {
   const dead = ticket && (ticket.state !== "Active" || /^0x0{40}$/.test(ticket.claimKey));
 
   return (
-    <main className="pt-6">
+    <main className="mx-auto max-w-md pt-6 lg:pt-12">
       <p className="text-sm text-muted">A ticket for you</p>
       <h1 className="text-2xl font-semibold">{meta?.name ?? "Curtain event"}</h1>
       <p className="mt-1 text-muted">
@@ -101,7 +104,9 @@ export function ClaimView() {
       </p>
 
       <section className="mt-6 rounded-3xl border border-line bg-surface p-5">
-        {dead ? (
+        {needsPhone ? (
+          <ContinueOnPhone reason="This browser can't hold the ticket." />
+        ) : dead ? (
           <p className="font-medium">This link no longer works. Ask the ticket&apos;s owner for a new one.</p>
         ) : (
           <>

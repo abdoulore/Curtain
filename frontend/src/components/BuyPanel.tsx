@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { friendlyPasskeyError, signUp, unlock } from "@/lib/account";
+import { useEffect, useState } from "react";
+import { friendlyPasskeyError, isPrfUnavailable, signUp, unlock } from "@/lib/account";
+import { detectPrfSupport, type PrfSupport } from "@/lib/capabilities";
 import { ApiError } from "@/lib/api";
 import { buyTicket, hasBalanceFor, requestTopup, type BuyResult } from "@/lib/buy";
 import type { EventMeta } from "@/lib/events";
@@ -10,6 +11,7 @@ import { useAccount, useHydrated, useIsDesktop } from "@/lib/hooks";
 import { formatNaira } from "@/lib/money";
 import type { EventInfo } from "@/lib/reads";
 import { saveTicket } from "@/lib/tickets";
+import { ContinueOnPhone } from "./ContinueOnPhone";
 import { SignInButton } from "./SignInButton";
 
 type Step = "idle" | "passkey" | "funding" | "paying" | "done";
@@ -30,6 +32,16 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState<string | null>(null);
   const [bought, setBought] = useState<BuyResult | null>(null);
+  const [prf, setPrf] = useState<PrfSupport>("unknown");
+  const [needsPhone, setNeedsPhone] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    detectPrfSupport().then((s) => alive && setPrf(s));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const busy = step !== "idle" && step !== "done";
   const closed =
@@ -69,7 +81,8 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
       onBought();
     } catch (e) {
       setStep("idle");
-      setError(e instanceof ApiError ? e.message : friendlyPasskeyError(e));
+      if (isPrfUnavailable(e)) setNeedsPhone(true);
+      else setError(e instanceof ApiError ? e.message : friendlyPasskeyError(e));
     }
   }
 
@@ -115,6 +128,9 @@ export function BuyPanel({ meta, info, onBought }: { meta: EventMeta; info: Even
   }
 
   if (closed) return <p className="text-sm font-medium text-muted">{closed}</p>;
+
+  // A browser without PRF can't hold a ticket; a returning account here already proved it can.
+  if (needsPhone || (!account && prf === "no")) return <ContinueOnPhone />;
 
   return (
     <div>

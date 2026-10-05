@@ -17,7 +17,6 @@ contract DeployKeeper is Script {
     address internal constant USDC_TESTNET = 0x534b2f3A21130d7a60830c2Df862319e593943A3;
     /// CRE MockKeystoneForwarder on Monad testnet, used by `cre workflow simulate --broadcast`.
     address internal constant MOCK_FORWARDER = 0xB9F79d863261869B234c481D1f9A7af84AeAd192;
-    address internal constant FACTORY = 0x00CC023C3BFB01eb3E5470247c7976966b04d0Db;
     string internal constant RP_ID = "curtaintickets.vercel.app";
     uint96 internal constant PRICE = 0.2e6;
     uint256 internal constant P256_N_MINUS_1 = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632550;
@@ -30,13 +29,17 @@ contract DeployKeeper is Script {
     function run() external returns (CurtainKeeper keeper, address cancelledShow, address endingShow) {
         relayerKey = vm.envUint("RELAYER_PRIVATE_KEY");
         organizerKey = vm.envUint("ORGANIZER_PRIVATE_KEY");
-        CurtainFactory factory = CurtainFactory(FACTORY);
+        CurtainFactory factory = CurtainFactory(vm.envAddress("CURTAIN_FACTORY"));
 
         vm.startBroadcast(relayerKey);
         keeper = new CurtainKeeper(
             vm.envOr("KEEPER_FORWARDER", MOCK_FORWARDER), factory.implementation(), 10, vm.addr(relayerKey)
         );
         vm.stopBroadcast();
+
+        console.log("CurtainKeeper:", address(keeper));
+        // KEEPER_DEMO_SHOWS=false deploys only the keeper.
+        if (!vm.envOr("KEEPER_DEMO_SHOWS", true)) return (keeper, address(0), address(0));
 
         uint64 endsIn = uint64(vm.envOr("ENDING_SHOW_MINUTES", uint256(4))) * 60;
         cancelledShow = _createShow(factory, uint64(block.timestamp + 7 days));
@@ -53,7 +56,6 @@ contract DeployKeeper is Script {
         CurtainEvent(cancelledShow).cancel(0, 0, "");
         vm.stopBroadcast();
 
-        console.log("CurtainKeeper:", address(keeper));
         console.log("Cancelled show (3 tickets):", cancelledShow);
         console.log("Show ending soon (2 tickets, none scanned):", endingShow);
     }

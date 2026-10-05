@@ -82,3 +82,25 @@ jobs:
       - run: npm run codegen
       - run: npm run typecheck
       - run: npm test
+
+  cre:
+    name: CRE workflow
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: cre/curtain-keeper
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - run: bun test
+      - run: bunx cre-setup && bunx cre-compile main.ts curtain-keeper.wasm

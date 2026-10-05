@@ -1,0 +1,10 @@
+# CRE project settings. Monad testnet is supported from CLI 1.30.0 and SDK 1.19.0.
+staging-settings:
+  rpcs:
+    - chain-name: monad-testnet
+      url: https://testnet-rpc.monad.xyz
+
+production-settings:
+  rpcs:
+    - chain-name: monad-testnet
+      url: https://testnet-rpc.monad.xyz

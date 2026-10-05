@@ -1,0 +1,12 @@
+{
+  "schedule": "0 */5 * * * *",
+  "chainSelectorName": "monad-testnet",
+  "keeperAddress": "0x010F096F8dC260b68A07025C00404aaf9F33bADe",
+  "envioUrl": "https://indexer.dev.hyperindex.xyz/568e4f3/v1/graphql",
+  "events": [
+    "0xd3F22B52F74D658318C29E0475E1833214eCA005",
+    "0xC0731dA73709F548f28f9d373E36e79d1a1Ed29A",
+    "0x537a071e81734ecd498FC0D3CE8c36AfEDcB9A09"
+  ],
+  "gasLimit": "600000"
+}

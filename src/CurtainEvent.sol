@@ -8,6 +8,7 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {WebAuthn} from "@openzeppelin/contracts/utils/cryptography/WebAuthn.sol";
 import {P256} from "@openzeppelin/contracts/utils/cryptography/P256.sol";
@@ -92,6 +93,8 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     bytes32 public constant CANCEL_TYPEHASH = keccak256("Cancel(uint256 nonce,uint256 deadline)");
     bytes32 public constant SET_GATE_TYPEHASH =
         keccak256("SetGate(address gate,bool allowed,uint256 nonce,uint256 deadline)");
+    /// @notice A gate device signs each nonce it shows, so anyone can relay the check-in without holding a gate key.
+    bytes32 public constant GATE_PASS_TYPEHASH = keccak256("GatePass(bytes32 gateNonce,uint256 challengeBlock)");
     bytes32 public constant LIST_TYPEHASH =
         keccak256("List(uint256 ticketId,uint256 price,uint256 nonce,uint256 deadline)");
     bytes32 public constant SET_CLAIM_TYPEHASH =
@@ -240,12 +243,17 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         return keccak256(abi.encode(block.chainid, address(this), ticketId, gateNonce, challengeBlock));
     }
 
-    /// @notice Checks a ticket in and releases its price to the organizer. Registered gates only.
-    function checkIn(uint256 ticketId, bytes32 gateNonce, uint256 challengeBlock, WebAuthn.WebAuthnAuth calldata auth)
-        external
-        returns (bytes32 challenge)
-    {
-        if (!isGate[msg.sender]) revert NotGate();
+    /// @notice Checks a ticket in and releases its price to the organizer. The gate nonce must come from a
+    /// registered gate: either the gate calls directly with an empty `gatePass`, or anyone submits the gate's
+    /// EIP-712 `GatePass` signature over the nonce and challenge block it showed.
+    function checkIn(
+        uint256 ticketId,
+        bytes32 gateNonce,
+        uint256 challengeBlock,
+        bytes calldata gatePass,
+        WebAuthn.WebAuthnAuth calldata auth
+    ) external returns (bytes32 challenge) {
+        address gate = _gateFor(gateNonce, challengeBlock, gatePass);
         if (status != EventStatus.Open) revert EventNotOpen();
         if (block.timestamp < doorsOpen || block.timestamp > endTime) revert NotDoorTime();
         if (challengeBlock > block.number) revert ChallengeFromFuture(challengeBlock, block.number);
@@ -269,7 +277,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         uint256 p = price;
         escrowed -= p;
         released += p;
-        emit CheckedIn(ticketId, msg.sender, challenge, p);
+        emit CheckedIn(ticketId, gate, challenge, p);
     }
 
     // ---------------------------------------------------------------------
@@ -502,6 +510,21 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         if (gate == address(0)) revert ZeroAddress();
         isGate[gate] = allowed;
         emit GateSet(gate, allowed);
+    }
+
+    /// @dev The registered gate behind a check-in, or NotGate.
+    function _gateFor(bytes32 gateNonce, uint256 challengeBlock, bytes calldata gatePass)
+        internal
+        view
+        returns (address gate)
+    {
+        if (gatePass.length == 0) {
+            gate = msg.sender;
+        } else {
+            bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(GATE_PASS_TYPEHASH, gateNonce, challengeBlock)));
+            (gate,,) = ECDSA.tryRecoverCalldata(digest, gatePass);
+        }
+        if (gate == address(0) || !isGate[gate]) revert NotGate();
     }
 
     function _refundable() internal view returns (bool) {

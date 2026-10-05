@@ -253,11 +253,11 @@ contract CurtainEventTest is CurtainTestBase {
         bytes32 challenge = ev.challengeFor(id, nonce, challengeBlock);
         WebAuthn.WebAuthnAuth memory auth = _assertion(alice.passkey, challenge, RP_ID);
         vm.prank(gate);
-        ev.checkIn(id, nonce, challengeBlock, auth);
+        ev.checkIn(id, nonce, challengeBlock, "", auth);
 
         vm.expectRevert(abi.encodeWithSelector(CurtainEvent.ChallengeAlreadyUsed.selector, challenge));
         vm.prank(gate);
-        ev.checkIn(id, nonce, challengeBlock, auth);
+        ev.checkIn(id, nonce, challengeBlock, "", auth);
     }
 
     function test_revert_staleChallenge_ChallengeExpired() public {
@@ -272,7 +272,7 @@ contract CurtainEventTest is CurtainTestBase {
             abi.encodeWithSelector(CurtainEvent.ChallengeExpired.selector, challengeBlock, challengeBlock + MAX_AGE + 1)
         );
         vm.prank(gate);
-        ev.checkIn(id, nonce, challengeBlock, auth);
+        ev.checkIn(id, nonce, challengeBlock, "", auth);
     }
 
     function test_revert_futureChallenge_ChallengeFromFuture() public {
@@ -284,7 +284,7 @@ contract CurtainEventTest is CurtainTestBase {
 
         vm.expectRevert(abi.encodeWithSelector(CurtainEvent.ChallengeFromFuture.selector, challengeBlock, block.number));
         vm.prank(gate);
-        ev.checkIn(id, nonce, challengeBlock, auth);
+        ev.checkIn(id, nonce, challengeBlock, "", auth);
     }
 
     function test_revert_secondScanWithFreshNonce_TicketNotActive() public {
@@ -297,7 +297,7 @@ contract CurtainEventTest is CurtainTestBase {
         WebAuthn.WebAuthnAuth memory auth = _assertion(alice.passkey, ev.challengeFor(id, nonce, block.number), RP_ID);
         vm.expectRevert(abi.encodeWithSelector(CurtainEvent.TicketNotActive.selector, id));
         vm.prank(gate);
-        ev.checkIn(id, nonce, block.number, auth);
+        ev.checkIn(id, nonce, block.number, "", auth);
     }
 
     function test_revert_wrongPasskey_InvalidAssertion() public {
@@ -307,7 +307,7 @@ contract CurtainEventTest is CurtainTestBase {
         WebAuthn.WebAuthnAuth memory auth = _assertion(bob.passkey, ev.challengeFor(id, nonce, block.number), RP_ID);
         vm.expectRevert(CurtainEvent.InvalidAssertion.selector);
         vm.prank(gate);
-        ev.checkIn(id, nonce, block.number, auth);
+        ev.checkIn(id, nonce, block.number, "", auth);
     }
 
     function test_revert_passkeyFromAnotherDomain_WrongRpId() public {
@@ -318,7 +318,7 @@ contract CurtainEventTest is CurtainTestBase {
             _assertion(alice.passkey, ev.challengeFor(id, nonce, block.number), "evil.example");
         vm.expectRevert(CurtainEvent.WrongRpId.selector);
         vm.prank(gate);
-        ev.checkIn(id, nonce, block.number, auth);
+        ev.checkIn(id, nonce, block.number, "", auth);
     }
 
     function test_revert_callerNotGate_NotGate() public {
@@ -328,7 +328,7 @@ contract CurtainEventTest is CurtainTestBase {
         WebAuthn.WebAuthnAuth memory auth = _assertion(alice.passkey, ev.challengeFor(id, nonce, block.number), RP_ID);
         vm.expectRevert(CurtainEvent.NotGate.selector);
         vm.prank(relayer);
-        ev.checkIn(id, nonce, block.number, auth);
+        ev.checkIn(id, nonce, block.number, "", auth);
     }
 
     function test_revert_checkInBeforeDoors_NotDoorTime() public {
@@ -337,7 +337,7 @@ contract CurtainEventTest is CurtainTestBase {
         WebAuthn.WebAuthnAuth memory auth = _assertion(alice.passkey, ev.challengeFor(id, nonce, block.number), RP_ID);
         vm.expectRevert(CurtainEvent.NotDoorTime.selector);
         vm.prank(gate);
-        ev.checkIn(id, nonce, block.number, auth);
+        ev.checkIn(id, nonce, block.number, "", auth);
     }
 
     function test_revert_sellerEntersAfterResale_InvalidAssertion() public {
@@ -350,7 +350,7 @@ contract CurtainEventTest is CurtainTestBase {
         WebAuthn.WebAuthnAuth memory auth = _assertion(alice.passkey, ev.challengeFor(id, nonce, block.number), RP_ID);
         vm.expectRevert(CurtainEvent.InvalidAssertion.selector);
         vm.prank(gate);
-        ev.checkIn(id, nonce, block.number, auth);
+        ev.checkIn(id, nonce, block.number, "", auth);
     }
 
     function test_revert_resaleAboveFaceValue_PriceAboveCap() public {
@@ -405,7 +405,7 @@ contract CurtainEventTest is CurtainTestBase {
         WebAuthn.WebAuthnAuth memory auth = _assertion(alice.passkey, ev.challengeFor(id, nonce, block.number), RP_ID);
         vm.expectRevert(CurtainEvent.EventNotOpen.selector);
         vm.prank(gate);
-        ev.checkIn(id, nonce, block.number, auth);
+        ev.checkIn(id, nonce, block.number, "", auth);
     }
 
     function test_revert_buyWhenSoldOut_SoldOut() public {

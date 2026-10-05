@@ -62,7 +62,7 @@ contract EscrowHandler is CurtainTestBase {
         uint256 passkey = passkeyOf[ev.getTicket(id).holder];
         WebAuthn.WebAuthnAuth memory auth = _assertion(passkey, ev.challengeFor(id, nonce, block.number), RP_ID);
         vm.prank(gate);
-        try ev.checkIn(id, nonce, block.number, auth) {
+        try ev.checkIn(id, nonce, block.number, "", auth) {
             ++ok["checkIn"];
         } catch {}
     }

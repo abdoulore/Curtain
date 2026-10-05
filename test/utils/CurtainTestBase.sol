@@ -242,6 +242,6 @@ abstract contract CurtainTestBase is Test {
         bytes32 nonce = _gateNonce(ticketId);
         WebAuthn.WebAuthnAuth memory auth = _assertion(passkey, ev.challengeFor(ticketId, nonce, block.number), RP_ID);
         vm.prank(gate);
-        return ev.checkIn(ticketId, nonce, block.number, auth);
+        return ev.checkIn(ticketId, nonce, block.number, "", auth);
     }
 }

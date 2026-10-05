@@ -72,7 +72,7 @@ export function CheckInView() {
 
   if (!token) {
     return (
-      <main className="pt-10 text-center">
+      <main className="mx-auto max-w-md pt-10 text-center lg:pt-20">
         <h1 className="text-2xl font-semibold">Scan the gate code</h1>
         <p className="mt-2 text-muted">Point your camera at the code on the gate screen to check in.</p>
       </main>
@@ -81,7 +81,7 @@ export function CheckInView() {
 
   if (outcome?.ok) {
     return (
-      <main className="flex min-h-[70vh] flex-col items-center justify-center rounded-3xl bg-go text-center text-white">
+      <main className="mx-auto mt-6 flex min-h-[70vh] max-w-md flex-col items-center justify-center rounded-3xl bg-go p-6 text-center text-white">
         <p className="text-5xl">✓</p>
         <h1 className="mt-4 text-3xl font-semibold">Welcome in</h1>
         <p className="mt-2 text-lg">Ticket #{outcome.result.ticketId}</p>
@@ -93,7 +93,7 @@ export function CheckInView() {
   }
 
   return (
-    <main className="pt-6">
+    <main className="mx-auto max-w-md pt-6 lg:pt-12">
       <p className="text-sm text-muted">Checking in to</p>
       <h1 className="text-2xl font-semibold">{meta?.name ?? "Curtain event"}</h1>
 

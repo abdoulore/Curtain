@@ -93,7 +93,7 @@ export function TicketsView() {
 
   if (!account) {
     return (
-      <main className="pt-10 text-center">
+      <main className="mx-auto max-w-md pt-10 text-center lg:pt-20">
         <h1 className="text-2xl font-semibold">Your tickets</h1>
         <p className="mt-2 text-muted">
           Already bought on another device? Sign in with the same passkey and your tickets come with you.
@@ -109,7 +109,7 @@ export function TicketsView() {
   }
 
   return (
-    <main className="pt-6">
+    <main className="pt-6 lg:pt-10">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{account.name ? `${account.name}'s tickets` : "My tickets"}</h1>
@@ -125,7 +125,7 @@ export function TicketsView() {
           </Link>
         </div>
       ) : (
-        <ul className="mt-6 space-y-4">
+        <ul className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           {mine.map((t) => (
             <TicketCard key={`${t.event}-${t.ticketId}`} ticket={t} account={account} />
           ))}

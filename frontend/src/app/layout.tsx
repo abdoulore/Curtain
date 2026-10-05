@@ -30,16 +30,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
-        <header className="mx-auto flex w-full max-w-xl items-center justify-between px-4 pt-5 pb-2">
+        <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 pt-5 pb-2 lg:px-8">
           <Link href="/" className="text-lg font-semibold tracking-tight">
             <span className="text-velvet">●</span> Curtain
           </Link>
-          <Link href="/tickets" className="rounded-full border border-line px-3 py-1.5 text-sm font-medium">
-            My tickets
-          </Link>
+          <nav className="flex items-center gap-2 text-sm font-medium">
+            <Link href="/board/demo" className="hidden rounded-full px-3 py-1.5 text-muted hover:text-foreground sm:inline-block">
+              Money board
+            </Link>
+            <Link href="/tickets" className="rounded-full border border-line px-3 py-1.5">
+              My tickets
+            </Link>
+          </nav>
         </header>
         <InAppBrowserNotice />
-        <div className="mx-auto w-full max-w-xl flex-1 px-4 pb-16">{children}</div>
+        <div className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 lg:px-8">{children}</div>
       </body>
     </html>
   );

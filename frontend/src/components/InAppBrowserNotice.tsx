@@ -12,7 +12,7 @@ export function InAppBrowserNotice() {
   if (!app) return null;
 
   return (
-    <div className="mx-auto mt-3 w-full max-w-5xl px-4">
+    <div className="mx-auto mt-3 w-full max-w-6xl px-4 lg:px-8">
       <div className="rounded-2xl border border-velvet/40 bg-velvet/10 p-4 text-sm">
         <p className="font-semibold">Open this page in Safari or Chrome</p>
         <p className="mt-1 text-muted">

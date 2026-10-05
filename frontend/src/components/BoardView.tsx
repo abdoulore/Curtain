@@ -253,12 +253,12 @@ export function BoardView({ meta }: { meta: EventMeta }) {
   }, [meta.address, refresh]);
 
   return (
-    <main className="pt-6">
+    <main className="pt-6 lg:pt-10">
       <div className="flex items-center justify-between text-sm">
         <p className="text-muted">Money board</p>
         <p className={live ? "text-go" : "text-muted"}>{live ? "● Live" : "○ Connecting"}</p>
       </div>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight">{meta.name}</h1>
+      <h1 className="mt-1 text-2xl font-semibold tracking-tight lg:text-4xl">{meta.name}</h1>
       {totals && <p className="mt-1 text-sm text-muted">{STATUS_TEXT[totals.status] ?? totals.status}</p>}
 
       {pulse && (
@@ -277,7 +277,8 @@ export function BoardView({ meta }: { meta: EventMeta }) {
         ))}
       </section>
 
-      <section className="mt-4 rounded-3xl border border-line bg-surface p-5">
+      <div className="lg:mt-6 lg:grid lg:grid-cols-[1.4fr_1fr] lg:items-start lg:gap-6">
+      <section className="mt-4 rounded-3xl border border-line bg-surface p-5 lg:mt-0 lg:p-6">
         {totals ? <MoneyBar totals={totals} /> : <div className="h-24" />}
         {totals && (
           <dl className="mt-5 grid grid-cols-2 gap-y-2 border-t border-line pt-4 text-sm sm:grid-cols-4">
@@ -295,7 +296,7 @@ export function BoardView({ meta }: { meta: EventMeta }) {
         )}
       </section>
 
-      <section className="mt-6">
+      <section className="mt-6 lg:mt-0">
         <h2 className="text-sm font-semibold">Activity</h2>
         {feed.length === 0 ? (
           <p className="mt-2 text-sm text-muted">
@@ -319,6 +320,8 @@ export function BoardView({ meta }: { meta: EventMeta }) {
           </ul>
         )}
       </section>
+
+      </div>
 
       <p className="mt-6 text-center text-xs text-muted">
         {totals?.source === "Envio" ? "Totals indexed by Envio HyperIndex; live moments straight from the chain." : null}

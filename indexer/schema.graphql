@@ -1,0 +1,80 @@
+enum ShowStatus {
+  Open
+  Cancelled
+  Held
+  NotHeld
+}
+
+enum TicketState {
+  Active
+  CheckedIn
+  RefundOwed
+  Refunded
+}
+
+enum ActivityKind {
+  Created
+  Purchased
+  CheckedIn
+  Withdrawn
+  Cancelled
+  Settled
+  Refunded
+  RefundOwed
+  Listed
+  Resold
+  ClaimSet
+  Claimed
+}
+
+# One CurtainEvent escrow. Money columns are token base units (USDC, 6 decimals).
+# Invariant mirrored from the contract: paidIn == escrowed + released + refunded.
+type Show {
+  id: ID! # escrow address
+  organizer: String!
+  token: String!
+  price: BigInt!
+  capacity: BigInt!
+  salesEnd: BigInt!
+  doorsOpen: BigInt!
+  endTime: BigInt!
+  status: ShowStatus!
+  sold: Int!
+  checkedIn: Int!
+  refundedCount: Int!
+  paidIn: BigInt!
+  escrowed: BigInt!
+  released: BigInt!
+  withdrawn: BigInt!
+  refunded: BigInt!
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  tickets: [Ticket!]! @derivedFrom(field: "show")
+  activity: [Activity!]! @derivedFrom(field: "show")
+}
+
+type Ticket {
+  id: ID! # escrow address-ticketId
+  show: Show!
+  ticketId: BigInt!
+  holder: String! @index
+  state: TicketState!
+  price: BigInt!
+  resalePrice: BigInt!
+  boughtAt: BigInt!
+  boughtTx: String!
+  checkedInAt: BigInt
+  checkedInTx: String
+}
+
+# Feed for the money board: one row per event that changes a show.
+type Activity {
+  id: ID! # tx hash-log index
+  show: Show!
+  kind: ActivityKind!
+  ticketId: BigInt
+  account: String
+  amount: BigInt!
+  timestamp: BigInt! @index
+  txHash: String!
+}

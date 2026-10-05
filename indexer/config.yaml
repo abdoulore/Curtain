@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+name: curtain-indexer
+description: Curtain pay-on-entry ticket escrows on Monad
+address_format: lowercase
+field_selection:
+  transaction_fields:
+    - hash
+contracts:
+  - name: CurtainFactory
+    abi_file_path: abis/CurtainFactory.json
+    events:
+      - event: EventCreated
+  - name: CurtainEvent
+    abi_file_path: abis/CurtainEvent.json
+    events:
+      - event: Purchased
+      - event: CheckedIn
+      - event: Withdrawn
+      - event: Cancelled
+      - event: Settled
+      - event: Refunded
+      - event: RefundOwed
+      - event: Listed
+      - event: Resold
+      - event: ClaimSet
+      - event: Claimed
+chains:
+  - id: 10143 # Monad testnet, served by HyperSync
+    start_block: 68214632 # CurtainFactory deployment
+    contracts:
+      - name: CurtainFactory
+        address: "0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0"
+      - name: CurtainEvent
+        # Clones are registered from EventCreated, see src/handlers/CurtainFactory.ts

@@ -89,6 +89,17 @@ the P-256 key from the registration response, so the same passkey signs check-in
   [`0xc1dbf3b1...a3d3`](https://testnet.monadvision.com/tx/0xc1dbf3b165613de318b68bf23a1e8a387686cfbb61fcd5d4c6611863e31aa3d3)
   (P256VERIFY at `0x0100`, 6,900 gas), and its rpIdHash matches the demo event's.
 
+### Money board and indexer
+
+[`indexer/`](indexer) is an Envio HyperIndex that follows `CurtainFactory`, registers each event escrow it creates,
+and keeps per-show totals (escrowed, released, withdrawn, refunded), every ticket's holder and state, and an
+activity feed. It runs on Envio Cloud over HyperSync; on Oct 5 its totals matched the contract exactly and a new
+purchase appeared in the index 680 ms after it confirmed.
+
+The money board, https://curtaintickets.vercel.app/board/demo, shows those totals and the feed, and pops each
+purchase and check-in the moment it happens from a WebSocket log subscription. "My tickets" also reads the
+indexer, so a buyer's tickets show on any device.
+
 ### Deployed on Monad testnet (chain 10143)
 
 | Contract | Address | Tx |

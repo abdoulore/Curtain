@@ -2,7 +2,7 @@ import { indexer } from "envio";
 import { recordActivity, timestampOf } from "./shared";
 
 // Every event is its own escrow clone; start indexing it as soon as the factory creates it.
-indexer.contractRegister({ contract: "CurtainFactory", event: "EventCreated" }, ({ event, context }) => {
+indexer.contractRegister({ contract: "CurtainFactory", event: "EventCreated" }, async ({ event, context }) => {
   context.chain.CurtainEvent.add(event.params.eventAddress);
 });
 

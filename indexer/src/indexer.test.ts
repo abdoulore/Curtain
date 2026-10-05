@@ -2,16 +2,18 @@ import { describe, it } from "vitest";
 import { createTestIndexer, TestHelpers } from "envio";
 
 const { Addresses } = TestHelpers;
+type Hex = `0x${string}`;
+const lower = (a: string) => a.toLowerCase() as Hex;
 const CHAIN = 10143;
-const SHOW = Addresses.mockAddresses[0]!.toLowerCase();
-const ORGANIZER = Addresses.mockAddresses[1]!.toLowerCase();
-const ALICE = Addresses.mockAddresses[2]!.toLowerCase();
-const BOB = Addresses.mockAddresses[3]!.toLowerCase();
-const CAROL = Addresses.mockAddresses[4]!.toLowerCase();
-const GATE = Addresses.mockAddresses[5]!.toLowerCase();
-const USDC = Addresses.mockAddresses[6]!.toLowerCase();
+const SHOW = lower(Addresses.mockAddresses[0]!);
+const ORGANIZER = lower(Addresses.mockAddresses[1]!);
+const ALICE = lower(Addresses.mockAddresses[2]!);
+const BOB = lower(Addresses.mockAddresses[3]!);
+const CAROL = lower(Addresses.mockAddresses[4]!);
+const GATE = lower(Addresses.mockAddresses[5]!);
+const USDC = lower(Addresses.mockAddresses[6]!);
 const PRICE = 1_000_000n;
-const KEY = `0x${"11".repeat(32)}` as const;
+const KEY = `0x${"11".repeat(32)}` as Hex;
 
 let seq = 0;
 /** Each simulated log gets its own block, tx and log index so activity ids stay unique. */
@@ -20,7 +22,7 @@ function at<T extends object>(item: T) {
   return {
     ...item,
     block: { number: 68_300_000 + seq, timestamp: 1_791_000_000 + seq },
-    transaction: { hash: `0x${seq.toString(16).padStart(64, "0")}` },
+    transaction: { hash: `0x${seq.toString(16).padStart(64, "0")}` as Hex },
     logIndex: 0,
   };
 }
@@ -42,7 +44,7 @@ const created = () =>
     },
   });
 
-const purchased = (ticketId: bigint, buyer: string) =>
+const purchased = (ticketId: bigint, buyer: Hex) =>
   at({
     contract: "CurtainEvent" as const,
     event: "Purchased" as const,

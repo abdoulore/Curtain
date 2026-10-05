@@ -70,7 +70,7 @@ describe("Curtain indexer", () => {
               params: { ticketId: 1n, gate: GATE, challenge: KEY, amount: PRICE },
             }),
             at({ contract: "CurtainEvent", event: "Withdrawn", srcAddress: SHOW, params: { to: ORGANIZER, amount: PRICE } }),
-            at({ contract: "CurtainEvent", event: "Cancelled", srcAddress: SHOW, params: {} }),
+            at({ contract: "CurtainEvent", event: "Cancelled", srcAddress: SHOW }),
             at({
               contract: "CurtainEvent",
               event: "Refunded",

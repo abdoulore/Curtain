@@ -143,12 +143,12 @@ function MoneyBar({ totals }: { totals: Totals }) {
           )
         )}
       </div>
-      <ul className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+      <ul className="mt-4 space-y-2 text-sm">
         {SERIES.map((s) => (
           <li key={s.key} className="flex items-center gap-2">
-            <span className={`inline-block h-3 w-3 rounded-sm ${s.swatch}`} aria-hidden />
+            <span className={`inline-block h-3 w-3 shrink-0 rounded-sm ${s.swatch}`} aria-hidden />
             <span className="text-muted">{s.label}</span>
-            <span className="ml-auto font-medium sm:ml-0">{formatNaira(totals[s.key])}</span>
+            <span className="ml-auto font-medium tabular-nums">{formatNaira(totals[s.key])}</span>
           </li>
         ))}
       </ul>
@@ -281,17 +281,23 @@ export function BoardView({ meta }: { meta: EventMeta }) {
       <section className="mt-4 rounded-3xl border border-line bg-surface p-5 lg:mt-0 lg:p-6">
         {totals ? <MoneyBar totals={totals} /> : <div className="h-24" />}
         {totals && (
-          <dl className="mt-5 grid grid-cols-2 gap-y-2 border-t border-line pt-4 text-sm sm:grid-cols-4">
-            <dt className="text-muted">Tickets sold</dt>
-            <dd className="font-medium sm:text-right">
-              {totals.sold} / {totals.capacity}
-            </dd>
-            <dt className="text-muted">Checked in</dt>
-            <dd className="font-medium sm:text-right">{totals.checkedIn}</dd>
-            <dt className="text-muted">Withdrawn by organizer</dt>
-            <dd className="font-medium sm:text-right">{formatNaira(totals.withdrawn)}</dd>
-            <dt className="text-muted">Total paid in</dt>
-            <dd className="font-medium sm:text-right">{formatNaira(totals.paidIn)}</dd>
+          <dl className="mt-5 grid grid-cols-1 gap-x-8 gap-y-2 border-t border-line pt-4 text-sm sm:grid-cols-2">
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Tickets sold</dt>
+              <dd className="font-medium tabular-nums">{totals.sold} / {totals.capacity}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Checked in</dt>
+              <dd className="font-medium tabular-nums">{totals.checkedIn}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Withdrawn by organizer</dt>
+              <dd className="font-medium tabular-nums">{formatNaira(totals.withdrawn)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Total paid in</dt>
+              <dd className="font-medium tabular-nums">{formatNaira(totals.paidIn)}</dd>
+            </div>
           </dl>
         )}
       </section>

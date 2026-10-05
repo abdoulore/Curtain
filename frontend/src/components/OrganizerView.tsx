@@ -188,7 +188,7 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
             </p>
           </div>
 
-          <fieldset disabled={!isOrganizer || busy !== null} className="space-y-4 disabled:opacity-60">
+          <fieldset disabled={!isOrganizer || busy !== null} className="min-w-0 space-y-4 disabled:opacity-60">
             <div className="rounded-3xl border border-line bg-surface p-5">
               <p className="font-semibold">Withdraw</p>
               <div className="mt-3 flex gap-2">

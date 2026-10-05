@@ -160,6 +160,19 @@ Two-phone run on this deployment, Oct 5: Samsung Android (fingerprint) as the bu
 | Check-in with fingerprint | green on phone and gate, 1 USDC released | [`0x82ce15ee...a2ae`](https://testnet.monadvision.com/tx/0x82ce15ee74ac0084589884596fc6bda74664700bb371a75bb836dbe3da7ca2ae) |
 | Second scan of the same ticket | red on phone and gate, refused at simulation (`TicketNotActive`), no gas spent | none |
 
+Laptop to phone on real devices, Oct 5:
+
+| Device | Path | Result | Tx |
+| --- | --- | --- | --- |
+| Windows laptop, Chrome | A: sign in with the passkey synced through Google Password Manager | same account as the phone (`0xc1ac...5291`) | |
+| Windows laptop, Chrome | buy ticket #5 | success | [`0x025664c8...8954`](https://testnet.monadvision.com/tx/0x025664c8090e7e04efe438258447ed287e3f402525b953052602e95407728954) |
+| Windows laptop, Chrome | B: Send to my phone (PRF claim key) | link set | [`0x7cdf456a...5e41`](https://testnet.monadvision.com/tx/0x7cdf456aa3553a3bc1684d5c1940000cfc6255e76a891b29bcf4474c8cc75e41) |
+| Samsung Android, Chrome | B: scan and claim | claimed | [`0xfe965f93...e3ec`](https://testnet.monadvision.com/tx/0xfe965f938f9fdbbc18c80375810510b80c52726b0b0bda7940da040fe1dce3ec) |
+| Samsung Android, Chrome | check in at the laptop gate, fingerprint | green | [`0xb160c881...c1b6`](https://testnet.monadvision.com/tx/0xb160c881abadf97bddcfb44e1e1a44d81b2855470450b11a9f88f231a93dc1b6) |
+
+Mac and iPhone have not been run. Claiming into a different account and revoking a link are covered by
+`npm run e2e:claim` above.
+
 ## The web app
 
 Next.js on Vercel at https://curtaintickets.vercel.app. Screenshots at 375 px and 1440 px are in

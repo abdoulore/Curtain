@@ -109,9 +109,9 @@ the P-256 key from the registration response, so the same passkey signs check-in
 [`indexer/`](indexer) is an Envio HyperIndex that follows `CurtainFactory`, registers each event escrow it creates,
 and keeps per-show totals (escrowed, released, withdrawn, refunded), every ticket's holder and state, and an
 activity feed. It runs on Envio Cloud over HyperSync; on Oct 5 its totals matched the contract exactly and a new
-purchase appeared in the index 680 ms after it confirmed. Those numbers were measured on the previous factory; the
-indexer config now follows the factory below. If the indexer is down, "My tickets" and sign-in read the chain
-directly.
+purchase appeared in the index 680 ms after it confirmed. Re-pointed at the factory below and checked again on Oct 5:
+sold, checked in, held, released and withdrawn all match the contract. If the indexer is down or has no tickets for
+an account, "My tickets" and sign-in read each escrow directly.
 
 The money board, https://curtaintickets.vercel.app/board/demo, shows those totals and the feed, and pops each
 purchase and check-in the moment it happens from a WebSocket log subscription. "My tickets" also reads the

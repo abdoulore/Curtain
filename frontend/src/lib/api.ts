@@ -21,6 +21,20 @@ const FRIENDLY: Record<string, string> = {
   InvalidPublicKey: "This passkey can't be used for tickets.",
   UnknownEvent: "We couldn't find this show.",
   RpcError: "The network is busy. Please try again in a moment.",
+  // At the door
+  TicketNotActive: "This ticket has already been used or refunded.",
+  InvalidAssertion: "This ticket belongs to someone else's fingerprint or Face ID.",
+  WrongRpId: "This passkey wasn't made for Curtain.",
+  ChallengeAlreadyUsed: "That gate code was already used. Scan the gate again.",
+  ChallengeExpired: "That gate code expired. Scan the gate again.",
+  ChallengeFromFuture: "That gate code isn't valid yet. Scan the gate again.",
+  GateTokenExpired: "That gate code expired. Scan the gate again.",
+  GateTokenInvalid: "That code didn't come from a Curtain gate.",
+  GateTokenWrongEvent: "That gate is for a different show.",
+  NotDoorTime: "Doors aren't open right now.",
+  NotGate: "This gate isn't set up for the show.",
+  GateUnauthorized: "Wrong gate code.",
+  GateNotRegistered: "This gate isn't set up for the show.",
 };
 
 export async function postJson<T>(path: string, body: unknown): Promise<T> {

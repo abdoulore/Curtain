@@ -10,6 +10,10 @@ import { RelayError } from "@/server/relay";
 
 const body = z.object({ event: address, code: z.string().min(1) });
 
+// Gate screens ask every few seconds; re-check the gate registration at most once a minute per instance.
+const gateChecked = new Map<string, number>();
+const GATE_CHECK_TTL_MS = 60_000;
+
 /** A gate screen asks for a fresh nonce every few seconds and shows it as a QR. */
 export async function POST(request: Request) {
   try {
@@ -17,11 +21,14 @@ export async function POST(request: Request) {
     checkGateAccessCode(code);
     const eventAddress = await assertCurtainEvent(event);
     const gate = privateKeyToAccount(env.gateKey()).address;
+    const fresh = (gateChecked.get(eventAddress) ?? 0) > Date.now() - GATE_CHECK_TTL_MS;
     const [isGate, block] = await Promise.all([
-      publicClient.readContract({ address: eventAddress, abi: curtainEventAbi, functionName: "isGate", args: [gate] }),
+      fresh ||
+        publicClient.readContract({ address: eventAddress, abi: curtainEventAbi, functionName: "isGate", args: [gate] }),
       publicClient.getBlockNumber(),
     ]);
     if (!isGate) throw new RelayError(409, "GateNotRegistered", `Gate ${gate} is not registered for this event`);
+    gateChecked.set(eventAddress, Date.now());
     return ok(issueGateToken(eventAddress, block));
   } catch (error) {
     return fail(error);

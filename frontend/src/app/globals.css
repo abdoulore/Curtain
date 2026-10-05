@@ -47,3 +47,16 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Gate code lifetime: drains over one rotation. */
+@keyframes gate-drain {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+.gate-drain {
+  animation: gate-drain 5s linear forwards;
+}

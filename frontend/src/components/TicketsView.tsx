@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getAddress, type Hash } from "viem";
 import { txUrl } from "@/lib/chain";
 import { signOut } from "@/lib/account";
 import { findEvent } from "@/lib/events";
 import { useAccount, useHydrated, useSavedTickets } from "@/lib/hooks";
 import { formatNaira } from "@/lib/money";
+import { fetchTicketsOf } from "@/lib/indexer";
 import { readBalance, readTicket, type TicketState } from "@/lib/reads";
 import type { SavedTicket } from "@/lib/tickets";
 
@@ -65,12 +67,29 @@ export function TicketsView() {
   const account = useAccount();
   const saved = useSavedTickets();
   const [balance, setBalance] = useState<bigint | null>(null);
+  // Tickets the indexer knows this account holds, so they show on any device, not just the one that bought them.
+  const [indexed, setIndexed] = useState<SavedTicket[]>([]);
 
   useEffect(() => {
     if (!account) return;
     let alive = true;
     readBalance(account.address)
       .then((b) => alive && setBalance(b))
+      .catch(() => {});
+    fetchTicketsOf(account.address)
+      .then(
+        (rows) =>
+          alive &&
+          setIndexed(
+            rows.map((r) => ({
+              event: getAddress(r.show_id),
+              ticketId: r.ticketId,
+              owner: account.address,
+              hash: r.boughtTx as Hash,
+              boughtAt: Number(r.boughtAt) * 1000,
+            })),
+          ),
+      )
       .catch(() => {});
     return () => {
       alive = false;
@@ -94,7 +113,11 @@ export function TicketsView() {
     );
   }
 
-  const mine = saved.filter((t) => t.owner.toLowerCase() === account.address.toLowerCase());
+  const local = saved.filter((t) => t.owner.toLowerCase() === account.address.toLowerCase());
+  const seen = new Set(local.map((t) => `${t.event.toLowerCase()}-${t.ticketId}`));
+  const mine = [...local, ...indexed.filter((t) => !seen.has(`${t.event.toLowerCase()}-${t.ticketId}`))].sort(
+    (a, b) => b.boughtAt - a.boughtAt,
+  );
 
   return (
     <main className="pt-6">

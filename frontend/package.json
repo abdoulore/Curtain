@@ -10,7 +10,8 @@
     "sync-abis": "node scripts/sync-abis.mjs",
     "e2e:relay": "node scripts/e2e-relay.mjs",
     "test": "vitest run",
-    "e2e:claim": "node scripts/e2e-claim.mjs"
+    "e2e:claim": "node scripts/e2e-claim.mjs",
+    "e2e:organizer": "node scripts/e2e-organizer.mjs"
   },
   "dependencies": {
     "@category-labs/mera": "^0.2.0",

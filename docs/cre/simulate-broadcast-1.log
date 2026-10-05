@@ -1,0 +1,28 @@
+Initializing...
+Loading settings...
+Checking RPC connectivity...
+Compiling workflow...
+✓ Workflow compiled
+✓ Simulation limits enabled
+  HTTP: req=120kb resp=250kb timeout=10s | ConfHTTP: req=125kb resp=500kb timeout=1m30s | Consensus obs=25kb | ChainWrite evm_report=50kb evm_gas=10000000 solana_report=265b solana_cu=300000 | WASM binary=100mb compressed=20mb
+  Binary hash: 0026531780eae06847837d1484f45a74801dd8a35f1788e13c14a59009525402
+  Config hash: e6bb2dcdc564861ae313b1a6daacda9b699b8a86512f9a1759499bd4ca08a344
+2026-10-05T20:24:41Z [SIMULATION] Simulator Initialized
+
+2026-10-05T20:24:41Z [SIMULATION] Running trigger trigger=cron-trigger@1.0.0
+2026-10-05T20:24:41Z [USER LOG] Checking 3 shows
+2026-10-05T20:24:42Z [USER LOG] Settle 0x537a071e81734ecd498FC0D3CE8c36AfEDcB9A09
+2026-10-05T20:24:42Z [USER LOG] PushRefunds 0xC0731dA73709F548f28f9d373E36e79d1a1Ed29A
+2026-10-05T20:24:43Z [USER LOG] Report delivered: 0xf0b0c6d010af6e6b95efa04b1a72ba4a41ed4eae1eb69d988704e3ac0ef06290
+
+✓ Workflow Simulation Result:
+"Kept 2 show(s): 0xf0b0c6d010af6e6b95efa04b1a72ba4a41ed4eae1eb69d988704e3ac0ef06290"
+
+2026-10-05T20:24:43Z [SIMULATION] Execution finished signal received
+2026-10-05T20:24:43Z [SIMULATION] Skipping WorkflowEngineV2
+
+╭──────────────────────────────────────────────────────╮
+│ Simulation complete! Ready to deploy your workflow?  │
+│                                                      │
+│ Run cre account access to request deployment access. │
+╰──────────────────────────────────────────────────────╯

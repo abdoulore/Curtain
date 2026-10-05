@@ -12,9 +12,10 @@ out/
 /broadcast/**/dry-run/
 
 # Docs
-# Generated forge docs stay out; screenshots are kept.
+# Generated forge docs stay out; screenshots and CRE run logs are kept.
 docs/*
 !docs/screens/
+!docs/cre/
 
 # Dotenv file
 .env

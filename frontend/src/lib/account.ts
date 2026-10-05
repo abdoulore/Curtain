@@ -11,11 +11,10 @@ import { toViemAccount } from "@category-labs/mera/viem";
 import { HDKey } from "@scure/bip32";
 import { entropyToMnemonic, mnemonicToSeedSync } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
-import { bytesToHex, getAddress, type Address, type Hex, type LocalAccount } from "viem";
+import { bytesToHex, type Address, type Hex, type LocalAccount } from "viem";
 import { RP_ID } from "./chain";
-import { CATALOG_EVENTS } from "./events";
-import { fetchTicketsOf } from "./indexer";
-import { readTicket, ticketsHeldOnChain } from "./reads";
+import { heldTickets } from "./held-tickets";
+import { readTicket } from "./reads";
 import { creationOptions, ES256, pickDoorKey, recoverDoorKeys, type DoorKey } from "./webauthn";
 
 /**
@@ -181,17 +180,12 @@ function saveAccount(account: StoredAccount | null) {
 /** The key bound to any ticket this account holds: from the indexer, or read straight from each listed escrow. */
 async function doorKeyFromTickets(holder: Address): Promise<DoorKey | undefined> {
   try {
-    const rows = await fetchTicketsOf(holder);
-    const row = rows[0];
-    if (row) {
-      const t = await readTicket(getAddress(row.show_id), BigInt(row.ticketId));
-      return { qx: t.qx, qy: t.qy };
-    }
-    return undefined;
+    const first = (await heldTickets(holder))[0];
+    if (!first) return undefined;
+    const t = await readTicket(first.event, first.ticketId);
+    return { qx: t.qx, qy: t.qy };
   } catch {
-    const held = await ticketsHeldOnChain(holder, CATALOG_EVENTS).catch(() => []);
-    const first = held[0];
-    return first ? { qx: first.info.qx, qy: first.info.qy } : undefined;
+    return undefined;
   }
 }
 

@@ -4,6 +4,7 @@ import { txUrl, USDC } from "@/lib/chain";
 import { publicClient, walletFor } from "@/server/clients";
 import { env } from "@/server/env";
 import { address, fail, ok, parse } from "@/server/http";
+import { clientIp, enforceTopupLimits, limitStore } from "@/server/limits";
 import { sendContract } from "@/server/relay";
 
 const body = z.object({ address });
@@ -17,6 +18,8 @@ export async function POST(request: Request) {
     const { address: to } = await parse(request, body);
     const balance = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [to] });
     if (balance >= LOW_BALANCE) return ok({ toppedUp: false, balance });
+    // Counted only when money would actually move: per network per day, and for the whole app per hour.
+    await enforceTopupLimits(limitStore(), clientIp(request));
 
     const amount = env.topupAmount();
     const sent = await sendContract(walletFor(env.treasuryKey()), {

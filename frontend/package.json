@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "sync-abis": "node scripts/sync-abis.mjs",
-    "e2e:relay": "node scripts/e2e-relay.mjs"
+    "e2e:relay": "node scripts/e2e-relay.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@category-labs/mera": "^0.2.0",
@@ -32,6 +33,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

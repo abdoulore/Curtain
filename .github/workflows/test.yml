@@ -55,6 +55,7 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
       - run: npx next typegen && npx tsc --noEmit
+      - run: npm test
       - run: npm run lint
       - run: npm run build
 

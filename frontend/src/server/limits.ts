@@ -80,3 +80,18 @@ export function clientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
   return forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
 }
+
+/** Show creation costs the relayer the most gas, so it is capped per network per day and for the app per hour. */
+export const DEFAULT_CREATE_LIMITS = {
+  perIpPerDay: Number(process.env.CREATE_PER_IP_PER_DAY ?? 5),
+  globalPerHour: Number(process.env.CREATE_GLOBAL_PER_HOUR ?? 20),
+};
+
+export async function enforceCreateLimits(store: CounterStore, ip: string, limits = DEFAULT_CREATE_LIMITS) {
+  if ((await store.hit(`create:ip:${ip}`, 24 * 60 * 60)) > limits.perIpPerDay) {
+    throw new RelayError(429, "CreateLimitIp", "You've created the most shows allowed today from this network.");
+  }
+  if ((await store.hit("create:global", 60 * 60)) > limits.globalPerHour) {
+    throw new RelayError(429, "CreateLimitGlobal", "Lots of shows are being created right now. Try again in an hour.");
+  }
+}

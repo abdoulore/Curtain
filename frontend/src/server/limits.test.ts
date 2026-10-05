@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enforceTopupLimits, memoryStore, clientIp } from "./limits";
+import { enforceCreateLimits, enforceTopupLimits, memoryStore, clientIp } from "./limits";
 
 const limits = { perIpPerDay: 3, globalPerHour: 5 };
 
@@ -37,5 +37,22 @@ describe("top-up limits", () => {
     const req = new Request("https://x", { headers: { "x-forwarded-for": "203.0.113.7, 10.0.0.1" } });
     expect(clientIp(req)).toBe("203.0.113.7");
     expect(clientIp(new Request("https://x"))).toBe("unknown");
+  });
+});
+
+describe("show creation limits", () => {
+  it("caps a network per day and the app per hour", async () => {
+    const store = memoryStore(() => 0);
+    const caps = { perIpPerDay: 2, globalPerHour: 2 };
+    await enforceCreateLimits(store, "1.1.1.1", caps);
+    await enforceCreateLimits(store, "1.1.1.1", caps);
+    await expect(enforceCreateLimits(store, "1.1.1.1", caps)).rejects.toMatchObject({ status: 429, code: "CreateLimitIp" });
+    await expect(enforceCreateLimits(store, "2.2.2.2", caps)).rejects.toMatchObject({ status: 429, code: "CreateLimitGlobal" });
+  });
+
+  it("counts separately from top-ups", async () => {
+    const store = memoryStore(() => 0);
+    for (let i = 0; i < 3; i++) await enforceTopupLimits(store, "1.1.1.1", limits);
+    await expect(enforceCreateLimits(store, "1.1.1.1", { perIpPerDay: 1, globalPerHour: 1 })).resolves.toBeUndefined();
   });
 });

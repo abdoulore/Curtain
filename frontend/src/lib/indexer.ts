@@ -75,3 +75,42 @@ export async function fetchTicketsOf(holder: Address): Promise<TicketRow[]> {
   );
   return data.Ticket;
 }
+
+/** Gate devices currently allowed on a show. */
+export async function fetchGates(show: Address): Promise<string[]> {
+  const data = await query<{ Gate: { gate: string }[] }>(
+    `query Gates($id: String!) {
+      Gate(where: { show_id: { _eq: $id }, allowed: { _eq: true } }) { gate }
+    }`,
+    { id: show.toLowerCase() },
+  );
+  return data.Gate.map((g) => g.gate);
+}
+
+export type MyShowRow = { id: string; name: string; venue: string; status: string; sold: number; doorsOpen: string };
+
+/** Shows an organizer created, newest first. */
+export async function fetchShowsOf(organizer: Address): Promise<MyShowRow[]> {
+  const data = await query<{ Show: MyShowRow[] }>(
+    `query MyShows($organizer: String!) {
+      Show(where: { organizer: { _eq: $organizer } }, order_by: { createdAt: desc }) {
+        id name venue status sold doorsOpen
+      }
+    }`,
+    { organizer: organizer.toLowerCase() },
+  );
+  return data.Show;
+}
+
+/** Tickets on sale for a show, from the indexer. */
+export async function fetchListings(show: Address) {
+  const data = await query<{ Ticket: { ticketId: string; resalePrice: string; holder: string; state: string }[] }>(
+    `query Listings($id: String!) {
+      Ticket(where: { show_id: { _eq: $id }, state: { _eq: Active }, resalePrice: { _gt: "0" } }) {
+        ticketId resalePrice holder state
+      }
+    }`,
+    { id: show.toLowerCase() },
+  );
+  return data.Ticket;
+}

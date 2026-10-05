@@ -1,26 +1,49 @@
 @import "tailwindcss";
 
+/* Warm paper and velvet: the room before the show. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --background: #f6f1ea;
+  --surface: #fffdf9;
+  --foreground: #1d1714;
+  --muted: #6f655d;
+  --line: #e6ddd2;
+  --velvet: #8e1b2c;
+  --velvet-ink: #fff6f2;
+  --go: #17703d;
+  --stop: #b42318;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #120d0c;
+    --surface: #1c1513;
+    --foreground: #f4ece4;
+    --muted: #a99c90;
+    --line: #2f2522;
+    --velvet: #d2475b;
+    --velvet-ink: #1a0b0e;
+    --go: #4ade80;
+    --stop: #f87171;
   }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-velvet: var(--velvet);
+  --color-velvet-ink: var(--velvet-ink);
+  --color-go: var(--go);
+  --color-stop: var(--stop);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }

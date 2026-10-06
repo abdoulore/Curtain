@@ -6,7 +6,13 @@ import Image from "next/image";
  */
 export function Poster({ src, name, sizes, priority }: { src?: string | null; name: string; sizes: string; priority?: boolean }) {
   if (src) {
-    return <Image src={src} alt={`${name} poster`} fill sizes={sizes} priority={priority} className="object-cover" />;
+    // The whole poster, centred on a blurred copy of itself, so portrait and landscape posters both fit any frame.
+    return (
+      <div className="relative h-full w-full overflow-hidden bg-[#120d0c]">
+        <Image src={src} alt="" aria-hidden fill sizes={sizes} className="scale-110 object-cover opacity-60 blur-2xl" />
+        <Image src={src} alt={`${name} poster`} fill sizes={sizes} priority={priority} className="object-contain" />
+      </div>
+    );
   }
   return (
     <div

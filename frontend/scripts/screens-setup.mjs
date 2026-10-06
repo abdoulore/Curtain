@@ -13,7 +13,21 @@ import { encodeAbiParameters, keccak256 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { p256 } from "@noble/curves/nist.js";
 import { bytesToHex } from "viem";
-import { api, buy, eventAbi, must, person, pub, usdcOf } from "./e2e-lib.mjs";
+import { readFileSync } from "node:fs";
+import { createWalletClient, defineChain, erc20Abi, http } from "viem";
+import { api, buy, eventAbi, must, person, pub, USDC, usdcOf } from "./e2e-lib.mjs";
+
+// Buyers are funded straight from the treasury, so the app's daily top-up limits stay free for real visitors.
+const treasuryKey = readFileSync(new URL("../../.env", import.meta.url), "utf8").match(/^TREASURY_PRIVATE_KEY=(0x[0-9a-fA-F]{64})/m)[1];
+const treasury = createWalletClient({
+  account: privateKeyToAccount(treasuryKey),
+  chain: defineChain({ id: 10143, name: "Monad Testnet", nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 }, rpcUrls: { default: { http: ["https://testnet-rpc.monad.xyz"] } } }),
+  transport: http(),
+});
+async function fund(address, amount) {
+  const hash = await treasury.writeContract({ address: USDC, abi: erc20Abi, functionName: "transfer", args: [address, amount] });
+  await pub.waitForTransactionReceipt({ hash });
+}
 
 const DEMO = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
 const CANCELLED = "0xC0731dA73709F548f28f9d373E36e79d1a1Ed29A";
@@ -27,7 +41,7 @@ log("persona:", persona.account.address);
 
 const price = await pub.readContract({ address: DEMO, abi: eventAbi, functionName: "price" });
 async function personaBuys() {
-  if ((await usdcOf(persona.account.address)) < price) must("persona top-up", await api("/api/topup", { address: persona.account.address }));
+  if ((await usdcOf(persona.account.address)) < price) await fund(persona.account.address, price);
   return BigInt(must("persona buys", await buy(DEMO, persona, price)).ticketId);
 }
 async function list(who, ticketId) {
@@ -46,12 +60,12 @@ const ready = await personaBuys();
 const sold = await personaBuys();
 await list(persona, sold);
 const resaleBuyer = person("resale buyer");
-must("resale buyer top-up", await api("/api/topup", { address: resaleBuyer.account.address }));
+await fund(resaleBuyer.account.address, price);
 const resold = must("resale buyer buys", await buy(DEMO, resaleBuyer, price, sold));
 
 // One more ticket, listed and left on sale, so the event page shows a resale offer.
 const seller = person("seller");
-must("seller top-up", await api("/api/topup", { address: seller.account.address }));
+await fund(seller.account.address, price);
 const onSale = BigInt(must("seller buys", await buy(DEMO, seller, price)).ticketId);
 const listed = await list(seller, onSale);
 

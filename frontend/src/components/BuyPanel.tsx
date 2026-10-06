@@ -114,8 +114,8 @@ export function BuyPanel({
           <div className="mt-1 space-y-2 text-sm">
             <p className="font-medium">Ticket #{bought.ticketId} is ready for your phone.</p>
             <p>
-              On your phone, open curtaintickets.vercel.app and sign in with your passkey. If your passkey isn&apos;t on
-              your phone, open My tickets here and choose Send to my phone.
+              On your phone, open curtaintickets.vercel.app and sign in with your passkey, or open My tickets here and
+              choose Send to my phone.
             </p>
           </div>
         ) : (

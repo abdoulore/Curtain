@@ -97,7 +97,9 @@ for (const vp of viewports) {
     deviceScaleFactor: vp.deviceScaleFactor,
     colorScheme: "light",
   });
-  for (const p of pages) {
+  // ONLY=organizer,board retakes just those pages.
+  const only = process.env.ONLY?.split(",");
+  for (const p of pages.filter((x) => !only || only.includes(x.name))) {
     const page = await context.newPage();
     const seed = p.seed ? seeds[p.seed] : {};
     await page.addInitScript((entries) => {

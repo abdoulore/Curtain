@@ -104,9 +104,10 @@ export function DoorList({ event }: { event: Address }) {
   );
 }
 
-const W = 560;
-const H = 220;
-const PAD = { top: 16, right: 64, bottom: 28, left: 32 };
+// A narrow canvas, so the labels stay legible when the chart scales down to a phone's width.
+const W = 360;
+const H = 200;
+const PAD = { top: 16, right: 60, bottom: 30, left: 30 };
 
 /** Two step lines on one axis: tickets sold and checked in, with a crosshair readout. */
 function SalesChart({ series }: { series: SalesPoint[] }) {
@@ -158,23 +159,23 @@ function SalesChart({ series }: { series: SalesPoint[] }) {
         {ticks.map((v) => (
           <g key={v}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)} className="stroke-line" strokeWidth={1} />
-            <text x={PAD.left - 8} y={y(v) + 4} textAnchor="end" className="fill-muted text-[11px]">
+            <text x={PAD.left - 8} y={y(v) + 4} textAnchor="end" className="fill-muted text-[13px]">
               {v}
             </text>
           </g>
         ))}
         <path d={step("sold")} fill="none" className="stroke-viz-held" strokeWidth={2} />
         <path d={step("checkedIn")} fill="none" className="stroke-viz-released" strokeWidth={2} />
-        <text x={x(last.t) + 6} y={y(last.sold) + 4} className="fill-foreground text-[11px]">
+        <text x={x(last.t) + 6} y={y(last.sold) + 4} className="fill-foreground text-[13px]">
           {last.sold} sold
         </text>
-        <text x={x(last.t) + 6} y={y(last.checkedIn) + (last.checkedIn === last.sold ? 16 : 4)} className="fill-foreground text-[11px]">
+        <text x={x(last.t) + 6} y={y(last.checkedIn) + (last.checkedIn === last.sold ? 16 : 4)} className="fill-foreground text-[13px]">
           {last.checkedIn} in
         </text>
-        <text x={PAD.left} y={H - 8} className="fill-muted text-[11px]">
+        <text x={PAD.left} y={H - 8} className="fill-muted text-[13px]">
           {time.format(new Date(t0 * 1000))}
         </text>
-        <text x={W - PAD.right} y={H - 8} textAnchor="end" className="fill-muted text-[11px]">
+        <text x={W - PAD.right} y={H - 8} textAnchor="end" className="fill-muted text-[13px]">
           now
         </text>
         {shown && (

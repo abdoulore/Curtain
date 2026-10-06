@@ -1,7 +1,7 @@
 // Screenshots of every page at phone (375px) and desktop (1440px) widths, saved to docs/screens.
 // Signed-in states are seeded into localStorage from real testnet state (see screens-setup.mjs); nothing is mocked
 // onchain. The pairing dialog is reached through the dashboard's wallet fallback, backed here by the demo show's
-// organizer key, so taking it sends one real SetGate per width.
+// organizer key, so taking it sends one real SetGate per width, and one more to remove that gate again.
 //
 //   BASE_URL=https://curtaintickets.vercel.app npm run screens
 import { mkdirSync, readFileSync } from "node:fs";
@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { concat, hexToBytes, toHex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { organizerAction } from "./e2e-lib.mjs";
 import { issueGatePass } from "./gate-device.mjs";
 
 const BASE_URL = process.env.BASE_URL ?? "https://curtaintickets.vercel.app";
@@ -118,6 +119,11 @@ for (const vp of viewports) {
     const file = new URL(`${p.name}-${vp.label}.png`, OUT);
     await page.screenshot({ path: fileURLToPath(file), fullPage: !p.pair });
     console.log(`${p.name}-${vp.label}.png${overflow ? "  HORIZONTAL OVERFLOW" : ""}`);
+    if (p.pair) {
+      // Unpair the throwaway gate the dialog registered, so the demo show keeps only its real gate.
+      const paired = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? "[]"), `curtain.pairedGates.v1.${DEMO.toLowerCase()}`);
+      for (const gate of paired) await organizerAction(DEMO, organizer, "setGate", { gate, allowed: false });
+    }
     await page.close();
   }
   await context.close();

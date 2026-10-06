@@ -114,3 +114,55 @@ export async function fetchListings(show: Address) {
   );
   return data.Ticket;
 }
+
+export type OpenShowRow = {
+  id: string;
+  name: string;
+  venue: string;
+  price: string;
+  capacity: string;
+  sold: number;
+  doorsOpen: string;
+  endTime: string;
+  status: string;
+};
+
+/** Shows still open for sale; the caller drops ended and sold-out ones. */
+export async function fetchOpenShows(): Promise<OpenShowRow[]> {
+  const data = await query<{ Show: OpenShowRow[] }>(
+    `query Open {
+      Show(where: { status: { _eq: Open } }, order_by: { doorsOpen: asc }, limit: 60) {
+        id name venue price capacity sold doorsOpen endTime status
+      }
+    }`,
+    {},
+  );
+  return data.Show;
+}
+
+/** Every ticket of a show and its sales and check-in history, for the organizer's door list and chart. */
+export async function fetchDoor(show: Address) {
+  const data = await query<{
+    Ticket: { ticketId: string; state: string; boughtAt: string; checkedInAt: string | null }[];
+    Activity: { kind: string; timestamp: string }[];
+  }>(
+    `query Door($id: String!) {
+      Ticket(where: { show_id: { _eq: $id } }, order_by: { ticketId: desc }, limit: 500) {
+        ticketId state boughtAt checkedInAt
+      }
+      Activity(where: { show_id: { _eq: $id }, kind: { _in: [Purchased, CheckedIn] } }, order_by: { timestamp: asc }, limit: 1000) {
+        kind timestamp
+      }
+    }`,
+    { id: show.toLowerCase() },
+  );
+  return {
+    tickets: data.Ticket.map((t) => ({
+      ticketId: Number(t.ticketId),
+      state: t.state,
+      boughtAt: Number(t.boughtAt),
+      checkedInAt: t.checkedInAt === null ? null : Number(t.checkedInAt),
+    })),
+    activity: data.Activity.map((a) => ({ kind: a.kind, timestamp: Number(a.timestamp) })),
+  };
+}

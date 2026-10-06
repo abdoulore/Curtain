@@ -73,6 +73,19 @@ export const curtainEventAbi = [
   },
   {
     "type": "function",
+    "name": "DEFAULT_MAX_PER_BUYER",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "GATE_PASS_TYPEHASH",
     "inputs": [],
     "outputs": [
@@ -777,6 +790,11 @@ export const curtainEventAbi = [
             "internalType": "uint32"
           },
           {
+            "name": "maxPerBuyer",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "rpIdHash",
             "type": "bytes32",
             "internalType": "bytes32"
@@ -853,6 +871,19 @@ export const curtainEventAbi = [
         "name": "",
         "type": "uint32",
         "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxPerBuyer",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "stateMutability": "view"
@@ -1107,6 +1138,25 @@ export const curtainEventAbi = [
         "name": "",
         "type": "uint8",
         "internalType": "enum CurtainEvent.EventStatus"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ticketsHeld",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -1737,6 +1787,22 @@ export const curtainEventAbi = [
   },
   {
     "type": "error",
+    "name": "TooManyTickets",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "max",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "WrongRpId",
     "inputs": []
   },
@@ -1855,6 +1921,11 @@ export const curtainFactoryAbi = [
             "internalType": "uint32"
           },
           {
+            "name": "maxPerBuyer",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "rpIdHash",
             "type": "bytes32",
             "internalType": "bytes32"
@@ -1939,6 +2010,11 @@ export const curtainFactoryAbi = [
             "name": "maxChallengeAge",
             "type": "uint32",
             "internalType": "uint32"
+          },
+          {
+            "name": "maxPerBuyer",
+            "type": "uint16",
+            "internalType": "uint16"
           },
           {
             "name": "rpIdHash",
@@ -2125,6 +2201,11 @@ export const curtainFactoryAbi = [
             "name": "maxChallengeAge",
             "type": "uint32",
             "internalType": "uint32"
+          },
+          {
+            "name": "maxPerBuyer",
+            "type": "uint16",
+            "internalType": "uint16"
           },
           {
             "name": "rpIdHash",

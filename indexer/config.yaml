@@ -28,9 +28,9 @@ contracts:
       - event: Claimed
 chains:
   - id: 10143 # Monad testnet, served by HyperSync
-    start_block: 68494066 # CurtainFactory deployment
+    start_block: 68784273 # CurtainFactory deployment
     contracts:
       - name: CurtainFactory
-        address: "0x13391D9E0dD62d01c62821671F47A12eE320Ca58"
+        address: "0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6"
       - name: CurtainEvent
         # Clones are registered from EventCreated, see src/handlers/CurtainFactory.ts

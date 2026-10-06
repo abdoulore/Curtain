@@ -90,6 +90,11 @@
             "internalType": "uint32"
           },
           {
+            "name": "maxPerBuyer",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "rpIdHash",
             "type": "bytes32",
             "internalType": "bytes32"
@@ -174,6 +179,11 @@
             "name": "maxChallengeAge",
             "type": "uint32",
             "internalType": "uint32"
+          },
+          {
+            "name": "maxPerBuyer",
+            "type": "uint16",
+            "internalType": "uint16"
           },
           {
             "name": "rpIdHash",
@@ -360,6 +370,11 @@
             "name": "maxChallengeAge",
             "type": "uint32",
             "internalType": "uint32"
+          },
+          {
+            "name": "maxPerBuyer",
+            "type": "uint16",
+            "internalType": "uint16"
           },
           {
             "name": "rpIdHash",

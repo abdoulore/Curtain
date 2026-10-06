@@ -169,6 +169,29 @@ cd cre && cre workflow simulate ./curtain-keeper --target staging-settings --bro
 `0xF8344CFd5c43616a4366C34E3EEE75af79a74482`. Tests: 18 Foundry tests for the keeper and 9 workflow unit tests
 (`bun test`) with the SDK's EVM and HTTP mocks.
 
+### Every red case, refused onchain
+
+The app checks each action with a simulation first, so a refused scan or a bad request costs nothing and never
+reaches the chain. To show that the contract itself is what says no, [`frontend/scripts/red-cases.mjs`](frontend/scripts/red-cases.mjs)
+sends every red case from the demo as a real transaction with a fixed 400k gas limit on the demo show. Each one
+reverted onchain, Oct 6:
+
+| Case | Contract error | Reverted tx |
+| --- | --- | --- |
+| Replaying the same scan | `ChallengeAlreadyUsed` | [`0x2d0958f5...a45d`](https://testnet.monadvision.com/tx/0x2d0958f52a8919ff63a1104344e68a6af2e997a75b8cc03154363863e137a45d) |
+| Second scan of a used ticket | `TicketNotActive` | [`0x3c9300b9...8af3`](https://testnet.monadvision.com/tx/0x3c9300b97409c137cf9cc1c20a1c5393ff9672ad8140907216e1fe4e32468af3) |
+| Someone else's fingerprint | `InvalidAssertion` | [`0x6c27ff4b...7c2b`](https://testnet.monadvision.com/tx/0x6c27ff4b947fe8128f36fed269ebb115dca770dfb35895b8c81f835689e67c2b) |
+| Gate code older than 300 blocks | `ChallengeExpired` | [`0x6641475a...daa3`](https://testnet.monadvision.com/tx/0x6641475a7c43fe38a187d596123d7e6af0012ab091ad17b909bcf3a8601fdaa3) |
+| Code from a screen that isn't a paired gate | `NotGate` | [`0x47eb06f2...e0ac`](https://testnet.monadvision.com/tx/0x47eb06f27d030f68865eae20df2c3f7cad52c2dc6a7d9aab6a27d0844986e0ac) |
+| Resale above face value | `PriceAboveCap` | [`0x2306b0bd...a18f`](https://testnet.monadvision.com/tx/0x2306b0bd9228e78e714be9c7105fee5d0797808e24ca4ab95420fb207bffa18f) |
+| Seller at the door after reselling | `InvalidAssertion` | [`0xf27ae8b1...1bd7`](https://testnet.monadvision.com/tx/0xf27ae8b149244e474ad22123dc6f7a0861b9860df94ec2e9676ddb62113c1bd7) |
+| Organizer withdraws more than was released | `ExceedsReleased` | [`0x286ed4ac...e4ad`](https://testnet.monadvision.com/tx/0x286ed4acb11db91107695ea1344098e1ecd7cc2df7a059662d1ed7774370e4ad) |
+| A stranger signs a cancellation | `BadSignature` | [`0x97a102d2...4b80`](https://testnet.monadvision.com/tx/0x97a102d2ed0034df3417534dc390647804a56108520775759ee25582d4b44b80) |
+
+```sh
+cd frontend && BASE_URL=https://curtaintickets.vercel.app npm run red-cases
+```
+
 ### Deployed on Monad testnet (chain 10143)
 
 | Contract | Address | Tx |

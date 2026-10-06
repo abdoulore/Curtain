@@ -17,6 +17,7 @@ docs/*
 !docs/screens/
 !docs/cre/
 !docs/brand/
+!docs/red-cases.json
 
 # Dotenv file
 .env

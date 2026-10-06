@@ -14,7 +14,8 @@
     "e2e:organizer": "node scripts/e2e-organizer.mjs",
     "screens": "node scripts/screens.mjs",
     "e2e:resale": "node scripts/e2e-resale.mjs",
-    "e2e:create": "node scripts/e2e-create.mjs"
+    "e2e:create": "node scripts/e2e-create.mjs",
+    "red-cases": "node scripts/red-cases.mjs"
   },
   "dependencies": {
     "@category-labs/mera": "^0.2.0",

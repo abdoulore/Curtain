@@ -195,6 +195,22 @@ Retired deployments (earlier contract versions, kept for the runs recorded below
 keeper `0x010F096F8dC260b68A07025C00404aaf9F33bADe`; factory `0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0` with
 demo event `0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7`.
 
+Real passkey run on the current deployment, Oct 6: Samsung Android (fingerprint, Mera passkey account
+`0xc1ACaC62...5291`) as organizer and buyer, a Windows laptop paired as the gate. Show "Magic show"
+[`0x3A9cF10b...FAd3`](https://testnet.monadvision.com/address/0x3A9cF10b9E427a472bd06145027826eD6D24FAd3).
+
+| Step | Signed by | Tx |
+| --- | --- | --- |
+| Create the show on `/organizer/new` | organizer passkey (`CreateShow`) | [`0xb3c079aa...7cc7`](https://testnet.monadvision.com/tx/0xb3c079aaa72bc0a4afffd4ddef9069a45965eab0ca59dafc3e8833b701a97cc7) |
+| Pair the laptop as a gate ("Add a gate device", QR scanned by the laptop) | organizer passkey (`SetGate`) | [`0x1afafe36...e1003`](https://testnet.monadvision.com/tx/0x1afafe36978502fcbae5705da698cac1edc4d5297ca222c9b5fa3d2a298e1003) |
+| Buy ticket #1 | buyer passkey | [`0x04c6f259...b5`](https://testnet.monadvision.com/tx/0x04c6f2594105ce870c3d6a8488ddcf7e4cad43822c768630d9cea8c54c6bd9b5) |
+| Check in at the paired laptop gate, green | buyer passkey, gate pass from the laptop's key | [`0xacb80b38...eac2`](https://testnet.monadvision.com/tx/0xacb80b3891b63a3bff4a5e89cd697b5aee98b96c4eb8bb1c6382baaeb510eac2) |
+| Withdraw "1500" (₦1,500 = 1 USDC) | organizer passkey (`Withdraw`) | [`0x60d01e6a...31cd`](https://testnet.monadvision.com/tx/0x60d01e6a7398745bd4ee71bf3f1fd29662e1082e02b59eb24e60418921ce31cd) |
+| Buy ticket #2, then "Sell at face value" | buyer passkey (`List`) | [`0xa686f3c6...f79e`](https://testnet.monadvision.com/tx/0xa686f3c6260c8d55ba36366494f1c7806e54c1ddacd166a4a4bf115a2cf7f79e) |
+| Ticket #2 bought on resale by a test account; the seller received 1 USDC | test buyer | [`0x9ab8bd73...ccaf`](https://testnet.monadvision.com/tx/0x9ab8bd73a40788ce3e778fb6371d2bad5e403fc836e25e10d402d27e7b22ccaf) |
+
+The organizer never held MON; the relayer paid every transaction.
+
 End-to-end runs against the current deployment (Oct 5, through the app's relayer API; an EOA stands in for the
 passkey account, since Mera accounts are plain EOAs and sign the same typed data):
 

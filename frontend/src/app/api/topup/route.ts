@@ -4,7 +4,8 @@ import { txUrl, USDC } from "@/lib/chain";
 import { publicClient, walletFor } from "@/server/clients";
 import { env } from "@/server/env";
 import { address, fail, ok, parse } from "@/server/http";
-import { clientIp, enforceTopupLimits, limitStore } from "@/server/limits";
+import { assertTreasuryCovers, clientIp, enforceTopupLimits, limitStore } from "@/server/limits";
+import { privateKeyToAccount } from "viem/accounts";
 import { sendContract } from "@/server/relay";
 
 const body = z.object({ address });
@@ -22,6 +23,11 @@ export async function POST(request: Request) {
     await enforceTopupLimits(limitStore(), clientIp(request));
 
     const amount = env.topupAmount();
+    const treasury = privateKeyToAccount(env.treasuryKey()).address;
+    assertTreasuryCovers(
+      await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [treasury] }),
+      amount,
+    );
     const sent = await sendContract(walletFor(env.treasuryKey()), {
       address: USDC,
       abi: erc20Abi,

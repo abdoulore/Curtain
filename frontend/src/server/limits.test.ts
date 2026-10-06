@@ -56,3 +56,11 @@ describe("show creation limits", () => {
     await expect(enforceCreateLimits(store, "1.1.1.1", { perIpPerDay: 1, globalPerHour: 1 })).resolves.toBeUndefined();
   });
 });
+
+describe("assertTreasuryCovers", () => {
+  it("passes when the treasury can pay and explains when it can't", async () => {
+    const { assertTreasuryCovers } = await import("./limits");
+    expect(() => assertTreasuryCovers(3_000_000n, 3_000_000n)).not.toThrow();
+    expect(() => assertTreasuryCovers(1_000_000n, 3_000_000n)).toThrow(expect.objectContaining({ status: 503, code: "DemoMoneyRefilling" }));
+  });
+});

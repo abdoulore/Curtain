@@ -95,3 +95,10 @@ export async function enforceCreateLimits(store: CounterStore, ip: string, limit
     throw new RelayError(429, "CreateLimitGlobal", "Lots of shows are being created right now. Try again in an hour.");
   }
 }
+
+/** The treasury must cover the top-up; otherwise say so plainly instead of failing the transfer. */
+export function assertTreasuryCovers(treasuryBalance: bigint, amount: bigint) {
+  if (treasuryBalance < amount) {
+    throw new RelayError(503, "DemoMoneyRefilling", "Demo money is being refilled. Try again in a few minutes.");
+  }
+}

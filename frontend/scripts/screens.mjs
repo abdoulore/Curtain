@@ -62,6 +62,8 @@ const pages = [
   { name: "organizer-new", path: "/organizer/new", seed: "organizer" },
   { name: "organizer", path: "/organizer/demo", seed: "organizer" },
   { name: "organizer-pairing", path: "/organizer/demo", seed: "organizer", pair: true },
+  // A real purchase with a virtual passkey authenticator (with PRF), ending on the success screen.
+  { name: "bought", path: "/e/demo", buy: true },
 ];
 const viewports = [
   { label: "375", width: 375, height: 812, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
@@ -103,10 +105,27 @@ for (const vp of viewports) {
       for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
     }, seed);
     if (p.pair) await installWallet(page);
+    if (p.buy) {
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("WebAuthn.enable");
+      await cdp.send("WebAuthn.addVirtualAuthenticator", {
+        options: {
+          protocol: "ctap2", ctap2Version: "ctap2_1", transport: "internal", hasResidentKey: true,
+          hasUserVerification: true, isUserVerified: true, hasPrf: true, automaticPresenceSimulation: true,
+        },
+      });
+    }
     await page.goto(`${BASE_URL}${p.path}`, { waitUntil: "load", timeout: 60_000 });
     await page.waitForTimeout(3000); // chain reads and the gate's first code
     // Wait out any card or total still loading from the public RPC.
     await page.waitForFunction(() => !/Checking…|…/.test(document.body.innerText), null, { timeout: 20_000 }).catch(() => {});
+    if (p.buy) {
+      await page.getByPlaceholder("Ada").fill("Ngozi");
+      await page.getByRole("button", { name: "Get my ticket" }).click();
+      const done = await page.getByText("You're in.").waitFor({ timeout: 120_000 }).then(() => true, () => false);
+      if (!done) throw new Error(`purchase did not finish: ${await page.locator(".text-stop").allInnerTexts()}`);
+      await page.getByText("You're in.").scrollIntoViewIfNeeded();
+    }
     if (p.pair) {
       await page.getByText("Use a browser wallet instead").click();
       await page.getByRole("button", { name: "Connect a wallet" }).click();

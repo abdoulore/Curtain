@@ -22,6 +22,7 @@ const FRIENDLY: Record<string, string> = {
   UnknownEvent: "We couldn't find this show.",
   RpcError: "The network is busy. Please try again in a moment.",
   TopupLimitIp: "You've had today's demo money on this network. Try again tomorrow.",
+  DemoMoneyRefilling: "Demo money is being refilled. Try again in a few minutes.",
   TopupLimitGlobal: "Lots of people are topping up right now. Try again in an hour.",
   UnsupportedToken: "Curtain shows are priced in USDC.",
   // At the door

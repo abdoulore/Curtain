@@ -5,11 +5,14 @@ import { createPublicClient, webSocket, type Address } from "viem";
 import { curtainEventAbi } from "@/lib/abis";
 import { monadTestnet, txUrl } from "@/lib/chain";
 import type { EventMeta } from "@/lib/events";
+import { describe, sortFeed, type FeedItem } from "@/lib/activity";
 import { ENVIO_URL, fetchBoard, type ActivityRow } from "@/lib/indexer";
 import { formatNaira } from "@/lib/money";
 import { browserClient, EVENT_STATUS } from "@/lib/reads";
 
 const PUBLIC_WSS_URL = "wss://testnet-rpc.monad.xyz";
+/** Latest events shown; the totals above always count everything. */
+const FEED_SIZE = 50;
 
 type Totals = {
   status: string;
@@ -26,8 +29,6 @@ type Totals = {
   source: "Envio" | "chain";
 };
 
-type FeedItem = { id: string; kind: string; ticketId?: string; amount: bigint; at: number; txHash: string; held?: boolean };
-
 const STATUS_TEXT: Record<string, string> = {
   Open: "Selling and admitting",
   Cancelled: "Cancelled: unscanned tickets are refunded",
@@ -35,44 +36,12 @@ const STATUS_TEXT: Record<string, string> = {
   NotHeld: "Not held: unscanned tickets are refunded",
 };
 
-function describe(item: FeedItem): string {
-  const n = item.ticketId ? `Ticket #${item.ticketId}` : "";
-  const money = formatNaira(item.amount);
-  switch (item.kind) {
-    case "Created":
-      return "Show created";
-    case "Purchased":
-      return `${n} sold, ${money} held safely`;
-    case "CheckedIn":
-      return `${n} checked in, ${money} paid to the organizer`;
-    case "Withdrawn":
-      return `Organizer withdrew ${money}`;
-    case "Refunded":
-      return `${n} refunded, ${money} back to the buyer`;
-    case "RefundOwed":
-      return `${n} refund owed, buyer can claim it`;
-    case "Cancelled":
-      return "Show cancelled";
-    case "Settled":
-      return item.amount > 0n ? `Show settled as held, ${money} released` : "Show not held, refunds open";
-    case "Listed":
-      return `${n} listed for resale at ${money}`;
-    case "Resold":
-      return `${n} resold at ${money}`;
-    case "ClaimSet":
-      return `${n} gift link created`;
-    case "Claimed":
-      return `${n} claimed from a gift link`;
-    default:
-      return item.kind;
-  }
-}
-
 const fromRow = (r: ActivityRow): FeedItem => ({
   id: r.id,
   kind: r.kind,
   ticketId: r.ticketId ?? undefined,
   amount: BigInt(r.amount),
+  account: r.account ?? undefined,
   at: Number(r.timestamp) * 1000,
   txHash: r.txHash,
 });
@@ -187,7 +156,7 @@ export function BoardView({ meta }: { meta: EventMeta }) {
             const indexed = board.activity.map(fromRow);
             const ids = new Set(indexed.map((i) => i.id));
             // Keep live items the indexer has not caught up with yet.
-            return [...current.filter((c) => !ids.has(c.id)), ...indexed].sort((a, b) => b.at - a.at).slice(0, 25);
+            return sortFeed([...current.filter((c) => !ids.has(c.id)), ...indexed]).slice(0, FEED_SIZE);
           });
           setNote(null);
           return;
@@ -228,12 +197,13 @@ export function BoardView({ meta }: { meta: EventMeta }) {
               kind: l.eventName,
               ticketId: args.ticketId !== undefined ? String(args.ticketId) : undefined,
               amount,
+              account: (args.claimKey ?? args.buyer ?? args.holder ?? args.to) as string | undefined,
               at: Date.now(),
               txHash: l.transactionHash ?? "",
             };
           });
         if (items.length === 0) return;
-        setFeed((f) => [...items, ...f.filter((x) => !items.some((i) => i.id === x.id))].slice(0, 25));
+        setFeed((f) => sortFeed([...items, ...f.filter((x) => !items.some((i) => i.id === x.id))]).slice(0, FEED_SIZE));
         setPulse(items[0]!);
         timers.push(setTimeout(() => alive && setPulse(null), 2500));
         timers.push(setTimeout(run, 1500), setTimeout(run, 4000));

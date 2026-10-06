@@ -55,7 +55,7 @@ export async function fetchBoard(show: Address): Promise<{ show: ShowRow | null;
       Show_by_pk(id: $id) {
         id status price capacity sold checkedIn refundedCount paidIn escrowed released withdrawn refunded updatedAt
       }
-      Activity(where: { show_id: { _eq: $id } }, order_by: { timestamp: desc }, limit: 25) {
+      Activity(where: { show_id: { _eq: $id } }, order_by: { timestamp: desc }, limit: 50) {
         id kind ticketId account amount timestamp txHash
       }
     }`,

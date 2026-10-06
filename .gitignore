@@ -16,6 +16,7 @@ out/
 docs/*
 !docs/screens/
 !docs/cre/
+!docs/brand/
 
 # Dotenv file
 .env

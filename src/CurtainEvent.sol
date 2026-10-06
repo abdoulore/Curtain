@@ -48,6 +48,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         uint64 settleDelay;
         uint16 heldThresholdBps; // 0 selects DEFAULT_HELD_THRESHOLD_BPS
         uint32 maxChallengeAge; // in blocks, 0 selects DEFAULT_MAX_CHALLENGE_AGE
+        uint16 maxPerBuyer; // tickets one account may hold, 0 selects DEFAULT_MAX_PER_BUYER
         bytes32 rpIdHash; // sha256 of the WebAuthn rpId, compared with authenticatorData[0:32]
         address[] gates;
     }
@@ -85,6 +86,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
 
     uint16 public constant DEFAULT_HELD_THRESHOLD_BPS = 5000;
     uint32 public constant DEFAULT_MAX_CHALLENGE_AGE = 300;
+    uint16 public constant DEFAULT_MAX_PER_BUYER = 4;
 
     bytes32 public constant BUY_INTENT_TYPEHASH = keccak256(
         "BuyIntent(address buyer,uint256 ticketId,bytes32 qx,bytes32 qy,uint256 price,uint256 nonce,uint256 deadline)"
@@ -119,6 +121,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     uint32 public sold;
     uint32 public checkedIn;
     bytes32 public rpIdHash;
+    uint16 public maxPerBuyer;
 
     // Money accounting. Invariant: totalPaidIn == escrowed + released + refunded.
     uint256 public totalPaidIn;
@@ -130,6 +133,8 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     mapping(uint256 ticketId => Ticket) internal _tickets;
     mapping(bytes32 challenge => bool) public challengeUsed;
     mapping(address gate => bool) public isGate;
+    /// @notice Tickets each account holds right now; buying, resale and gift claims keep it at or under maxPerBuyer.
+    mapping(address holder => uint256) public ticketsHeld;
 
     event GateSet(address indexed gate, bool allowed);
     event Purchased(uint256 indexed ticketId, address indexed buyer, bytes32 qx, bytes32 qy, uint256 price);
@@ -172,6 +177,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     error NotListed(uint256 ticketId);
     error NoClaimKey(uint256 ticketId);
     error ZeroAddress();
+    error TooManyTickets(address holder, uint256 max);
 
     constructor() EIP712("Curtain", "1") {
         _disableInitializers();
@@ -196,6 +202,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         settleDelay = p.settleDelay;
         heldThresholdBps = p.heldThresholdBps == 0 ? DEFAULT_HELD_THRESHOLD_BPS : p.heldThresholdBps;
         maxChallengeAge = p.maxChallengeAge == 0 ? DEFAULT_MAX_CHALLENGE_AGE : p.maxChallengeAge;
+        maxPerBuyer = p.maxPerBuyer == 0 ? DEFAULT_MAX_PER_BUYER : p.maxPerBuyer;
         rpIdHash = p.rpIdHash;
 
         for (uint256 i = 0; i < p.gates.length; ++i) {
@@ -221,6 +228,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         if (intent.ticketId != 0) revert WrongSale(intent.ticketId, 0);
         _verifyBuyIntent(intent, buyerSig);
 
+        _take(intent.buyer);
         ticketId = ++sold;
         Ticket storage t = _tickets[ticketId];
         t.holder = intent.buyer;
@@ -428,6 +436,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         _verifyBuyIntent(intent, buyerSig);
 
         address seller = t.holder;
+        _move(seller, intent.buyer);
         t.holder = intent.buyer;
         t.qx = intent.qx;
         t.qy = intent.qy;
@@ -475,6 +484,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         if (!SignatureChecker.isValidSignatureNowCalldata(key, digest, claimSig)) revert BadSignature();
 
         address from = t.holder;
+        _move(from, newHolder);
         t.holder = newHolder;
         t.qx = qx;
         t.qy = qy;
@@ -510,6 +520,19 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         if (gate == address(0)) revert ZeroAddress();
         isGate[gate] = allowed;
         emit GateSet(gate, allowed);
+    }
+
+    /// @dev Counts a ticket against its new holder's limit.
+    function _take(address holder) internal {
+        uint256 held = ticketsHeld[holder] + 1;
+        if (held > maxPerBuyer) revert TooManyTickets(holder, maxPerBuyer);
+        ticketsHeld[holder] = held;
+    }
+
+    /// @dev Moves a ticket's count from one holder to another, checking the receiver's limit.
+    function _move(address from, address to) internal {
+        --ticketsHeld[from];
+        _take(to);
     }
 
     /// @dev The registered gate behind a check-in, or NotGate.

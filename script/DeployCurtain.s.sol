@@ -38,6 +38,7 @@ contract DeployCurtain is Script {
             settleDelay: 1 hours,
             heldThresholdBps: 5000,
             maxChallengeAge: 300,
+            maxPerBuyer: 0,
             rpIdHash: sha256(bytes(RP_ID)),
             gates: gates
         });

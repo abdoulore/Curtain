@@ -75,6 +75,7 @@ contract DeployKeeper is Script {
             settleDelay: 0,
             heldThresholdBps: 5000,
             maxChallengeAge: 300,
+            maxPerBuyer: 0,
             rpIdHash: sha256(bytes(RP_ID)),
             gates: gates
         });

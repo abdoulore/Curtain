@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;700;800&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; width: 1080px; height: 1350px; }
+  body {
+    font-family: Geist, sans-serif; color: #fff6f2; overflow: hidden;
+    background:
+      radial-gradient(ellipse 60% 45% at 50% 62%, rgba(242,181,68,.45), rgba(242,181,68,0) 70%),
+      linear-gradient(180deg, #2a1e1b 0%, #120d0c 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    padding: 96px 80px; box-sizing: border-box; text-align: center;
+  }
+  .drape { position: absolute; top: 0; bottom: 0; width: 170px; background: linear-gradient(90deg, #6f1422, #b8293f 70%, #8e1b2c); }
+  .drape.l { left: 0; border-bottom-right-radius: 90% 30%; }
+  .drape.r { right: 0; transform: scaleX(-1); border-bottom-right-radius: 90% 30%; }
+  .valance { position: absolute; z-index: 1; top: 0; left: 0; right: 0; height: 90px; background: #8e1b2c; border-bottom: 10px solid #f2b544; }
+  .kicker { position: relative; margin-top: 70px; font-weight: 500; font-size: 34px; letter-spacing: 10px; text-transform: uppercase; color: #f2b544; }
+  h1 { position: relative; margin: 0; font-weight: 800; font-size: 120px; line-height: .95; letter-spacing: -4px; max-width: 700px; }
+  .line { position: relative; font-size: 38px; font-weight: 500; line-height: 1.4; color: #f6e7d4; max-width: 640px; }
+  .meta { position: relative; font-size: 38px; font-weight: 700; line-height: 1.35; }
+  .meta span { display: block; font-weight: 500; color: #f6e7d4; }
+  .foot { position: relative; font-size: 30px; color: #f2b544; letter-spacing: 2px; }
+</style>
+</head>
+<body>
+  <div class="drape l"></div><div class="drape r"></div><div class="valance"></div>
+  <div class="kicker" id="kicker"></div>
+  <h1 id="name"></h1>
+  <div class="line" id="line"></div>
+  <div class="meta"><div id="when"></div><span id="venue"></span></div>
+  <div class="foot">Curtain · pay when you walk in</div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    for (const k of ["kicker", "name", "line", "when", "venue"]) document.getElementById(k).textContent = q.get(k) ?? "";
+  </script>
+</body>
+</html>

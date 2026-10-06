@@ -5,6 +5,7 @@
 //   BASE_URL=http://localhost:3000 npm run e2e:create
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { sha256, toBytes } from "viem";
+import { renderPoster, uploadPoster } from "./poster-lib.mjs";
 import { api, buy, checkIn, eventAbi, FACTORY, must, organizerAction, person, pub, RP_ID, USDC, usdcOf } from "./e2e-lib.mjs";
 
 const NAIRA_PER_USDC = 1500;
@@ -43,6 +44,11 @@ const sig = await organizer.signTypedData({
 const created = must("create show", await api("/api/relay/create", { organizer: organizer.address, name, venue, params: show, nonce, deadline, sig }));
 const EVENT = created.event;
 console.log("show:", EVENT);
+
+// 1b. The poster and description, signed by the same organizer account, stored off-chain by show address.
+const png = await renderPoster({ kicker: "Friday night", name, line: "Five comics, one mic, no screenshots at the door.", when: "Doors open at 8 pm", venue });
+const media = await uploadPoster(EVENT, organizer, png, "Five comics, one mic. Ticket money reaches the comics the moment you walk in.");
+console.log("poster:", media.poster);
 
 // 2. Pair a gate: a new device key, registered by the organizer's signed SetGate.
 const device = privateKeyToAccount(generatePrivateKey());

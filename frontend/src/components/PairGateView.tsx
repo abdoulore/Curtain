@@ -81,7 +81,7 @@ export function PairGateView() {
           ? "Waiting for the organizer's approval to land onchain…"
           : state === "paired"
             ? "Paired. Opening the gate…"
-            : "This code was not approved. Ask the organizer to add the device again."}
+            : "Ask the organizer to add this device again from the dashboard."}
       </p>
     </main>
   );

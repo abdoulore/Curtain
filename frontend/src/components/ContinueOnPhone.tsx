@@ -12,7 +12,7 @@ export function ContinueOnPhone({ reason }: { reason?: string }) {
     <div className="rounded-2xl border border-line bg-background p-4 text-center">
       <p className="font-semibold">Continue on your phone</p>
       <p className="mt-1 text-sm text-muted">
-        {reason ?? "This browser can't hold a Curtain ticket."} Scan with your phone&apos;s camera to pick up right here.
+        {reason ?? "Your Curtain ticket lives on your phone."} Scan with your phone&apos;s camera to pick up right here.
       </p>
       {url && (
         <div className="mx-auto mt-4 w-fit rounded-xl bg-white p-3">

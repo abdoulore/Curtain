@@ -16,7 +16,7 @@ export function InAppBrowserNotice() {
       <div className="rounded-2xl border border-velvet/40 bg-velvet/10 p-4 text-sm">
         <p className="font-semibold">Open this page in Safari or Chrome</p>
         <p className="mt-1 text-muted">
-          You&apos;re inside {app}, which can&apos;t use your fingerprint or Face ID. Tap the menu and choose
+          Curtain uses your fingerprint or Face ID in your phone&apos;s browser. In {app}, tap the menu and choose
           &ldquo;Open in browser&rdquo;, or copy the link.
         </p>
         <button

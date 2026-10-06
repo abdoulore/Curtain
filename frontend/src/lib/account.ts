@@ -301,7 +301,7 @@ export function isPrfUnavailable(error: unknown): boolean {
 export function friendlyPasskeyError(error: unknown): string {
   if (isMeraError(error)) {
     if (error.code === "PRF_UNAVAILABLE") {
-      return "This browser can't hold a Curtain ticket. Use Chrome with Google Password Manager on Android, Safari on iPhone (iOS 18 or later), or continue on your phone.";
+      return "Curtain tickets live in Chrome with Google Password Manager on Android and in Safari on iPhone. Continue on your phone.";
     }
     if (error.code === "PASSKEY_OPERATION_FAILED") return "Cancelled. Try again when you're ready.";
     if (error.code === "CRYPTO_UNAVAILABLE") return "Open Curtain over https to continue.";

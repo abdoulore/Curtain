@@ -105,7 +105,7 @@ export function ClaimView() {
 
       <section className="mt-6 rounded-3xl border border-line bg-surface p-5">
         {needsPhone ? (
-          <ContinueOnPhone reason="This browser can't hold the ticket." />
+          <ContinueOnPhone reason="Claim this ticket on your phone." />
         ) : dead ? (
           <p className="font-medium">This link no longer works. Ask the ticket&apos;s owner for a new one.</p>
         ) : (

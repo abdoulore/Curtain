@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   try {
     const { organizer, name, venue, params, nonce, deadline, sig } = await parse(request, body);
     if (!isSupportedToken(params.token)) {
-      throw new RelayError(400, "UnsupportedToken", "Shows on Curtain are priced in testnet USDC for now");
+      throw new RelayError(400, "UnsupportedToken", "Shows on Curtain are priced in USDC");
     }
     if (params.rpIdHash.toLowerCase() !== OUR_RP_ID_HASH) {
       throw new RelayError(400, "WrongRpId", "Shows must accept passkeys made for this site");

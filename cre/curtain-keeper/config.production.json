@@ -2,7 +2,7 @@
   "schedule": "0 */5 * * * *",
   "chainSelectorName": "monad-testnet",
   "keeperAddress": "0xc16008D869fC44E2af4d217C23adc2eCFdC57219",
-  "envioUrl": "https://indexer.dev.hyperindex.xyz/3143b07/v1/graphql",
+  "envioUrl": "https://indexer.dev.hyperindex.xyz/04a038e/v1/graphql",
   "events": [
     "0x5562bF1ccBabcF2f060239f9D241Ba9661217135"
   ],

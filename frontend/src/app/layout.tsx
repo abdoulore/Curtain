@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -31,8 +32,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 pt-5 pb-2 lg:px-8">
-          <Link href="/" className="text-lg font-semibold tracking-tight">
-            <span className="text-velvet">●</span> Curtain
+          <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <Image src="/logo.png" alt="" width={32} height={32} priority className="rounded-lg" /> Curtain
           </Link>
           <nav className="flex items-center gap-2 text-sm font-medium">
             <Link href="/board/demo" className="hidden rounded-full px-3 py-1.5 text-muted hover:text-foreground sm:inline-block">

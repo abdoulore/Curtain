@@ -97,8 +97,11 @@ export async function enforceCreateLimits(store: CounterStore, ip: string, limit
 }
 
 /** The treasury must cover the top-up; otherwise say so plainly instead of failing the transfer. */
-export function assertTreasuryCovers(treasuryBalance: bigint, amount: bigint) {
-  if (treasuryBalance < amount) {
+/** Enough MON for a few top-up transfers at testnet gas prices. */
+export const MIN_TREASURY_GAS = 20_000_000_000_000_000n; // 0.02 MON
+
+export function assertTreasuryCovers(treasuryBalance: bigint, amount: bigint, treasuryGas = MIN_TREASURY_GAS) {
+  if (treasuryBalance < amount || treasuryGas < MIN_TREASURY_GAS) {
     throw new RelayError(503, "DemoMoneyRefilling", "Demo money is being refilled. Try again in a few minutes.");
   }
 }

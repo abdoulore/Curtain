@@ -14,9 +14,10 @@ export async function GET() {
   try {
     const relayer = privateKeyToAccount(env.relayerKey()).address;
     const treasury = privateKeyToAccount(env.treasuryKey()).address;
-    const [block, relayerMon, treasuryUsdc, organizer] = await Promise.all([
+    const [block, relayerMon, treasuryMon, treasuryUsdc, organizer] = await Promise.all([
       publicClient.getBlockNumber(),
       publicClient.getBalance({ address: relayer }),
+      publicClient.getBalance({ address: treasury }),
       publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [treasury] }),
       publicClient.readContract({ address: DEMO_EVENT, abi: curtainEventAbi, functionName: "organizer" }),
     ]);
@@ -26,7 +27,7 @@ export async function GET() {
       rpc: env.alchemyApiKey() ? "alchemy+public" : "public",
       factory: CURTAIN_FACTORY,
       relayer: { address: relayer, mon: formatEther(relayerMon) },
-      treasury: { address: treasury, usdc: formatUnits(treasuryUsdc, 6) },
+      treasury: { address: treasury, usdc: formatUnits(treasuryUsdc, 6), mon: formatEther(treasuryMon) },
       demoEvent: { address: DEMO_EVENT, organizer },
     });
   } catch (error) {

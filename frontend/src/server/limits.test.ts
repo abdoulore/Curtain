@@ -62,5 +62,7 @@ describe("assertTreasuryCovers", () => {
     const { assertTreasuryCovers } = await import("./limits");
     expect(() => assertTreasuryCovers(3_000_000n, 3_000_000n)).not.toThrow();
     expect(() => assertTreasuryCovers(1_000_000n, 3_000_000n)).toThrow(expect.objectContaining({ status: 503, code: "DemoMoneyRefilling" }));
+    // Out of gas money counts too: the transfer couldn't be sent.
+    expect(() => assertTreasuryCovers(9_000_000n, 3_000_000n, 1n)).toThrow(expect.objectContaining({ code: "DemoMoneyRefilling" }));
   });
 });

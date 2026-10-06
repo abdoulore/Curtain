@@ -24,10 +24,11 @@ export async function POST(request: Request) {
 
     const amount = env.topupAmount();
     const treasury = privateKeyToAccount(env.treasuryKey()).address;
-    assertTreasuryCovers(
-      await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [treasury] }),
-      amount,
-    );
+    const [treasuryUsdc, treasuryGas] = await Promise.all([
+      publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [treasury] }),
+      publicClient.getBalance({ address: treasury }),
+    ]);
+    assertTreasuryCovers(treasuryUsdc, amount, treasuryGas);
     const sent = await sendContract(walletFor(env.treasuryKey()), {
       address: USDC,
       abi: erc20Abi,

@@ -25,6 +25,7 @@ import { formatNaira, nairaToUsdcUnits } from "@/lib/money";
 import { organizerTypedData, type OrganizerAction } from "@/lib/organizer";
 import { createdShow, pairedGates, rememberPairedGate } from "@/lib/organizer-local";
 import { browserClient, EVENT_STATUS } from "@/lib/reads";
+import { ShareShow } from "./ShareShow";
 import { SignInButton } from "./SignInButton";
 
 type State = {
@@ -221,7 +222,7 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
       <p className="mt-1 text-sm text-muted">
         {state ? (state.status === "Open" ? "Selling and admitting" : state.status) : "…"} ·{" "}
         <Link href={eventPath(meta)} className="underline">
-          Event page
+          Ticket page
         </Link>{" "}
         ·{" "}
         <Link href={`/board/${meta.slug}`} className="underline">
@@ -237,13 +238,15 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
         <div className="mt-4 rounded-2xl border border-go/40 bg-surface p-4 text-sm">
           <p className="font-semibold text-go">Your show is live.</p>
           <p className="mt-1 text-muted">
-            Share the event page so people can buy, and pair a gate device before doors open.{" "}
+            Share the ticket page below so people can buy, and pair a gate device before doors open.{" "}
             <a href={txUrl(recent.hash)} target="_blank" rel="noopener" className="underline">
               Proof it was created
             </a>
           </p>
         </div>
       )}
+
+      <ShareShow meta={meta} />
 
       <div className="mt-6 lg:grid lg:grid-cols-[1.3fr_1fr] lg:items-start lg:gap-6">
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">

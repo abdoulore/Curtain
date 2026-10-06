@@ -69,14 +69,19 @@ export function MyShowsView() {
       ) : (
         <ul className="mt-6 divide-y divide-line rounded-3xl border border-line bg-surface">
           {rows.map((r) => (
-            <li key={r.event}>
-              <Link href={`/organizer/${r.event}`} className="flex items-center justify-between gap-4 px-5 py-4">
-                <span>
-                  <span className="block font-semibold">{r.name}</span>
-                  <span className="block text-sm text-muted">{r.detail}</span>
-                </span>
-                <span className="text-velvet">→</span>
+            <li key={r.event} className="flex items-center justify-between gap-4 px-5 py-4">
+              <Link href={`/organizer/${r.event}`} className="min-w-0 flex-1">
+                <span className="block font-semibold">{r.name}</span>
+                <span className="block text-sm text-muted">{r.detail}</span>
               </Link>
+              <span className="flex shrink-0 gap-3 text-sm font-semibold">
+                <Link href={`/e/${r.event}`} className="text-velvet underline">
+                  Ticket page
+                </Link>
+                <Link href={`/organizer/${r.event}`} className="underline">
+                  Manage
+                </Link>
+              </span>
             </li>
           ))}
         </ul>

@@ -12,6 +12,7 @@ const form: ShowForm = {
   priceNaira: "1500",
   capacity: "120",
   heldPercent: "50",
+  perPerson: "4",
 };
 
 describe("buildShow", () => {
@@ -28,6 +29,7 @@ describe("buildShow", () => {
       endTime: BigInt(NOW + 3600 + SHOW_LENGTH_SECONDS),
       salesEnd: BigInt(NOW + 3600 + SHOW_LENGTH_SECONDS),
       heldThresholdBps: 5000,
+      maxPerBuyer: 4,
       rpIdHash: sha256(toBytes(RP_ID)),
       gates: [],
     });
@@ -39,6 +41,8 @@ describe("buildShow", () => {
     expect(buildShow({ ...form, capacity: "0" }, ORGANIZER, NOW)).toMatchObject({ ok: false });
     expect(buildShow({ ...form, capacity: "1.5" }, ORGANIZER, NOW)).toMatchObject({ ok: false });
     expect(buildShow({ ...form, heldPercent: "101" }, ORGANIZER, NOW)).toMatchObject({ ok: false });
+    expect(buildShow({ ...form, perPerson: "0" }, ORGANIZER, NOW)).toMatchObject({ ok: false });
+    expect(buildShow({ ...form, perPerson: "51" }, ORGANIZER, NOW)).toMatchObject({ ok: false });
     expect(buildShow({ ...form, startsAt: NOW - SHOW_LENGTH_SECONDS - 1 }, ORGANIZER, NOW)).toMatchObject({ ok: false });
   });
 
@@ -54,7 +58,7 @@ describe("createShowTypedData", () => {
     if (!built.ok) throw new Error(built.error);
     const p = built.params;
     const SHOW =
-      "Show(address payout,address token,uint96 price,uint32 capacity,uint64 salesEnd,uint64 doorsOpen,uint64 endTime,uint64 settleDelay,uint16 heldThresholdBps,uint32 maxChallengeAge,bytes32 rpIdHash,address[] gates)";
+      "Show(address payout,address token,uint96 price,uint32 capacity,uint64 salesEnd,uint64 doorsOpen,uint64 endTime,uint64 settleDelay,uint16 heldThresholdBps,uint32 maxChallengeAge,uint16 maxPerBuyer,bytes32 rpIdHash,address[] gates)";
     const showHash = keccak256(
       encodeAbiParameters(
         [
@@ -69,6 +73,7 @@ describe("createShowTypedData", () => {
           { type: "uint64" },
           { type: "uint16" },
           { type: "uint32" },
+          { type: "uint16" },
           { type: "bytes32" },
           { type: "bytes32" },
         ],
@@ -84,6 +89,7 @@ describe("createShowTypedData", () => {
           p.settleDelay,
           p.heldThresholdBps,
           p.maxChallengeAge,
+          p.maxPerBuyer,
           p.rpIdHash,
           keccak256("0x"),
         ],

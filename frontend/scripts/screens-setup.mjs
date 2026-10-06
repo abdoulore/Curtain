@@ -15,7 +15,7 @@ import { p256 } from "@noble/curves/nist.js";
 import { bytesToHex } from "viem";
 import { api, buy, eventAbi, must, person, pub, usdcOf } from "./e2e-lib.mjs";
 
-const DEMO = "0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D";
+const DEMO = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
 const CANCELLED = "0xC0731dA73709F548f28f9d373E36e79d1a1Ed29A";
 const log = (...a) => console.error(...a);
 

@@ -12,7 +12,7 @@ import {
   type GateToken,
 } from "./gate";
 
-const EVENT = "0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D";
+const EVENT = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
 const ORIGIN = "https://curtaintickets.vercel.app";
 
 const token: GateToken = {

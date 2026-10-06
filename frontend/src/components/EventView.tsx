@@ -106,7 +106,10 @@ export function EventView({ meta }: { meta: EventMeta }) {
         <div className="flex items-baseline justify-between">
           <p className="text-3xl font-semibold">{info ? formatNaira(info.price) : "…"}</p>
           {left !== null && (
-            <p className="text-sm text-muted">{left > 0 ? `${left} of ${info!.capacity} left` : "Sold out"}</p>
+            <p className="text-right text-sm text-muted">
+              {left > 0 ? `${left} of ${info!.capacity} left` : "Sold out"}
+              <span className="block">Up to {info!.maxPerBuyer} per person</span>
+            </p>
           )}
         </div>
         <ul className="mt-4 space-y-2 text-sm">

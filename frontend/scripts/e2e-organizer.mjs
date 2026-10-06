@@ -7,7 +7,7 @@ import { createPublicClient, erc20Abi, http, parseAbi } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
-const EVENT = "0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D";
+const EVENT = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
 const USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
 const pub = createPublicClient({ transport: http("https://testnet-rpc.monad.xyz") });
 const abi = parseAbi([

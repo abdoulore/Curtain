@@ -25,6 +25,7 @@ const body = z.object({
     settleDelay: uint,
     heldThresholdBps: z.number().int().min(0).max(10_000),
     maxChallengeAge: z.number().int().min(0).max(10_000),
+    maxPerBuyer: z.number().int().min(0).max(1_000),
     rpIdHash: bytes32,
     gates: z.array(address).max(10),
   }),

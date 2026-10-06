@@ -36,6 +36,7 @@ const FRIENDLY: Record<string, string> = {
   NotGate: "That code didn't come from a gate paired for this show.",
   GateUnauthorized: "This screen isn't a paired gate for the show.",
   GateAuthExpired: "This gate's clock is off. Reload the gate screen.",
+  TooManyTickets: "You've reached this show's ticket limit per person.",
   // Resale
   PriceAboveCap: "Tickets can only be resold at face value or less.",
   NotListed: "That resale ticket was just taken. Refresh to see what's left.",

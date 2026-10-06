@@ -14,6 +14,7 @@ export type ShowParams = {
   settleDelay: bigint;
   heldThresholdBps: number;
   maxChallengeAge: number;
+  maxPerBuyer: number;
   rpIdHash: Hex;
   gates: Address[];
 };
@@ -26,12 +27,16 @@ export type ShowForm = {
   priceNaira: string;
   capacity: string;
   heldPercent: string;
+  perPerson: string;
 };
 
 /** A show runs six hours from doors open; sales close when it ends; settlement waits an hour after. */
 export const SHOW_LENGTH_SECONDS = 6 * 60 * 60;
 export const SETTLE_DELAY_SECONDS = 60 * 60;
 export const MAX_CAPACITY = 10_000;
+/** Tickets one account may hold unless the organizer says otherwise; matches CurtainEvent.DEFAULT_MAX_PER_BUYER. */
+export const DEFAULT_PER_PERSON = 4;
+export const MAX_PER_PERSON = 50;
 
 export type BuiltShow = { ok: true; name: string; venue: string; params: ShowParams } | { ok: false; error: string };
 
@@ -51,6 +56,10 @@ export function buildShow(form: ShowForm, organizer: Address, now: number): Buil
   const capacity = Number(form.capacity);
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > MAX_CAPACITY) {
     return { ok: false, error: `Capacity must be a whole number from 1 to ${MAX_CAPACITY.toLocaleString()}.` };
+  }
+  const perPerson = Number(form.perPerson);
+  if (!Number.isInteger(perPerson) || perPerson < 1 || perPerson > MAX_PER_PERSON) {
+    return { ok: false, error: `Tickets per person is a whole number from 1 to ${MAX_PER_PERSON}.` };
   }
   const held = Number(form.heldPercent);
   if (!Number.isInteger(held) || held < 0 || held > 100) {
@@ -72,6 +81,7 @@ export function buildShow(form: ShowForm, organizer: Address, now: number): Buil
       // 0 would mean "use the contract default", so store 0% as 1 basis point: practically always held.
       heldThresholdBps: held === 0 ? 1 : held * 100,
       maxChallengeAge: 300,
+      maxPerBuyer: perPerson,
       rpIdHash: sha256(toBytes(RP_ID)),
       gates: [],
     },

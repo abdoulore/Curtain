@@ -28,6 +28,8 @@ export type EventInfo = {
   doorsOpen: number;
   endTime: number;
   status: EventStatus;
+  /** Tickets one account may hold. */
+  maxPerBuyer: number;
   /** Unix seconds when this was read, so renders compare against a fixed time. */
   readAt: number;
 };
@@ -35,7 +37,7 @@ export type EventInfo = {
 export async function readEventInfo(event: Address): Promise<EventInfo> {
   const read = <T,>(functionName: string) =>
     browserClient.readContract({ address: event, abi: curtainEventAbi, functionName } as never) as Promise<T>;
-  const [price, capacity, sold, salesEnd, doorsOpen, endTime, status] = await Promise.all([
+  const [price, capacity, sold, salesEnd, doorsOpen, endTime, status, maxPerBuyer] = await Promise.all([
     read<bigint>("price"),
     read<number>("capacity"),
     read<number>("sold"),
@@ -43,6 +45,7 @@ export async function readEventInfo(event: Address): Promise<EventInfo> {
     read<bigint>("doorsOpen"),
     read<bigint>("endTime"),
     read<number>("status"),
+    read<number>("maxPerBuyer"),
   ]);
   return {
     price,
@@ -52,6 +55,7 @@ export async function readEventInfo(event: Address): Promise<EventInfo> {
     doorsOpen: Number(doorsOpen),
     endTime: Number(endTime),
     status: EVENT_STATUS[status] ?? "Open",
+    maxPerBuyer: Number(maxPerBuyer),
     readAt: Math.floor(Date.now() / 1000),
   };
 }

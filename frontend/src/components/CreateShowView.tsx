@@ -8,7 +8,14 @@ import { curtainFactoryAbi } from "@/lib/abis";
 import { friendlyPasskeyError, signUp, unlock } from "@/lib/account";
 import { ApiError, postJson } from "@/lib/api";
 import { CURTAIN_FACTORY } from "@/lib/chain";
-import { buildShow, createShowBody, createShowTypedData, SHOW_LENGTH_SECONDS, type ShowForm } from "@/lib/create-show";
+import {
+  buildShow,
+  createShowBody,
+  createShowTypedData,
+  DEFAULT_PER_PERSON,
+  SHOW_LENGTH_SECONDS,
+  type ShowForm,
+} from "@/lib/create-show";
 import { useAccount, useHydrated } from "@/lib/hooks";
 import { NAIRA_PER_USDC } from "@/lib/money";
 import { rememberCreatedShow } from "@/lib/organizer-local";
@@ -33,6 +40,7 @@ export function CreateShowView() {
   const [price, setPrice] = useState("1500");
   const [capacity, setCapacity] = useState("100");
   const [held, setHeld] = useState("50");
+  const [perPerson, setPerPerson] = useState(String(DEFAULT_PER_PERSON));
   const [yourName, setYourName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +56,7 @@ export function CreateShowView() {
       priceNaira: price,
       capacity,
       heldPercent: held,
+      perPerson,
     };
     const now = Math.floor(Date.now() / 1000);
     const built = buildShow(form, account.address, now);
@@ -168,6 +177,18 @@ export function CreateShowView() {
         <label className="text-sm font-medium">
           Capacity
           <input value={capacity} onChange={(e) => setCapacity(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={field} />
+        </label>
+        <label className="text-sm font-medium">
+          Tickets per person
+          <input
+            value={perPerson}
+            onChange={(e) => setPerPerson(e.target.value.replace(/\D/g, ""))}
+            inputMode="numeric"
+            className={field}
+          />
+          <span className="mt-1 block text-xs font-normal text-muted">
+            The most tickets one person can hold, including resale and gifts.
+          </span>
         </label>
         <label className="text-sm font-medium">
           Held threshold

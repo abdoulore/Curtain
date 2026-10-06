@@ -2,7 +2,7 @@
 
 import { getAddress, type Address } from "viem";
 import { CURTAIN_FACTORY, DEMO_EVENT } from "./chain";
-import { findEvent } from "./events";
+import { findEvent, HIDDEN_SHOWS } from "./events";
 import { fetchOpenShows } from "./indexer";
 import { browserClient, readEventInfo } from "./reads";
 import { readShowDetails } from "./show-details";
@@ -27,6 +27,7 @@ export async function loadUpcoming(now: number): Promise<ShowSummary[]> {
     shows.map((s) => withCatalogName(s)),
     now,
     DEMO_EVENT,
+    HIDDEN_SHOWS,
   );
 }
 

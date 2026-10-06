@@ -15,10 +15,16 @@ export type ShowSummary = {
 /**
  * Shows people can still buy for: open, not over, not sold out. The demo show comes first, then the soonest.
  */
-export function upcomingShows(shows: readonly ShowSummary[], now: number, pinned: Address): ShowSummary[] {
+export function upcomingShows(
+  shows: readonly ShowSummary[],
+  now: number,
+  pinned: Address,
+  hidden: readonly Address[] = [],
+): ShowSummary[] {
   const pin = getAddress(pinned);
+  const skip = new Set(hidden.map((a) => getAddress(a)));
   return shows
-    .filter((s) => s.status === "Open" && s.endTime > now && s.sold < s.capacity)
+    .filter((s) => s.status === "Open" && s.endTime > now && s.sold < s.capacity && !skip.has(getAddress(s.address)))
     .sort((a, b) => {
       if (getAddress(a.address) === pin) return -1;
       if (getAddress(b.address) === pin) return 1;

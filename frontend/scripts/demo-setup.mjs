@@ -16,7 +16,7 @@ const png = await renderPoster({
   kicker: "Live in Lagos",
   name: "Curtain Demo Night",
   line: "Stand-up, live music and a door that pays the artists when you walk in.",
-  when: "Doors open nightly at 7:30 pm",
+  when: "Nightly · doors 7:30 pm",
   venue: "The Velvet Room, Victoria Island",
 });
 console.log(`poster: ${png.length} bytes`);

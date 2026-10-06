@@ -8,7 +8,7 @@ import { BASE_URL } from "./e2e-lib.mjs";
 
 export async function renderPoster(fields) {
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1080, height: 1350 } });
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   const url = pathToFileURL(fileURLToPath(new URL("poster.html", import.meta.url)));
   url.search = new URLSearchParams(fields).toString();
   await page.goto(url.href, { waitUntil: "networkidle" });

@@ -2,39 +2,111 @@
 <html>
 <head>
 <meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;700;800&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Geist:wght@400;500;600&display=block" rel="stylesheet">
 <style>
-  html, body { margin: 0; width: 1080px; height: 1350px; }
-  body {
-    font-family: Geist, sans-serif; color: #fff6f2; overflow: hidden;
-    background:
-      radial-gradient(ellipse 60% 45% at 50% 62%, rgba(242,181,68,.45), rgba(242,181,68,0) 70%),
-      linear-gradient(180deg, #2a1e1b 0%, #120d0c 100%);
-    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-    padding: 96px 80px; box-sizing: border-box; text-align: center;
+  html, body { margin: 0; width: 1600px; height: 1000px; overflow: hidden; background: #0d0908; }
+  .stage { position: absolute; inset: 0; }
+  .copy {
+    position: absolute; left: 50%; top: 190px; width: 720px; transform: translateX(-50%);
+    text-align: center; color: #fbf3ea; font-family: Geist, sans-serif;
   }
-  .drape { position: absolute; top: 0; bottom: 0; width: 170px; background: linear-gradient(90deg, #6f1422, #b8293f 70%, #8e1b2c); }
-  .drape.l { left: 0; border-bottom-right-radius: 90% 30%; }
-  .drape.r { right: 0; transform: scaleX(-1); border-bottom-right-radius: 90% 30%; }
-  .valance { position: absolute; z-index: 1; top: 0; left: 0; right: 0; height: 90px; background: #8e1b2c; border-bottom: 10px solid #f2b544; }
-  .kicker { position: relative; margin-top: 70px; font-weight: 500; font-size: 34px; letter-spacing: 10px; text-transform: uppercase; color: #f2b544; }
-  h1 { position: relative; margin: 0; font-weight: 800; font-size: 120px; line-height: .95; letter-spacing: -4px; max-width: 700px; }
-  .line { position: relative; font-size: 38px; font-weight: 500; line-height: 1.4; color: #f6e7d4; max-width: 640px; }
-  .meta { position: relative; font-size: 38px; font-weight: 700; line-height: 1.35; }
-  .meta span { display: block; font-weight: 500; color: #f6e7d4; }
-  .foot { position: relative; font-size: 30px; color: #f2b544; letter-spacing: 2px; }
+  .kicker { font-size: 22px; font-weight: 600; letter-spacing: 9px; text-transform: uppercase; color: #f2b544; }
+  h1 {
+    margin: 26px 0 0; font-family: "DM Serif Display", serif; font-weight: 400; font-size: 118px; line-height: .98;
+    letter-spacing: -1px; text-wrap: balance; text-shadow: 0 6px 40px rgba(0,0,0,.55);
+  }
+  .line { margin: 26px auto 0; max-width: 560px; font-size: 26px; line-height: 1.45; color: #e9d8c4; text-wrap: balance; }
+  .rule { width: 72px; height: 2px; margin: 34px auto 0; background: #f2b544; }
+  .when { margin-top: 26px; font-size: 30px; font-weight: 600; }
+  .venue { margin-top: 6px; font-size: 26px; color: #e9d8c4; }
+  .brand {
+    position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px;
+    font-family: Geist, sans-serif; font-size: 20px; letter-spacing: 3px; text-transform: uppercase; color: #f2b544;
+  }
+  .brand i { width: 8px; height: 8px; border-radius: 50%; background: #f2b544; display: inline-block; }
 </style>
 </head>
 <body>
-  <div class="drape l"></div><div class="drape r"></div><div class="valance"></div>
+<svg class="stage" viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="spot" cx="800" cy="560" r="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6c76a" stop-opacity=".42"/>
+      <stop offset=".45" stop-color="#c98a2e" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#0d0908" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="back" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c1210"/><stop offset="1" stop-color="#0b0706"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a2416"/><stop offset="1" stop-color="#140c08"/>
+    </linearGradient>
+    <!-- Velvet folds: light and shade alternating across the drape. -->
+    <linearGradient id="velvet" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4a0b16"/>
+      <stop offset=".08" stop-color="#9e2234"/>
+      <stop offset=".16" stop-color="#5c0e1b"/>
+      <stop offset=".26" stop-color="#b52c42"/>
+      <stop offset=".36" stop-color="#6a1121"/>
+      <stop offset=".47" stop-color="#a8263b"/>
+      <stop offset=".58" stop-color="#5a0d1a"/>
+      <stop offset=".70" stop-color="#b8304a"/>
+      <stop offset=".82" stop-color="#6f1422"/>
+      <stop offset=".92" stop-color="#c13a52"/>
+      <stop offset="1" stop-color="#7a1626"/>
+    </linearGradient>
+    <linearGradient id="valance" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a0d1a"/><stop offset=".7" stop-color="#9e2234"/><stop offset="1" stop-color="#7a1626"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd98a"/><stop offset=".5" stop-color="#f2b544"/><stop offset="1" stop-color="#a8701c"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#back)"/>
+  <rect y="860" width="1600" height="140" fill="url(#floor)"/>
+  <rect width="1600" height="1000" fill="url(#spot)"/>
+  <ellipse cx="800" cy="900" rx="430" ry="46" fill="#f2b544" opacity=".18"/>
+
+  <!-- Left drape, drawn back and tied. -->
+  <g id="drape">
+    <path d="M-10 70 H520 C506 250 452 390 352 520 C430 640 462 800 470 1010 H-10 Z" fill="url(#velvet)"/>
+    <path d="M352 520 C430 640 462 800 470 1010 H420 C410 820 380 660 330 540 Z" fill="url(#shade)" opacity=".7"/>
+    <!-- Tie-back: a gold cord cinching the drape, with a tassel. -->
+    <path d="M250 512 C290 530 330 532 360 518" stroke="url(#gold)" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <circle cx="358" cy="520" r="15" fill="url(#gold)"/>
+    <path d="M358 534 C362 570 360 600 352 628" stroke="url(#gold)" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <circle cx="351" cy="634" r="9" fill="url(#gold)"/>
+    <path d="M341 640 Q351 700 336 712 L366 712 Q352 700 361 640 Z" fill="url(#gold)"/>
+  </g>
+  <use href="#drape" transform="translate(1600 0) scale(-1 1)"/>
+
+  <!-- Valance with scallops and gold trim. -->
+  <path d="M0 0 H1600 V118 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 Z" fill="url(#valance)"/>
+  <path d="M1600 118 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0 a50 34 0 0 1 -100 0" fill="none" stroke="url(#gold)" stroke-width="7"/>
+  <rect y="0" width="1600" height="16" fill="#3e0911"/>
+</svg>
+
+<div class="copy">
   <div class="kicker" id="kicker"></div>
   <h1 id="name"></h1>
   <div class="line" id="line"></div>
-  <div class="meta"><div id="when"></div><span id="venue"></span></div>
-  <div class="foot">Curtain · pay when you walk in</div>
-  <script>
-    const q = new URLSearchParams(location.search);
-    for (const k of ["kicker", "name", "line", "when", "venue"]) document.getElementById(k).textContent = q.get(k) ?? "";
-  </script>
+  <div class="rule"></div>
+  <div class="when" id="when"></div>
+  <div class="venue" id="venue"></div>
+</div>
+<div class="brand"><i></i>Curtain<i></i></div>
+
+<script>
+  const q = new URLSearchParams(location.search);
+  for (const k of ["kicker", "name", "line", "when", "venue"]) document.getElementById(k).textContent = q.get(k) ?? "";
+  // Long names step down so they stay within the stage opening.
+  const h1 = document.getElementById("name");
+  const len = h1.textContent.length;
+  if (len > 22) h1.style.fontSize = "92px";
+  if (len > 34) h1.style.fontSize = "76px";
+</script>
 </body>
 </html>

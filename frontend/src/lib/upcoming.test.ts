@@ -40,6 +40,12 @@ describe("upcomingShows", () => {
   });
 });
 
+describe("hidden shows", () => {
+  it("leaves out shows on the hidden list", () => {
+    expect(upcomingShows([show(A), show(B)], NOW, DEMO, [B]).map((s) => s.address)).toEqual([A]);
+  });
+});
+
 describe("factoryShowAddresses", () => {
   it("derives clone addresses from the factory nonce, newest first", () => {
     const factory = "0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6";

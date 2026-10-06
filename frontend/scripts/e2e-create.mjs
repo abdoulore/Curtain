@@ -68,4 +68,6 @@ must("withdraw ₦1,500", await organizerAction(EVENT, organizer, "withdraw", { 
 const got = (await usdcOf(organizer.address)) - before;
 console.log(JSON.stringify({ withdrew: got.toString(), organizerMon: (await pub.getBalance({ address: organizer.address })).toString() }));
 if (got !== 1_000_000n) throw new Error("withdrawal did not reach the payout");
+// 5. Cancel the test show so it doesn't sit on the home page as an upcoming show.
+must("cancel the test show", await organizerAction(EVENT, organizer, "cancel", {}));
 console.log("PASS: show created by signature, gate paired, guest admitted through it, ₦1,500 withdrawn; the organizer never held MON");

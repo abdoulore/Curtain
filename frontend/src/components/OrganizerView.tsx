@@ -25,6 +25,7 @@ import { formatNaira, nairaToUsdcUnits } from "@/lib/money";
 import { organizerTypedData, type OrganizerAction } from "@/lib/organizer";
 import { createdShow, pairedGates, rememberPairedGate } from "@/lib/organizer-local";
 import { browserClient, EVENT_STATUS } from "@/lib/reads";
+import { DoorList } from "./DoorList";
 import { ShareShow } from "./ShareShow";
 import { SignInButton } from "./SignInButton";
 
@@ -280,8 +281,8 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
               </p>
             ) : account ? (
               <>
-                <p className="font-semibold">This passkey isn&apos;t the organizer of this show</p>
-                <p className="mt-1 text-sm text-muted">Sign in with the passkey you created the show with.</p>
+                <p className="font-semibold">Sign in as this show&apos;s organizer</p>
+                <p className="mt-1 text-sm text-muted">Use the passkey you created the show with.</p>
                 <div className="mt-3">
                   <SignInButton variant="link" label="Sign in with another passkey" />
                 </div>
@@ -386,6 +387,8 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
         </section>
       </div>
 
+      <DoorList event={meta.address} />
+
       {pairing && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-md rounded-3xl bg-background p-6 text-center">
@@ -396,8 +399,8 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
             </div>
             <p className="mt-4 text-sm text-muted">
               Scan this with the camera of the tablet or phone at the door. It opens the gate screen, showing the same
-              code, ready to scan tickets. Anyone who scans this can run the gate, so close it once the tablet shows the
-              gate screen. You can remove a gate any time.
+              code, ready to scan tickets. Close this once the tablet shows the gate screen. You can remove a gate any
+              time.
             </p>
             <button
               onClick={() => setPairing(null)}

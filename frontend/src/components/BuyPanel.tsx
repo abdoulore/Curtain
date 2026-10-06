@@ -12,6 +12,7 @@ import { formatNaira } from "@/lib/money";
 import type { EventInfo } from "@/lib/reads";
 import type { Listing } from "@/lib/resale";
 import { saveTicket } from "@/lib/tickets";
+import { AddToCalendar } from "./AddToCalendar";
 import { ContinueOnPhone } from "./ContinueOnPhone";
 import { SignInButton } from "./SignInButton";
 
@@ -20,7 +21,7 @@ type Step = "idle" | "passkey" | "funding" | "paying" | "done";
 const STEP_TEXT: Record<Step, string> = {
   idle: "",
   passkey: "Confirm with your fingerprint or Face ID",
-  funding: "Adding test money to your balance",
+  funding: "Adding demo money",
   paying: "Paying into the show's safe",
   done: "",
 };
@@ -123,7 +124,20 @@ export function BuyPanel({
             or Face ID.
           </p>
         )}
-        <div className="mt-4 flex gap-3">
+        <p className="mt-3 text-xs text-muted">
+          Demo money for this preview. In the live app you pay by card or bank transfer.
+        </p>
+        <div className="mt-3">
+          <AddToCalendar
+            event={meta.address}
+            ticketId={bought.ticketId}
+            name={meta.name}
+            venue={meta.venue}
+            doorsOpen={info.doorsOpen}
+            endTime={info.endTime}
+          />
+        </div>
+        <div className="mt-3 flex gap-3">
           <Link
             href="/tickets"
             className="flex-1 rounded-2xl bg-velvet px-4 py-3 text-center font-semibold text-velvet-ink"

@@ -12,6 +12,7 @@ import { browserClient, readBalance, readEventInfo, readTicket, type EventInfo, 
 import { cardStatus, listTicket, rememberListed, wasListedHere, type CardStatus } from "@/lib/resale";
 import { useShowMeta } from "@/lib/show-details";
 import type { SavedTicket } from "@/lib/tickets";
+import { AddToCalendar } from "./AddToCalendar";
 import { SendToPhone } from "./SendToPhone";
 import { SignInButton } from "./SignInButton";
 
@@ -47,11 +48,11 @@ function statusLine(status: CardStatus, price: string): { text: string; tone: st
     case "used":
       return { text: "Checked in. Enjoy the show", tone: "text-foreground" };
     case "refunded":
-      return { text: `${price} is back in your Curtain balance`, tone: "text-go" };
+      return { text: `${price} is back in your balance`, tone: "text-go" };
     case "refundOwed":
       return { text: "Refund on its way", tone: "text-velvet" };
     case "sold":
-      return { text: `Sold. The buyer's ${price} went to your Curtain balance.`, tone: "text-muted" };
+      return { text: `Sold. The buyer's ${price} went to your balance.`, tone: "text-muted" };
     case "passedOn":
       return { text: "Passed on to someone else", tone: "text-muted" };
   }
@@ -139,6 +140,16 @@ function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account
 
       {open && (status === "ready" || status === "listed") && (
         <div className="space-y-3 px-5 pb-4">
+          {status === "ready" && show && (
+            <AddToCalendar
+              event={ticket.event}
+              ticketId={ticket.ticketId}
+              name={meta?.name ?? "Curtain show"}
+              venue={meta?.venue ?? ""}
+              doorsOpen={show.doorsOpen}
+              endTime={show.endTime}
+            />
+          )}
           {status === "ready" && <SendToPhone account={account} event={ticket.event} ticketId={ticket.ticketId} />}
           <button
             onClick={() => setOnSale(status === "ready")}
@@ -211,11 +222,10 @@ export function TicketsView() {
         <h1 className="text-2xl font-semibold">{account.name ? `${account.name}'s tickets` : "My tickets"}</h1>
         <div className="mt-3 rounded-2xl border border-line bg-surface p-4 lg:mt-0 lg:max-w-md">
           <p className="text-sm">
-            Curtain balance <span className="font-semibold">{balance === null ? "…" : formatNaira(balance)}</span>
+            Demo balance <span className="font-semibold">{balance === null ? "…" : formatNaira(balance)}</span>
           </p>
           <p className="mt-1 text-xs text-muted">
-            Refunds and resale money land here, and it pays for your next ticket. This is test money on a test
-            network, so it can&apos;t be withdrawn.
+            Refunds and resale money land here, and it pays for your next ticket.
           </p>
         </div>
       </div>

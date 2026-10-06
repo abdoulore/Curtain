@@ -20,6 +20,8 @@ import { useAccount, useHydrated } from "@/lib/hooks";
 import { NAIRA_PER_USDC } from "@/lib/money";
 import { rememberCreatedShow } from "@/lib/organizer-local";
 import { browserClient } from "@/lib/reads";
+import { uploadShowMedia } from "@/lib/use-show-media";
+import { PosterFields } from "./PosterField";
 import { SignInButton } from "./SignInButton";
 
 /** "2026-10-06T19:30" in local time for a datetime-local input. */
@@ -44,6 +46,8 @@ export function CreateShowView() {
   const [yourName, setYourName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [poster, setPoster] = useState<File | null>(null);
+  const [description, setDescription] = useState("");
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -81,6 +85,11 @@ export function CreateShowView() {
         createShowBody(signer.address, built.name, built.venue, built.params, nonce, deadline, sig),
       );
       rememberCreatedShow({ event: res.event, organizer: signer.address, name: built.name, hash: res.hash, at: Date.now() });
+      if (poster || description.trim()) {
+        // Signed with the same unlocked account, so no second fingerprint prompt.
+        setBusy("Adding the poster…");
+        await uploadShowMedia(res.event, signer, poster, description.trim()).catch(() => {});
+      }
       router.push(`/organizer/${res.event}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : friendlyPasskeyError(err));
@@ -152,6 +161,7 @@ export function CreateShowView() {
             className={field}
           />
         </label>
+        <PosterFields poster={poster} onPoster={setPoster} description={description} onDescription={setDescription} />
         <label className="text-sm font-medium">
           Date and time doors open
           <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={field} />

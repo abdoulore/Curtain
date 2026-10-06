@@ -8,6 +8,8 @@ import type { EventMeta } from "@/lib/events";
 import { describe, sortFeed, type FeedItem } from "@/lib/activity";
 import { ENVIO_URL, fetchBoard, type ActivityRow } from "@/lib/indexer";
 import { formatNaira } from "@/lib/money";
+import { useShowMedia } from "@/lib/use-show-media";
+import { Poster } from "./Poster";
 import { browserClient, EVENT_STATUS } from "@/lib/reads";
 
 const PUBLIC_WSS_URL = "wss://testnet-rpc.monad.xyz";
@@ -126,6 +128,7 @@ function MoneyBar({ totals }: { totals: Totals }) {
 }
 
 export function BoardView({ meta }: { meta: EventMeta }) {
+  const media = useShowMedia(meta.address);
   const [totals, setTotals] = useState<Totals | null>(null);
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [live, setLive] = useState(false);
@@ -228,8 +231,15 @@ export function BoardView({ meta }: { meta: EventMeta }) {
         <p className="text-muted">Money board</p>
         <p className={live ? "text-go" : "text-muted"}>{live ? "● Live" : "○ Connecting"}</p>
       </div>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight lg:text-4xl">{meta.name}</h1>
-      {totals && <p className="mt-1 text-sm text-muted">{STATUS_TEXT[totals.status] ?? totals.status}</p>}
+      <div className="mt-2 flex items-center gap-4">
+        <div className="relative aspect-[4/5] w-14 shrink-0 overflow-hidden rounded-xl border border-line lg:w-20">
+          <Poster src={media?.poster} name={meta.name} sizes="80px" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight lg:text-4xl">{meta.name}</h1>
+          {totals && <p className="mt-1 text-sm text-muted">{STATUS_TEXT[totals.status] ?? totals.status}</p>}
+        </div>
+      </div>
 
       {pulse && (
         <div className="mt-4 rounded-2xl bg-go/10 px-4 py-3 text-sm font-medium text-go">{describe(pulse)}</div>

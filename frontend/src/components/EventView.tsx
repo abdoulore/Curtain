@@ -9,7 +9,9 @@ import { fetchListings } from "@/lib/indexer";
 import { formatNaira } from "@/lib/money";
 import { readEventInfo, readTicket, type EventInfo, type TicketState } from "@/lib/reads";
 import { listingsFor, type Listing } from "@/lib/resale";
+import { useShowMedia } from "@/lib/use-show-media";
 import { BuyPanel } from "./BuyPanel";
+import { Poster } from "./Poster";
 
 const dateFmt = new Intl.DateTimeFormat("en-NG", { weekday: "short", day: "numeric", month: "short" });
 
@@ -40,6 +42,7 @@ async function loadResale(event: Address, sold: number): Promise<RawListing[]> {
 
 export function EventView({ meta }: { meta: EventMeta }) {
   const account = useAccount();
+  const media = useShowMedia(meta.address);
   const [raw, setRaw] = useState<RawListing[]>([]);
   const [buyingResale, setBuyingResale] = useState(false);
   const [info, setInfo] = useState<EventInfo | null>(null);
@@ -72,13 +75,16 @@ export function EventView({ meta }: { meta: EventMeta }) {
   return (
     <main className="pt-6 lg:grid lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-12 lg:pt-12">
       <section>
+        <div className="relative mb-5 aspect-[16/10] overflow-hidden rounded-3xl border border-line">
+          <Poster src={media?.poster} name={meta.name} sizes="(min-width: 1024px) 600px, 100vw" priority />
+        </div>
         {meta.isDemo && (
           <span className="inline-block rounded-full border border-line px-2.5 py-1 text-xs font-medium text-muted">
-            Demo show, test money only
+            Demo show
           </span>
         )}
         <h1 className="mt-3 text-3xl font-semibold tracking-tight lg:text-5xl">{meta.name}</h1>
-        <p className="mt-3 text-muted lg:text-lg">{meta.tagline}</p>
+        <p className="mt-3 whitespace-pre-line text-muted lg:text-lg">{media?.description || meta.tagline}</p>
         <dl className="mt-6 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           <div className="rounded-2xl border border-line bg-surface p-4">
             <dt className="text-xs font-medium tracking-wide text-muted uppercase">Where</dt>

@@ -18,12 +18,12 @@ const FRIENDLY: Record<string, string> = {
   PriceMismatch: "The price changed. Refresh and try again.",
   SignatureExpired: "That took too long. Please try again.",
   BadSignature: "We couldn't confirm it was you. Please try again.",
-  InvalidPublicKey: "This passkey can't be used for tickets.",
+  InvalidPublicKey: "Use your Curtain passkey for tickets.",
   UnknownEvent: "We couldn't find this show.",
   RpcError: "The network is busy. Please try again in a moment.",
-  TopupLimitIp: "You've had your free test money for today on this network. Try again tomorrow.",
+  TopupLimitIp: "You've had today's demo money on this network. Try again tomorrow.",
   TopupLimitGlobal: "Lots of people are topping up right now. Try again in an hour.",
-  UnsupportedToken: "This show isn't priced in a currency Curtain supports yet.",
+  UnsupportedToken: "Curtain shows are priced in USDC.",
   // At the door
   TicketNotActive: "This ticket has already been used or refunded.",
   InvalidAssertion: "This ticket belongs to someone else's fingerprint or Face ID.",
@@ -65,6 +65,18 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) {
     const code = typeof json.error === "string" ? json.error : "Error";
     throw new ApiError(code, FRIENDLY[code] ?? "Something went wrong. Please try again.");
+  }
+  return json as T;
+}
+
+/** Multipart POST (for files), with the same error handling as postJson. */
+export async function postForm<T>(path: string, body: FormData): Promise<T> {
+  const res = await fetch(path, { method: "POST", body });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const code = typeof json.error === "string" ? json.error : "Error";
+    const message = FRIENDLY[code] ?? (typeof json.message === "string" ? json.message : "Something went wrong. Please try again.");
+    throw new ApiError(code, message);
   }
   return json as T;
 }

@@ -114,7 +114,7 @@ export function EventView({ meta }: { meta: EventMeta }) {
           {left !== null && (
             <p className="text-right text-sm text-muted">
               {left > 0 ? `${left} of ${info!.capacity} left` : "Sold out"}
-              <span className="block">Up to {info!.maxPerBuyer} per person</span>
+              {info!.maxPerBuyer > 0 && <span className="block">Up to {info!.maxPerBuyer} per person</span>}
             </p>
           )}
         </div>

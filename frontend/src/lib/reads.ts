@@ -45,7 +45,8 @@ export async function readEventInfo(event: Address): Promise<EventInfo> {
     read<bigint>("doorsOpen"),
     read<bigint>("endTime"),
     read<number>("status"),
-    read<number>("maxPerBuyer"),
+    // Shows from before the per-person limit existed answer with a revert; 0 means "no limit shown".
+    read<number>("maxPerBuyer").catch(() => 0),
   ]);
   return {
     price,

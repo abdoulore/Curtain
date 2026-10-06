@@ -7,22 +7,21 @@ Live site: https://curtaintickets.vercel.app
 
 ## Try it (for judges)
 
-Everything runs on Monad testnet with test money, so nothing here costs anything. You need a phone and a laptop.
+Everything runs on Monad testnet with demo money. You need a phone and a laptop.
 
-**Phone:** Android with Chrome and Google Password Manager (tested on a Samsung with fingerprint). iPhone with Safari
-on iOS 18 or later and iCloud Keychain uses the same passkey features but has not been tested yet. Desktop Chrome
-with a local profile can't hold a Curtain ticket (no passkey PRF); it shows a "Continue on your phone" QR instead.
-Open links in Chrome or Safari, not inside WhatsApp, Instagram or X.
+**Phone:** Android with Chrome and Google Password Manager (run on a Samsung with fingerprint), or iPhone with
+Safari on iOS 18 or later and iCloud Keychain. On a laptop browser, Curtain shows a "Continue on your phone" code.
+Open links in Chrome or Safari rather than inside WhatsApp, Instagram or X.
 
 ### Buy a ticket and walk in (5 minutes)
 
 1. **Laptop: open the gate.** Open this link:
-   [demo gate](https://curtaintickets.vercel.app/gate/pair#TcbC7DiZwout3-hysJxsQcfdZT0KF3-Nm80HSSfCMjlCkQ4EDWYlELuQQxgP37CQf9Gp7A).
-   It pairs the browser as gate device `AJGZ-2YH5` for "Curtain Demo Night" and shows a QR code that changes every
-   few seconds.
-2. **Phone: buy.** Open https://curtaintickets.vercel.app/e/demo, type a first name and tap **Get my ticket**. Your
-   phone asks for your fingerprint or Face ID once to create your Curtain passkey; Curtain adds test money to your
-   balance and buys the ticket. No wallet, no seed phrase, no gas.
+   [demo gate](https://curtaintickets.vercel.app/gate/pair#VWK_HMurzy8GAjn50kG6lmEhcTW0ZXgbjZDH9G9RwvXea_zUYhDRepxMAu_Zq0TrhPK_wg).
+   It pairs the browser as a gate device for "Curtain Demo Night" and shows a QR code that changes every few seconds.
+2. **Phone: buy.** Open https://curtaintickets.vercel.app (the demo show is first under Upcoming shows) or go straight
+   to https://curtaintickets.vercel.app/e/demo. Type a first name and tap **Get my ticket**. Your phone asks for your
+   fingerprint or Face ID once to create your Curtain passkey; Curtain adds demo money and buys the ticket. No wallet,
+   no seed phrase, no gas. **Add to calendar** saves the show to your phone's calendar.
 3. **Phone: walk in.** Point the phone's camera at the laptop's QR code, open the link, tap **Check in** and confirm
    with your fingerprint or Face ID. Both screens turn green and ₦1,500 moves to the organizer.
 4. **Try to get in twice.** Scan again with the same ticket and tap **Check in**: both screens turn red.
@@ -34,22 +33,20 @@ From **My tickets** you can also send a ticket to another phone, sell it at face
 ### Run your own show (organizer)
 
 1. Open https://curtaintickets.vercel.app/organizer/new on the phone (it can be the same passkey) and create a show:
-   name, venue, doors-open time, price in naira, capacity.
+   name, venue, poster, description, doors-open time, price in naira, capacity and tickets per person.
 2. On the show's dashboard, tap **Add a gate device** and scan the pairing QR with the laptop's camera. The laptop
    becomes that show's gate.
-3. Share the ticket page from the **Sell tickets** card, buy a ticket, and check in at your gate.
+3. Share the ticket page from the **Sell tickets** card, buy a ticket, and check in at your gate. The door list and the
+   sales chart on the dashboard update as people buy and walk in.
 4. Withdraw: type an amount in naira (₦1,500 is one 1 USDC ticket) or leave it empty to take everything released.
    Or cancel the show and the unscanned tickets are refunded.
 
-Shows run six hours from doors open; ticket sales close when they end.
+Shows run six hours from doors open, and ticket sales run until the show ends.
 
-### If something goes wrong
+### Good to know
 
-- **"You've had your free test money for today"**: top-ups are limited to 3 per network per day. Try from another
-  network (for example mobile data).
-- **"This browser can't hold a Curtain ticket"**: use one of the phones above, or follow the "Continue on your phone"
-  QR.
-- Status of the relayer and treasury: https://curtaintickets.vercel.app/api/health
+- Demo money tops up 3 times per network per day; mobile data counts as another network.
+- Relayer and treasury status: https://curtaintickets.vercel.app/api/health
 
 ### What to look at
 
@@ -88,6 +85,9 @@ Shows run six hours from doors open; ticket sales close when they end.
   - `listForResale` (at or below face value), `buyResale` (buyer pays the seller directly, holder and passkey rebind,
     the escrowed face value stays), `setClaim` and `claim` (gift link signed by a claim key; every holder or key change
     bumps a claim nonce so old links die).
+  - `maxPerBuyer` (set at creation, 0 means 4): `ticketsHeld` counts the tickets each account holds now. `buy`,
+    `buyResale` and `claim` revert `TooManyTickets(holder, max)` past the limit; selling or gifting a ticket frees a
+    place.
 - Accounting invariant: `totalPaidIn == released + refunded + escrowed`, and the token balance always equals
   `escrowed + released - withdrawn`.
 
@@ -100,13 +100,15 @@ Changes from the original spec, so buyers and organizers never need gas:
 
 ### Tests
 
-`forge test` runs 114 tests: 14 canary, 59 escrow, 5 invariants, 18 keeper, 8 gate pass, 10 show creation. The web
-app adds 58 Vitest tests
+`forge test` runs 122 tests: 14 canary, 59 escrow, 5 invariants, 18 keeper, 8 gate pass, 10 show creation, 8
+per-person limit. The web app adds 84 Vitest tests
 (`npm test` in `frontend/`): top-up limits, token allowlist, passkey key recovery and ES256-only options, in-app
 browser detection, claim-key derivation and links, PRF capability detection, the gate result log, organizer typed
 data, the packed gate token, the chain fallback for held tickets, which ticket the check-in page presents, gate passes
 and pairing links, gate device auth for the results feed, naira to USDC conversion, the create-show form and its
-typed data, show creation limits, resale listings and ticket card states. The
+typed data, show creation limits, resale listings and ticket card states, poster and description checks and the
+organizer-only write, upcoming-show filtering and the factory address derivation, calendar files, and the door list
+and sales chart series. The
 CRE workflow adds 9 (`bun test` in `cre/curtain-keeper/`).
 
 - Happy paths: buy, check-in, withdraw; cancel then push refunds (scanned tickets stay paid); batched refunds; pull
@@ -244,6 +246,7 @@ reverted onchain, Oct 6:
 | Seller at the door after reselling | `InvalidAssertion` | [`0xf27ae8b1...1bd7`](https://testnet.monadvision.com/tx/0xf27ae8b149244e474ad22123dc6f7a0861b9860df94ec2e9676ddb62113c1bd7) |
 | Organizer withdraws more than was released | `ExceedsReleased` | [`0x286ed4ac...e4ad`](https://testnet.monadvision.com/tx/0x286ed4acb11db91107695ea1344098e1ecd7cc2df7a059662d1ed7774370e4ad) |
 | A stranger signs a cancellation | `BadSignature` | [`0x97a102d2...4b80`](https://testnet.monadvision.com/tx/0x97a102d2ed0034df3417534dc390647804a56108520775759ee25582d4b44b80) |
+| A fifth ticket for one person (Oct 7, current demo show, `limit-case.mjs`) | `TooManyTickets` | [`0xcfe168fe...f12a`](https://testnet.monadvision.com/tx/0xcfe168feeb7459845537b489259b93aaa18777f9676051225be1498cb7abf12a) |
 
 ```sh
 cd frontend && BASE_URL=https://curtaintickets.vercel.app npm run red-cases
@@ -253,29 +256,32 @@ cd frontend && BASE_URL=https://curtaintickets.vercel.app npm run red-cases
 
 | Contract | Address | Tx |
 | --- | --- | --- |
-| CurtainFactory | [`0x13391D9E0dD62d01c62821671F47A12eE320Ca58`](https://testnet.monadvision.com/address/0x13391D9E0dD62d01c62821671F47A12eE320Ca58) | [`0x51c3eec3...d3c6`](https://testnet.monadvision.com/tx/0x51c3eec35d0c197a70a07d88fd1083525dcfbee39613d424f900611e5757d3c6) |
-| CurtainEvent implementation | [`0x7C4AC786977b98088F9bf449459d6E01f616A40E`](https://testnet.monadvision.com/address/0x7C4AC786977b98088F9bf449459d6E01f616A40E) | same tx |
-| Demo show (clone, made with `createEventFor`) | [`0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D`](https://testnet.monadvision.com/address/0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D) | [`0xc863029e...8620`](https://testnet.monadvision.com/tx/0xc863029e9f3010f5530f618ce6ef65f1b2a10490aa91a4d60c2726922b6a8620) |
-| CurtainKeeper (CRE) | [`0xe2F693e95eA2A2ff45fA08374198714CD49E58B1`](https://testnet.monadvision.com/address/0xe2F693e95eA2A2ff45fA08374198714CD49E58B1) | [`0x01ca5ed7...2fc5`](https://testnet.monadvision.com/tx/0x01ca5ed7531957edcba61d8695952042485321d112d7b0724901c62e6d942fc5) |
+| CurtainFactory | [`0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6`](https://testnet.monadvision.com/address/0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6) | [`0xdc310e5b...2e4d`](https://testnet.monadvision.com/tx/0xdc310e5bb16589600306dbf055efc6ed38b41036295b4ea84a60407ffb6d2e4d) |
+| CurtainEvent implementation | [`0xB6174b89b16ae0c88005ed7d91dE40f61F929c3A`](https://testnet.monadvision.com/address/0xB6174b89b16ae0c88005ed7d91dE40f61F929c3A) | same tx |
+| Demo show (clone, made with `createEventFor`) | [`0x5562bF1ccBabcF2f060239f9D241Ba9661217135`](https://testnet.monadvision.com/address/0x5562bF1ccBabcF2f060239f9D241Ba9661217135) | [`0x597583fe...adaa`](https://testnet.monadvision.com/tx/0x597583fedaf5266ae49c83ca2a00f37b5dc6059a33c03e401b0dc1584145adaa) |
+| CurtainKeeper (CRE) | [`0xc16008D869fC44E2af4d217C23adc2eCFdC57219`](https://testnet.monadvision.com/address/0xc16008D869fC44E2af4d217C23adc2eCFdC57219) | [`0xd0f8eb46...d8db`](https://testnet.monadvision.com/tx/0xd0f8eb464fd470376e6d553cb1b3a17d12a1d47abfedcfc633d93d719c58d8db) |
 
 Factory, implementation and keeper are source-verified (exact match) on Sourcify. The demo show sells 200 tickets at
 1 USDC (Circle testnet USDC `0x534b2f3A21130d7a60830c2Df862319e593943A3`, EIP-712 domain name `USDC`, version
-`2`), doors open now, ends 30 days after deploy, held threshold 50%, rpId `curtaintickets.vercel.app`.
+`2`), up to 4 per person, doors open now, ends 30 days after deploy, held threshold 50%, rpId
+`curtaintickets.vercel.app`.
 
 ```sh
 forge script script/DeployCurtain.s.sol --rpc-url monad_testnet --broadcast --slow --gas-estimate-multiplier 110
-CURTAIN_FACTORY=0x13391D9E0dD62d01c62821671F47A12eE320Ca58 KEEPER_DEMO_SHOWS=false   forge script script/DeployKeeper.s.sol --rpc-url monad_testnet --broadcast --slow --gas-estimate-multiplier 110
+CURTAIN_FACTORY=0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6 KEEPER_DEMO_SHOWS=false forge script script/DeployKeeper.s.sol --rpc-url monad_testnet --broadcast --slow --gas-estimate-multiplier 110
 ```
 
 The relayer key deploys and submits; the organizer key only signs the demo show's `CreateShow`; the gate key's
 address is the demo show's first gate device.
 
 Retired deployments (earlier contract versions, kept for the runs recorded below): factory
+`0x13391D9E0dD62d01c62821671F47A12eE320Ca58` (before the per-person limit) with demo show
+`0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D` and keeper `0xe2F693e95eA2A2ff45fA08374198714CD49E58B1`; factory
 `0x00CC023C3BFB01eb3E5470247c7976966b04d0Db` with demo event `0xd3F22B52F74D658318C29E0475E1833214eCA005` and
 keeper `0x010F096F8dC260b68A07025C00404aaf9F33bADe`; factory `0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0` with
 demo event `0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7`.
 
-Real passkey run on the current deployment, Oct 6: Samsung Android (fingerprint, Mera passkey account
+Real passkey run on the previous deployment (factory `0x13391D9E...Ca58`), Oct 6: Samsung Android (fingerprint, Mera passkey account
 `0xc1ACaC62...5291`) as organizer and buyer, a Windows laptop paired as the gate. Show "Magic show"
 [`0x3A9cF10b...FAd3`](https://testnet.monadvision.com/address/0x3A9cF10b9E427a472bd06145027826eD6D24FAd3).
 
@@ -291,7 +297,11 @@ Real passkey run on the current deployment, Oct 6: Samsung Android (fingerprint,
 
 The organizer never held MON; the relayer paid every transaction.
 
-End-to-end runs against the current deployment (Oct 5, through the app's relayer API; an EOA stands in for the
+Show with a poster on the current deployment, Oct 7 (`npm run e2e:create`, which also uploads a poster and
+description signed by the organizer): created [`0xbd4ca594...c3d3`](https://testnet.monadvision.com/tx/0xbd4ca594b76fb424db26b5fd36132cb46890179bd0383ed9c152a2ec8223c3d3),
+show `0x1c10dbC3425FD4F9fbb4c837E494cBb5AEB23399`, then pair a gate, admit a guest and withdraw ₦1,500 as before.
+
+End-to-end runs against the previous deployment (Oct 5, through the app's relayer API; an EOA stands in for the
 passkey account, since Mera accounts are plain EOAs and sign the same typed data):
 
 | Run | Step | Tx |
@@ -382,8 +392,37 @@ Next.js on Vercel at https://curtaintickets.vercel.app. Screenshots at 375 px an
 - Ticket cards show the date, the venue, and "At the door, scan the gate code with your camera and confirm with your
   fingerprint or Face ID". A refunded ticket says "₦1,500 is back in your Curtain balance", and the balance explains
   that refunds and resale money pay for the next ticket and that test money can't be withdrawn.
+- Upcoming shows on the home page: every open show that hasn't ended or sold out, with poster, date, venue, price in
+  naira and tickets left; the demo show is pinned first. They come from the Envio indexer, or from the chain when it
+  has nothing (each clone's address follows from the factory's nonce, so the app can list them without a log scan).
+- Posters and descriptions: `/organizer/new` takes an optional poster (JPG, PNG or WEBP, up to 3 MB) and a
+  description of up to 500 characters. They live in Vercel Blob under the show's address. The organizer's passkey
+  account signs the show address plus the SHA-256 of the file and of the text, and the server writes only when that
+  signer is the show's `organizer()` onchain. The event page, home cards and money board show the poster, with a
+  drawn-curtain default when there is none.
+- Add to calendar: the ticket card and the success screen download an `.ics` file with the show's name, venue,
+  doors-open time, a reminder two hours before, and a link back to the ticket.
+- The organizer dashboard has a live door list (ticket, status, bought at, checked in at, newest first) and a chart of
+  tickets sold and checked in over time, both from the indexer's tickets and activity.
+- Tickets per person: set on the create page (default 4) and shown on the event page as "Up to 4 per person".
+- Demo money: buying says "Adding demo money", the success screen adds "Demo money for this preview. In the live app
+  you pay by card or bank transfer.", and My tickets shows a "Demo balance".
 - Browser reads fall back across four public Monad testnet RPCs.
 - The money board and organizer dashboard use two-column layouts on desktop; buyer pages use two columns from 1024 px.
+
+### Security model
+
+- **Passkeys sync with the user's Apple or Google account.** The same passkey, and so the same ticket, works on every
+  device signed in to that account; the account is the ticket's owner.
+- **Gates sign every code.** Each gate device holds its own key, paired by the organizer's passkey-signed `SetGate`,
+  and signs each rotating code. The contract admits a ticket only for a code from a paired gate, a fresh challenge
+  and the ticket holder's passkey.
+- **The relayer never holds ticket money.** It pays gas and submits what buyers, holders, gates and organizers sign.
+  Ticket money moves only between buyers, each show's escrow and the organizer's fixed payout address.
+- **Each account can buy up to the show's per-person limit**, counted onchain across new tickets, resale and gift
+  claims.
+- **Resale is capped at face value onchain**, and a resold ticket opens the door only with the new holder's passkey.
+- **Payments in naira come through a payment partner on mainnet**, which settles into the same escrow.
 
 ### Keys
 

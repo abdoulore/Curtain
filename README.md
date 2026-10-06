@@ -5,6 +5,60 @@ your money back if the show never happens. Built for Monad Metropolis, Track 02 
 
 Live site: https://curtaintickets.vercel.app
 
+## Try it (for judges)
+
+Everything runs on Monad testnet with test money, so nothing here costs anything. You need a phone and a laptop.
+
+**Phone:** Android with Chrome and Google Password Manager (tested on a Samsung with fingerprint). iPhone with Safari
+on iOS 18 or later and iCloud Keychain uses the same passkey features but has not been tested yet. Desktop Chrome
+with a local profile can't hold a Curtain ticket (no passkey PRF); it shows a "Continue on your phone" QR instead.
+Open links in Chrome or Safari, not inside WhatsApp, Instagram or X.
+
+### Buy a ticket and walk in (5 minutes)
+
+1. **Laptop: open the gate.** Open this link:
+   [demo gate](https://curtaintickets.vercel.app/gate/pair#TcbC7DiZwout3-hysJxsQcfdZT0KF3-Nm80HSSfCMjlCkQ4EDWYlELuQQxgP37CQf9Gp7A).
+   It pairs the browser as gate device `AJGZ-2YH5` for "Curtain Demo Night" and shows a QR code that changes every
+   few seconds.
+2. **Phone: buy.** Open https://curtaintickets.vercel.app/e/demo, type a first name and tap **Get my ticket**. Your
+   phone asks for your fingerprint or Face ID once to create your Curtain passkey; Curtain adds test money to your
+   balance and buys the ticket. No wallet, no seed phrase, no gas.
+3. **Phone: walk in.** Point the phone's camera at the laptop's QR code, open the link, tap **Check in** and confirm
+   with your fingerprint or Face ID. Both screens turn green and ₦1,500 moves to the organizer.
+4. **Try to get in twice.** Scan again with the same ticket and tap **Check in**: both screens turn red.
+5. **Watch the money.** https://curtaintickets.vercel.app/board/demo shows what is held, paid to the organizer and
+   refunded, with every sale and check-in linked to its transaction.
+
+From **My tickets** you can also send a ticket to another phone, sell it at face value, or see a refund land.
+
+### Run your own show (organizer)
+
+1. Open https://curtaintickets.vercel.app/organizer/new on the phone (it can be the same passkey) and create a show:
+   name, venue, doors-open time, price in naira, capacity.
+2. On the show's dashboard, tap **Add a gate device** and scan the pairing QR with the laptop's camera. The laptop
+   becomes that show's gate.
+3. Share the ticket page from the **Sell tickets** card, buy a ticket, and check in at your gate.
+4. Withdraw: type an amount in naira (₦1,500 is one 1 USDC ticket) or leave it empty to take everything released.
+   Or cancel the show and the unscanned tickets are refunded.
+
+Shows run six hours from doors open; ticket sales close when they end.
+
+### If something goes wrong
+
+- **"You've had your free test money for today"**: top-ups are limited to 3 per network per day. Try from another
+  network (for example mobile data).
+- **"This browser can't hold a Curtain ticket"**: use one of the phones above, or follow the "Continue on your phone"
+  QR.
+- Status of the relayer and treasury: https://curtaintickets.vercel.app/api/health
+
+### What to look at
+
+- Every red case reverting onchain, with links: [Every red case, refused onchain](#every-red-case-refused-onchain).
+- Real passkey runs with links: [Deployed on Monad testnet](#deployed-on-monad-testnet-chain-10143).
+- Bounties: Mera accounts and PRF claim keys ([One passkey for the account and the door](#one-passkey-for-the-account-and-the-door),
+  [The web app](#the-web-app)); Chainlink CRE ([Automatic settlement and refunds](#automatic-settlement-and-refunds-chainlink-cre));
+  Envio ([Money board and indexer](#money-board-and-indexer)).
+
 ## Escrow v1
 
 - `src/CurtainFactory.sol` deploys one `CurtainEvent` clone per event and emits `EventCreated`. It holds no money and
@@ -120,9 +174,12 @@ the P-256 key from the registration response, so the same passkey signs check-in
 [`indexer/`](indexer) is an Envio HyperIndex that follows `CurtainFactory`, registers each event escrow it creates,
 and keeps per-show totals (escrowed, released, withdrawn, refunded), every ticket's holder and state, and an
 activity feed. It runs on Envio Cloud over HyperSync; on Oct 5 its totals matched the contract exactly and a new
-purchase appeared in the index 680 ms after it confirmed. Re-pointed at the factory below and checked again on Oct 5:
-sold, checked in, held, released and withdrawn all match the contract. If the indexer is down or has no tickets for
-an account, "My tickets" and sign-in read each escrow directly.
+purchase appeared in the index 680 ms after it confirmed. It now also indexes each show's name and venue
+(`ShowDetails`) and its paired gate devices (`GateSet`). Re-pointed at the current factory on Oct 6 (deployment
+`3143b07`): sold, checked in, held, released and withdrawn match the contract for every show. Envio feeds the money
+board, "My tickets" on any device, an organizer's "Your shows", the dashboard's gate list, and the Chainlink
+workflow's list of shows to check. If the indexer is down or has nothing for an account, the app reads each escrow
+directly.
 
 The money board, https://curtaintickets.vercel.app/board/demo, shows those totals and the feed, and pops each
 purchase and check-in the moment it happens from a WebSocket log subscription. "My tickets" also reads the

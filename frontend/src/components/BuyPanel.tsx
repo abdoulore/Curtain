@@ -6,11 +6,13 @@ import { friendlyPasskeyError, isPrfUnavailable, signUp, unlock } from "@/lib/ac
 import { detectPrfSupport, type PrfSupport } from "@/lib/capabilities";
 import { ApiError } from "@/lib/api";
 import { buyTicket, hasBalanceFor, requestTopup, type BuyResult } from "@/lib/buy";
+import { PASSKEY_PRIVACY } from "@/lib/copy";
 import type { EventMeta } from "@/lib/events";
 import { useAccount, useHydrated, useIsDesktop } from "@/lib/hooks";
 import { formatNaira } from "@/lib/money";
 import type { EventInfo } from "@/lib/reads";
 import type { Listing } from "@/lib/resale";
+import { saleState } from "@/lib/sale-state";
 import { saveTicket } from "@/lib/tickets";
 import { AddToCalendar } from "./AddToCalendar";
 import { ContinueOnPhone } from "./ContinueOnPhone";
@@ -22,7 +24,7 @@ const STEP_TEXT: Record<Step, string> = {
   idle: "",
   passkey: "Confirm with your fingerprint or Face ID",
   funding: "Adding demo money",
-  paying: "Paying into the show's safe",
+  paying: "Paying, your money stays protected",
   done: "",
 };
 
@@ -32,11 +34,14 @@ export function BuyPanel({
   info,
   onBought,
   listing,
+  onCheckoutChange,
 }: {
   meta: EventMeta;
   info: EventInfo;
   onBought: () => void;
   listing?: Listing;
+  /** Told when a purchase starts or finishes, so the page can hide its sticky buy bar. */
+  onCheckoutChange?: (active: boolean) => void;
 }) {
   const hydrated = useHydrated();
   const desktop = useIsDesktop();
@@ -57,19 +62,24 @@ export function BuyPanel({
   }, []);
 
   const busy = step !== "idle" && step !== "done";
+  const checkoutActive = busy || bought !== null;
+  useEffect(() => {
+    onCheckoutChange?.(checkoutActive);
+  }, [checkoutActive, onCheckoutChange]);
+
   const price = listing ? listing.price : info.price;
-  const closed =
-    info.status !== "Open"
+  const sale = saleState(info);
+  const closed = listing
+    ? info.status !== "Open"
       ? "This show isn't selling tickets anymore."
-      : listing
-        ? info.readAt >= info.endTime
-          ? "This show has ended."
-          : null
-        : info.readAt >= info.salesEnd
-          ? "Ticket sales have closed."
-          : info.sold >= info.capacity
-            ? "Sold out. Every ticket has been taken."
-            : null;
+      : info.readAt >= info.endTime
+        ? "This show has ended."
+        : null
+    : sale.kind === "open"
+      ? null
+      : sale.kind === "soldOut"
+        ? "Sold out. Every ticket has been taken."
+        : sale.label;
 
   async function purchase() {
     setError(null);
@@ -176,6 +186,7 @@ export function BuyPanel({
             placeholder="Ada"
             className="mt-1 w-full rounded-xl border border-line bg-background px-3 py-3 text-base outline-none focus:border-velvet"
           />
+          <span className="mt-1.5 block text-xs text-muted">{PASSKEY_PRIVACY}</span>
         </label>
       )}
       <button
@@ -198,7 +209,11 @@ export function BuyPanel({
           ? `Signed in as ${account.name || "you"}. One fingerprint or Face ID to pay.`
           : "No password, no app. Your fingerprint or Face ID is your ticket."}
       </p>
-      {error && <p className="mt-3 text-sm text-stop">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-stop">
+          {error}
+        </p>
+      )}
       {!account && (
         <div className="mt-4 text-center">
           <SignInButton variant="link" label="Already have a Curtain passkey? Sign in" />

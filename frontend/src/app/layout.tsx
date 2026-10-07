@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f6f1ea" },
     { media: "(prefers-color-scheme: dark)", color: "#120d0c" },
@@ -35,14 +36,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <Image src="/logo.png" alt="" width={32} height={32} priority className="rounded-lg" /> Curtain
           </Link>
-          <nav aria-label="Main" className="flex items-center gap-1 text-sm font-medium sm:gap-2">
-            <Link href="/shows" className="rounded-full px-2.5 py-1.5 text-muted hover:text-foreground sm:px-3">
+          <nav aria-label="Main" className="flex items-center gap-0.5 text-sm font-medium whitespace-nowrap sm:gap-2">
+            <Link href="/shows" className="rounded-full px-2 py-1.5 text-muted hover:text-foreground sm:px-3">
               Shows
             </Link>
             <Link href="/tickets" className="rounded-full border border-line px-2.5 py-1.5 sm:px-3">
               My tickets
             </Link>
-            <Link href="/organizer" className="rounded-full px-2.5 py-1.5 text-muted hover:text-foreground sm:px-3">
+            <Link href="/organizer" className="rounded-full px-2 py-1.5 text-muted hover:text-foreground sm:px-3">
               <span className="sm:hidden">Organizers</span>
               <span className="hidden sm:inline">For organizers</span>
             </Link>

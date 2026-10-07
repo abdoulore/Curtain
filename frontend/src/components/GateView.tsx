@@ -79,7 +79,7 @@ export function GateView({ meta }: { meta: EventMeta }) {
           setToken(t);
           setError(null);
         })
-        .catch(() => alive && setError("Can't reach Monad. Check this tablet's connection."));
+        .catch(() => alive && setError("This gate is offline. Check the tablet's connection; it reconnects on its own."));
     makeToken();
     const id = setInterval(makeToken, ROTATE_MS);
     return () => {
@@ -231,7 +231,11 @@ export function GateView({ meta }: { meta: EventMeta }) {
         <p className="mt-4 text-center text-base text-muted lg:text-lg">
           Scan with your phone camera, then confirm with your fingerprint or Face ID.
         </p>
-        {error && <p className="mt-2 text-center text-sm text-stop">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-2 text-center text-sm text-stop">
+            {error}
+          </p>
+        )}
       </section>
 
       <section className="mt-6 lg:mt-0">

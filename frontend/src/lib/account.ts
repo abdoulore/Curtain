@@ -13,6 +13,7 @@ import { entropyToMnemonic, mnemonicToSeedSync } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
 import { bytesToHex, type Address, type Hex, type LocalAccount } from "viem";
 import { RP_ID } from "./chain";
+import { MESSAGES, PlainError } from "./errors";
 import { heldTickets } from "./held-tickets";
 import { readTicket } from "./reads";
 import { creationOptions, ES256, pickDoorKey, recoverDoorKeys, type DoorKey } from "./webauthn";
@@ -70,7 +71,7 @@ let lastAssertion: Assertion | null = null;
 const curtainWebAuthnClient: WebAuthnClient = {
   async createCredential(req) {
     const cred = (await navigator.credentials.create({ publicKey: creationOptions(req) })) as PublicKeyCredential | null;
-    if (!cred) throw new Error("No passkey was created");
+    if (!cred) throw new PlainError(MESSAGES.cancelled);
     const resp = cred.response as AuthenticatorAttestationResponse;
     lastDoorKey = extractP256(resp);
     const prf = (cred.getClientExtensionResults() as PrfResults).prf;
@@ -106,7 +107,7 @@ const curtainWebAuthnClient: WebAuthnClient = {
           : {}),
       },
     })) as PublicKeyCredential | null;
-    if (!cred) throw new Error("No passkey was used");
+    if (!cred) throw new PlainError(MESSAGES.cancelled);
     const resp = cred.response as AuthenticatorAssertionResponse;
     lastAssertion = {
       authenticatorData: new Uint8Array(resp.authenticatorData),
@@ -121,7 +122,7 @@ const curtainWebAuthnClient: WebAuthnClient = {
 function deriveSession(prfOutput: Uint8Array) {
   const seed = mnemonicToSeedSync(entropyToMnemonic(prfOutput, wordlist));
   const node = HDKey.fromMasterSeed(seed).derive("m/44'/60'/0'/0/0");
-  if (!node.privateKey) throw new Error("Could not derive your account");
+  if (!node.privateKey) throw new PlainError("We couldn't set up your account. Please try again.");
   const session = createSecp256k1SigningSession({ privateKey: node.privateKey });
   return { session, account: toViemAccount(session) as LocalAccount };
 }
@@ -210,7 +211,7 @@ export async function signUp(name: string): Promise<StoredAccount> {
     webAuthnClient: curtainWebAuthnClient,
   });
   const doorKey = lastDoorKey as DoorKey | { error: string } | null;
-  if (!doorKey || "error" in doorKey) throw new Error(doorKey?.error ?? "Could not read this passkey");
+  if (!doorKey || "error" in doorKey) throw new PlainError("We couldn't read this passkey. Please try again.");
   live?.session.end();
   live = deriveSession(created.prfOutput);
   livePrf = new Uint8Array(created.prfOutput);
@@ -271,7 +272,7 @@ export async function unlock(stored: StoredAccount): Promise<{ signer: LocalAcco
   const next = deriveSession(prfOutput);
   if (next.account.address !== stored.address) {
     next.session.end();
-    throw new Error("That passkey belongs to a different account");
+    throw new PlainError("That passkey belongs to a different Curtain account. Use the one you signed in with here.");
   }
   live?.session.end();
   live = next;
@@ -279,7 +280,7 @@ export async function unlock(stored: StoredAccount): Promise<{ signer: LocalAcco
 
   if (hasDoorKey(stored)) return { signer: live.account, account: stored };
   const picked = stored.keyCandidates && pickDoorKey(stored.keyCandidates, candidatesFromLastAssertion() ?? []);
-  if (!picked) throw new Error("We couldn't confirm your door key. Please try again.");
+  if (!picked) throw new PlainError("We couldn't confirm your door key. Please try again.");
   const updated: StoredAccount & DoorKey = { ...stored, ...picked, keyCandidates: undefined };
   saveAccount(updated);
   return { signer: live.account, account: updated };
@@ -297,14 +298,3 @@ export function isPrfUnavailable(error: unknown): boolean {
   return isMeraError(error) && error.code === "PRF_UNAVAILABLE";
 }
 
-/** Words a buyer should see for passkey failures. */
-export function friendlyPasskeyError(error: unknown): string {
-  if (isMeraError(error)) {
-    if (error.code === "PRF_UNAVAILABLE") {
-      return "Curtain tickets live in Chrome with Google Password Manager on Android and in Safari on iPhone. Continue on your phone.";
-    }
-    if (error.code === "PASSKEY_OPERATION_FAILED") return "Cancelled. Try again when you're ready.";
-    if (error.code === "CRYPTO_UNAVAILABLE") return "Open Curtain over https to continue.";
-  }
-  return error instanceof Error ? error.message : "Something went wrong";
-}

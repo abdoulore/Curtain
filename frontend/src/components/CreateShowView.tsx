@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Address, Hash } from "viem";
 import { curtainFactoryAbi } from "@/lib/abis";
-import { friendlyPasskeyError, signUp, unlock } from "@/lib/account";
-import { ApiError, postJson } from "@/lib/api";
+import { signUp, unlock } from "@/lib/account";
+import { postJson } from "@/lib/api";
 import { CURTAIN_FACTORY } from "@/lib/chain";
 import { ORGANIZER_PROMISE, PASSKEY_PRIVACY, PROTECTION_RULES } from "@/lib/copy";
 import {
@@ -17,6 +17,7 @@ import {
   SHOW_LENGTH_SECONDS,
   type ShowForm,
 } from "@/lib/create-show";
+import { plainError } from "@/lib/errors";
 import { useAccount, useHydrated } from "@/lib/hooks";
 import { rememberCreatedShow } from "@/lib/organizer-local";
 import { browserClient } from "@/lib/reads";
@@ -91,7 +92,7 @@ export function CreateShowView() {
       }
       router.push(`/organizer/${res.event}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : friendlyPasskeyError(err));
+      setError(plainError(err));
       setBusy(null);
     }
   }
@@ -116,7 +117,7 @@ export function CreateShowView() {
               setBusy("Confirm with your fingerprint or Face ID");
               setError(null);
               signUp(yourName.trim() || "Organizer")
-                .catch((err) => setError(friendlyPasskeyError(err)))
+                .catch((err) => setError(plainError(err)))
                 .finally(() => setBusy(null));
             }}
             disabled={busy !== null}

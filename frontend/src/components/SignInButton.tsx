@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { friendlyPasskeyError, isPrfUnavailable, signIn } from "@/lib/account";
+import { isPrfUnavailable, signIn } from "@/lib/account";
+import { plainError } from "@/lib/errors";
 import { ContinueOnPhone } from "./ContinueOnPhone";
 
 /** Restores a Curtain account from any passkey this device can use, for example one synced from another device. */
@@ -17,7 +18,7 @@ export function SignInButton({ variant = "primary", label = "Sign in with your p
       await signIn();
     } catch (e) {
       if (isPrfUnavailable(e)) setNeedsPhone(true);
-      else setError(friendlyPasskeyError(e));
+      else setError(plainError(e));
     } finally {
       setBusy(false);
     }

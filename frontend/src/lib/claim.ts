@@ -7,6 +7,7 @@ import { unlock, unlockedPrf, type StoredAccount } from "./account";
 import { postJson } from "./api";
 import { CURTAIN_EIP712, monadTestnet } from "./chain";
 import { claimUrl, deriveClaimKey, type ClaimLink } from "./claim-key";
+import { PlainError } from "./errors";
 import { browserClient, readTicket } from "./reads";
 import type { DoorKey } from "./webauthn";
 
@@ -64,7 +65,7 @@ async function setClaim(stored: StoredAccount, event: Address, ticketId: bigint,
 export async function createClaimLink(stored: StoredAccount, event: Address, ticketId: bigint): Promise<string> {
   await unlock(stored);
   const prf = unlockedPrf(stored.address);
-  if (!prf) throw new Error("Please confirm with your fingerprint or Face ID first.");
+  if (!prf) throw new PlainError("Please confirm with your fingerprint or Face ID first.");
   const { claimNonce } = await readTicket(event, ticketId);
   // setClaim bumps the claim nonce, so the new link's generation is the next one.
   const key = deriveClaimKey(prf, event, ticketId, claimNonce + 1n);
@@ -80,9 +81,9 @@ export async function revokeClaimLink(stored: StoredAccount, event: Address, tic
 export async function claimWithLink(link: ClaimLink, account: StoredAccount & DoorKey) {
   const ticket = await readTicket(link.event, link.ticketId);
   const claimer = privateKeyToAccount(link.key);
-  if (ticket.claimKey === zeroAddress) throw new Error("This link was turned off by the ticket's owner.");
+  if (ticket.claimKey === zeroAddress) throw new PlainError("This link was turned off by the ticket's owner.");
   if (ticket.claimKey.toLowerCase() !== claimer.address.toLowerCase()) {
-    throw new Error("This link has been replaced by a newer one. Ask for a fresh link.");
+    throw new PlainError("This link has been replaced by a newer one. Ask for a fresh link.");
   }
   const claimSig = await claimer.signTypedData({
     domain: domain(link.event),

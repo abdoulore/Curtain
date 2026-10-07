@@ -91,7 +91,7 @@ export function EventView({ meta }: { meta: EventMeta }) {
     let alive = true;
     readEventInfo(meta.address)
       .then((next) => alive && setInfo(next))
-      .catch(() => alive && setLoadError("We couldn't load this show. Pull to refresh."));
+      .catch(() => alive && setLoadError("We couldn't load this show. The network may be slow; refresh the page to try again."));
     return () => {
       alive = false;
     };

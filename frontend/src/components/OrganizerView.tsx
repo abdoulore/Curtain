@@ -14,10 +14,11 @@ import {
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { curtainEventAbi } from "@/lib/abis";
-import { friendlyPasskeyError, unlock } from "@/lib/account";
-import { ApiError, postJson } from "@/lib/api";
+import { unlock } from "@/lib/account";
+import { postJson } from "@/lib/api";
 import { STATUS_TEXT } from "@/lib/board";
 import { monadTestnet, PUBLIC_RPC_URL, txUrl } from "@/lib/chain";
+import { PlainError, plainError } from "@/lib/errors";
 import { eventPath, type EventMeta } from "@/lib/events";
 import { gateCode, pairingUrl } from "@/lib/gate";
 import { useAccount, useHydrated } from "@/lib/hooks";
@@ -101,9 +102,9 @@ function injected(): EIP1193Provider | undefined {
 /** Hidden fallback: an organizer key held in a browser wallet. Puts the wallet on Monad testnet first. */
 async function walletSigner(): Promise<Signer> {
   const provider = injected();
-  if (!provider) throw new Error("No browser wallet found on this device.");
+  if (!provider) throw new PlainError("No browser wallet found on this device.");
   const [account] = await provider.request({ method: "eth_requestAccounts" });
-  if (!account) throw new Error("The wallet didn't share an account.");
+  if (!account) throw new PlainError("The wallet didn't share an account.");
   const chainId = `0x${monadTestnet.id.toString(16)}` as const;
   try {
     await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
@@ -163,7 +164,7 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
         // The passkey prompt opens straight from the tap, before any network call.
         const { signer: local } = await unlock(account);
         signer = { address: local.address, sign: (td) => local.signTypedData(td as never) };
-      } else throw new Error("Sign in with the organizer's passkey first.");
+      } else throw new PlainError("Sign in with the organizer's passkey first.");
 
       const nonce = await browserClient.readContract({
         address: meta.address,
@@ -184,8 +185,7 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
       await refresh();
       return true;
     } catch (e) {
-      const text = e instanceof ApiError ? e.message : e instanceof Error ? friendlyPasskeyError(e) : "Something went wrong";
-      setNotice({ ok: false, text });
+      setNotice({ ok: false, text: plainError(e) });
       return false;
     } finally {
       setBusy(null);
@@ -399,7 +399,7 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
             onClick={() =>
               walletSigner()
                 .then(setWallet)
-                .catch((e) => setNotice({ ok: false, text: e instanceof Error ? e.message : "Wallet unavailable" }))
+                .catch((e) => setNotice({ ok: false, text: plainError(e) }))
             }
             className="mt-2 underline"
           >

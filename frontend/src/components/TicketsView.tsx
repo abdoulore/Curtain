@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { txUrl } from "@/lib/chain";
-import { friendlyPasskeyError, signOut, unlock, type StoredAccount } from "@/lib/account";
-import { ApiError } from "@/lib/api";
+import { signOut, unlock, type StoredAccount } from "@/lib/account";
+import { plainError } from "@/lib/errors";
 import { useAccount, useHydrated } from "@/lib/hooks";
 import { useMyTickets } from "@/lib/use-my-tickets";
 import { formatNaira } from "@/lib/money";
@@ -167,7 +167,7 @@ function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account
       await refresh();
       onMoney();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : friendlyPasskeyError(e));
+      setError(plainError(e));
     } finally {
       setBusy(false);
     }

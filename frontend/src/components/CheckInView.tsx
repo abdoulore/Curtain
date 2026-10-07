@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { getAddress } from "viem";
-import { ApiError } from "@/lib/api";
 import { checkIn, type CheckInResult } from "@/lib/checkin";
+import { plainError } from "@/lib/errors";
 import { eventPath } from "@/lib/events";
 import { useShowMeta } from "@/lib/show-details";
 import { parseCheckInFragment } from "@/lib/gate";
@@ -73,7 +73,7 @@ export function CheckInView() {
       setOutcome({ ok: true, result });
       setStates((s) => ({ ...s, [ticketId]: "CheckedIn" }));
     } catch (e) {
-      setOutcome({ ok: false, message: e instanceof ApiError || e instanceof Error ? e.message : "Something went wrong" });
+      setOutcome({ ok: false, message: plainError(e) });
     } finally {
       setBusy(false);
     }

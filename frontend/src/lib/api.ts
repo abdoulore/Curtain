@@ -20,10 +20,20 @@ const FRIENDLY: Record<string, string> = {
   BadSignature: "We couldn't confirm it was you. Please try again.",
   InvalidPublicKey: "Use your Curtain passkey for tickets.",
   UnknownEvent: "We couldn't find this show.",
-  RpcError: "The network is busy. Please try again in a moment.",
+  RpcError: "The network is slow right now. Try again in a moment.",
+  RevertedOnchain: "That didn't go through. Please try again.",
+  InternalError: "Something went wrong on our side. Please try again.",
+  BadRequest: "Something in that request wasn't right. Refresh the page and try again.",
+  ServerBusy: "Curtain is busy right now. Try again in a moment.",
+  TooManyRequests: "Too many tries. Wait a moment and try again.",
+  InsufficientBalance: "There isn't enough in your balance for this ticket.",
+  SafeERC20FailedOperation: "The payment didn't go through. Please try again.",
+  InvalidAccountNonce: "That request was already used. Please try again.",
+  ZeroAddress: "Something in that request wasn't right. Refresh the page and try again.",
   TopupLimitIp: "You've had today's demo money on this network. Try again tomorrow.",
   DemoMoneyRefilling: "Demo money is being refilled. Try again in a few minutes.",
   TopupLimitGlobal: "Lots of people are topping up right now. Try again in an hour.",
+  LimitStoreUnavailable: "Demo money is paused for a moment. Try again shortly.",
   UnsupportedToken: "This show doesn't accept that kind of payment.",
   // At the door
   TicketNotActive: "This ticket has already been used or refunded.",
@@ -34,14 +44,17 @@ const FRIENDLY: Record<string, string> = {
   ChallengeFromFuture: "That gate code isn't valid yet. Scan the gate again.",
   GateTokenWrongEvent: "That gate is for a different show.",
   NotDoorTime: "Doors aren't open right now.",
-  NotGate: "That code didn't come from a gate paired for this show.",
-  GateUnauthorized: "This screen isn't a paired gate for the show.",
+  NotGate: "That gate was removed or isn't paired for this show. Scan the code at another gate.",
+  GateUnauthorized: "This screen was removed as a gate for the show. Ask the organizer to pair it again.",
   GateAuthExpired: "This gate's clock is off. Reload the gate screen.",
   TooManyTickets: "You've reached this show's ticket limit per person.",
   // Resale
   PriceAboveCap: "Tickets can only be resold at face value or less.",
   NotListed: "That resale ticket was just taken. Refresh to see what's left.",
   WrongSale: "That offer changed. Refresh and try again.",
+  NoClaimKey: "This link was turned off by the ticket's owner.",
+  NotRefundable: "This ticket can't be refunded.",
+  NothingToRefund: "There's nothing left to refund.",
   NotHolder: "Only the ticket's holder can do that.",
   // Organizers
   NotOrganizer: "Only the show's organizer can do that.",
@@ -49,11 +62,23 @@ const FRIENDLY: Record<string, string> = {
   CreateLimitIp: "You've created the most shows allowed today from this network.",
   CreateLimitGlobal: "Lots of shows are being created right now. Try again in an hour.",
   NotCreated: "The show wasn't created. Please try again.",
+  InvalidParams: "Some of the show's details aren't valid. Check them and try again.",
+  StringTooLong: "The show's name or venue is too long.",
+  InvalidShortString: "The show's name or venue is too long.",
+  NotSettleable: "The show can't be confirmed yet.",
 };
 
 /** The plain-language message for a relayer or contract error code. */
 export function friendlyMessage(code: string | undefined): string {
   return (code && FRIENDLY[code]) || "Something went wrong. Please try again.";
+}
+
+/** The error code for a failed response: the relayer's own, or one from the HTTP status (a timeout, a rate limit). */
+export function errorCode(status: number, json: { error?: unknown }): string {
+  if (typeof json.error === "string") return json.error;
+  if (status === 429) return "TooManyRequests";
+  if (status >= 500) return "ServerBusy";
+  return "Error";
 }
 
 export async function postJson<T>(path: string, body: unknown): Promise<T> {
@@ -64,8 +89,8 @@ export async function postJson<T>(path: string, body: unknown): Promise<T> {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const code = typeof json.error === "string" ? json.error : "Error";
-    throw new ApiError(code, FRIENDLY[code] ?? "Something went wrong. Please try again.");
+    const code = errorCode(res.status, json);
+    throw new ApiError(code, friendlyMessage(code));
   }
   return json as T;
 }
@@ -75,8 +100,8 @@ export async function postForm<T>(path: string, body: FormData): Promise<T> {
   const res = await fetch(path, { method: "POST", body });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const code = typeof json.error === "string" ? json.error : "Error";
-    const message = FRIENDLY[code] ?? (typeof json.message === "string" ? json.message : "Something went wrong. Please try again.");
+    const code = errorCode(res.status, json);
+    const message = FRIENDLY[code] ?? (typeof json.message === "string" ? json.message : friendlyMessage(code));
     throw new ApiError(code, message);
   }
   return json as T;

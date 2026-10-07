@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { friendlyPasskeyError, isPrfUnavailable, signUp, unlock } from "@/lib/account";
-import { ApiError } from "@/lib/api";
+import { isPrfUnavailable, signUp, unlock } from "@/lib/account";
 import { claimWithLink } from "@/lib/claim";
 import { parseClaimFragment } from "@/lib/claim-key";
 import { PASSKEY_PRIVACY } from "@/lib/copy";
+import { plainError } from "@/lib/errors";
 import { useShowMeta } from "@/lib/show-details";
 import { useAccount, useHydrated } from "@/lib/hooks";
 import { readTicket, type TicketInfo } from "@/lib/reads";
@@ -64,7 +64,7 @@ export function ClaimView() {
       setDone(true);
     } catch (e) {
       if (isPrfUnavailable(e)) setNeedsPhone(true);
-      else setError(e instanceof ApiError ? e.message : friendlyPasskeyError(e));
+      else setError(plainError(e));
     } finally {
       setBusy(false);
     }

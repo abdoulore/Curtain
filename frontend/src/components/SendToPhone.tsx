@@ -3,9 +3,9 @@
 import { QRCodeSVG } from "qrcode.react";
 import { useState, type ReactNode } from "react";
 import type { Address } from "viem";
-import { friendlyPasskeyError, type StoredAccount } from "@/lib/account";
-import { ApiError } from "@/lib/api";
+import type { StoredAccount } from "@/lib/account";
 import { createClaimLink, revokeClaimLink } from "@/lib/claim";
+import { plainError } from "@/lib/errors";
 
 /**
  * Moves a ticket to a phone whose passkey isn't synced with this device (or gifts it to a friend). The link's
@@ -31,7 +31,6 @@ export function SendToPhone({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const message = (e: unknown) => (e instanceof ApiError ? e.message : friendlyPasskeyError(e));
 
   async function create() {
     setBusy("create");
@@ -39,7 +38,7 @@ export function SendToPhone({
     try {
       setUrl(await createClaimLink(account, event, BigInt(ticketId)));
     } catch (e) {
-      setError(message(e));
+      setError(plainError(e));
     } finally {
       setBusy(null);
     }
@@ -52,7 +51,7 @@ export function SendToPhone({
       await revokeClaimLink(account, event, BigInt(ticketId));
       setUrl(null);
     } catch (e) {
-      setError(message(e));
+      setError(plainError(e));
     } finally {
       setBusy(null);
     }

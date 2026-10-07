@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { friendlyPasskeyError, isPrfUnavailable, signUp, unlock } from "@/lib/account";
+import { isPrfUnavailable, signUp, unlock } from "@/lib/account";
 import { detectPrfSupport, type PrfSupport } from "@/lib/capabilities";
-import { ApiError } from "@/lib/api";
 import { buyTicket, hasBalanceFor, requestTopup, type BuyResult } from "@/lib/buy";
 import { PASSKEY_PRIVACY } from "@/lib/copy";
+import { plainError } from "@/lib/errors";
 import type { EventMeta } from "@/lib/events";
 import { useAccount, useHydrated, useIsDesktop } from "@/lib/hooks";
 import { formatNaira } from "@/lib/money";
@@ -110,7 +110,7 @@ export function BuyPanel({
     } catch (e) {
       setStep("idle");
       if (isPrfUnavailable(e)) setNeedsPhone(true);
-      else setError(e instanceof ApiError ? e.message : friendlyPasskeyError(e));
+      else setError(plainError(e));
     }
   }
 

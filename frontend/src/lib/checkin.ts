@@ -4,6 +4,7 @@ import { bytesToHex, hexToBytes, type Hash } from "viem";
 import type { StoredAccount } from "./account";
 import { postJson } from "./api";
 import { RP_ID } from "./chain";
+import { MESSAGES, PlainError } from "./errors";
 import { challengeFor, type GateToken } from "./gate";
 import { derToRS } from "./webauthn";
 
@@ -29,7 +30,7 @@ export async function checkIn(token: GateToken, ticketId: bigint, account: Store
       allowCredentials: [{ type: "public-key", id: b64urlToBytes(account.credentialId) }],
     },
   })) as PublicKeyCredential | null;
-  if (!credential) throw new Error("Cancelled. Try again when you're ready.");
+  if (!credential) throw new PlainError(MESSAGES.cancelled);
 
   const response = credential.response as AuthenticatorAssertionResponse;
   const clientDataJSON = new TextDecoder().decode(response.clientDataJSON);

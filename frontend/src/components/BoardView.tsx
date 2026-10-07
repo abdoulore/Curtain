@@ -3,40 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPublicClient, webSocket, type Address } from "viem";
 import { curtainEventAbi } from "@/lib/abis";
+import { describe, sortFeed, type FeedItem } from "@/lib/activity";
+import { applyLive, guestsLine, mergeRead, STATUS_TEXT, type Totals } from "@/lib/board";
 import { monadTestnet, txUrl } from "@/lib/chain";
 import type { EventMeta } from "@/lib/events";
-import { describe, sortFeed, type FeedItem } from "@/lib/activity";
 import { ENVIO_URL, fetchBoard, type ActivityRow } from "@/lib/indexer";
 import { formatNaira } from "@/lib/money";
+import { browserClient, EVENT_STATUS } from "@/lib/reads";
 import { useShowMedia } from "@/lib/use-show-media";
 import { Poster } from "./Poster";
-import { browserClient, EVENT_STATUS } from "@/lib/reads";
 
 const PUBLIC_WSS_URL = "wss://testnet-rpc.monad.xyz";
 /** Latest events shown; the totals above always count everything. */
 const FEED_SIZE = 50;
-
-type Totals = {
-  status: string;
-  price: bigint;
-  capacity: number;
-  sold: number;
-  checkedIn: number;
-  refundedCount: number | null;
-  paidIn: bigint;
-  escrowed: bigint;
-  released: bigint;
-  withdrawn: bigint;
-  refunded: bigint;
-  source: "Envio" | "chain";
-};
-
-const STATUS_TEXT: Record<string, string> = {
-  Open: "Selling and admitting",
-  Cancelled: "Cancelled: unscanned tickets are refunded",
-  Held: "Held: unscanned money released",
-  NotHeld: "Not held: unscanned tickets are refunded",
-};
 
 const fromRow = (r: ActivityRow): FeedItem => ({
   id: r.id,
@@ -81,9 +60,12 @@ async function readTotalsFromChain(event: Address): Promise<Totals> {
 
 const SERIES = [
   { key: "released", label: "Paid to organizer", swatch: "bg-viz-released" },
-  { key: "escrowed", label: "Held safely", swatch: "bg-viz-held" },
-  { key: "refunded", label: "Refunded to buyers", swatch: "bg-viz-refunded" },
+  { key: "escrowed", label: "Protected", swatch: "bg-viz-held" },
+  { key: "refunded", label: "Refunded", swatch: "bg-viz-refunded" },
 ] as const;
+
+/** Segment widths ease over 400ms, so a check-in visibly moves money from protected to paid. */
+const MOVE = "transition-[width] duration-[400ms] ease-out motion-reduce:transition-none";
 
 function MoneyBar({ totals }: { totals: Totals }) {
   const [hover, setHover] = useState<(typeof SERIES)[number]["key"] | null>(null);
@@ -96,22 +78,24 @@ function MoneyBar({ totals }: { totals: Totals }) {
       <div className="mb-2 h-5 text-sm text-muted" aria-live="polite">
         {hovered ? `${hovered.label}: ${formatNaira(totals[hovered.key])} (${share(totals[hovered.key])}%)` : "Where the ticket money is"}
       </div>
-      <div className="flex h-6 w-full gap-[2px] overflow-hidden rounded bg-line" role="img" aria-label="Ticket money split">
+      <div
+        className="flex h-6 w-full gap-[2px] overflow-hidden rounded bg-line"
+        role="img"
+        aria-label={SERIES.map((s) => `${s.label} ${formatNaira(totals[s.key])}`).join(", ")}
+      >
         {total === 0n ? (
           <div className="h-full w-full rounded bg-line" />
         ) : (
-          SERIES.map((s) =>
-            totals[s.key] > 0n ? (
-              <div
-                key={s.key}
-                className={`${s.swatch} h-full cursor-default first:rounded-l last:rounded-r`}
-                style={{ width: `${share(totals[s.key])}%` }}
-                onMouseEnter={() => setHover(s.key)}
-                onMouseLeave={() => setHover(null)}
-                onClick={() => setHover(s.key)}
-              />
-            ) : null,
-          )
+          SERIES.map((s) => (
+            <div
+              key={s.key}
+              className={`${s.swatch} ${MOVE} h-full cursor-default first:rounded-l last:rounded-r`}
+              style={{ width: `${share(totals[s.key])}%` }}
+              onMouseEnter={() => setHover(s.key)}
+              onMouseLeave={() => setHover(null)}
+              onClick={() => setHover(s.key)}
+            />
+          ))
         )}
       </div>
       <ul className="mt-4 space-y-2 text-sm">
@@ -123,6 +107,20 @@ function MoneyBar({ totals }: { totals: Totals }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function Tile({ label, value, swatch, flash }: { label: string; value: string; swatch?: string; flash?: boolean }) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-4 rounded-2xl border bg-surface px-4 py-3 transition-colors duration-[400ms] motion-reduce:transition-none sm:block sm:p-4 ${flash ? "border-viz-released" : "border-line"}`}
+    >
+      <p className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted uppercase">
+        {swatch && <span className={`inline-block h-2.5 w-2.5 rounded-sm ${swatch}`} aria-hidden />}
+        {label}
+      </p>
+      <p className="text-xl font-semibold tabular-nums sm:mt-2 sm:text-2xl">{value}</p>
     </div>
   );
 }
@@ -141,7 +139,7 @@ export function BoardView({ meta }: { meta: EventMeta }) {
         const board = await fetchBoard(meta.address);
         if (board.show) {
           const s = board.show;
-          setTotals({
+          const next: Totals = {
             status: s.status,
             price: BigInt(s.price),
             capacity: Number(s.capacity),
@@ -154,7 +152,8 @@ export function BoardView({ meta }: { meta: EventMeta }) {
             withdrawn: BigInt(s.withdrawn),
             refunded: BigInt(s.refunded),
             source: "Envio",
-          });
+          };
+          setTotals((current) => mergeRead(current, next));
           setFeed((current) => {
             const indexed = board.activity.map(fromRow);
             const ids = new Set(indexed.map((i) => i.id));
@@ -165,10 +164,11 @@ export function BoardView({ meta }: { meta: EventMeta }) {
           return;
         }
       } catch {
-        setNote("Indexer unavailable, showing totals read directly from the contract.");
+        setNote("The indexer is slow right now, so these totals come straight from the contract.");
       }
     }
-    setTotals(await readTotalsFromChain(meta.address));
+    const next = await readTotalsFromChain(meta.address);
+    setTotals((current) => mergeRead(current, next));
   }, [meta.address]);
 
   useEffect(() => {
@@ -184,6 +184,7 @@ export function BoardView({ meta }: { meta: EventMeta }) {
       transport: webSocket(PUBLIC_WSS_URL, { keepAlive: true, reconnect: true }),
     });
     const timers: ReturnType<typeof setTimeout>[] = [];
+    const seen = new Set<string>();
     const unwatch = ws.watchContractEvent({
       address: meta.address,
       abi: curtainEventAbi,
@@ -206,10 +207,14 @@ export function BoardView({ meta }: { meta: EventMeta }) {
             };
           });
         if (items.length === 0) return;
+        // Move the money now, once per event, so the bar animates as the check-in lands.
+        const fresh = items.filter((i) => !seen.has(i.id));
+        fresh.forEach((i) => seen.add(i.id));
+        if (fresh.length > 0) setTotals((t) => (t ? fresh.reduce(applyLive, t) : t));
         setFeed((f) => sortFeed([...items, ...f.filter((x) => !items.some((i) => i.id === x.id))]).slice(0, FEED_SIZE));
         setPulse(items[0]!);
         timers.push(setTimeout(() => alive && setPulse(null), 2500));
-        timers.push(setTimeout(run, 1500), setTimeout(run, 4000));
+        timers.push(setTimeout(run, 1500), setTimeout(run, 4000), setTimeout(run, 9000));
       },
       onError: () => alive && setLive(false),
     });
@@ -225,6 +230,8 @@ export function BoardView({ meta }: { meta: EventMeta }) {
     };
   }, [meta.address, refresh]);
 
+  const paidFlash = pulse?.kind === "CheckedIn";
+
   return (
     <main className="pt-6 lg:pt-10">
       <div className="flex items-center justify-between text-sm">
@@ -232,8 +239,8 @@ export function BoardView({ meta }: { meta: EventMeta }) {
         <p className={live ? "text-go" : "text-muted"}>{live ? "● Live" : "○ Connecting"}</p>
       </div>
       <div className="mt-2 flex items-center gap-4">
-        <div className="relative aspect-[4/5] w-14 shrink-0 overflow-hidden rounded-xl border border-line lg:w-20">
-          <Poster src={media?.poster} name={meta.name} sizes="80px" />
+        <div className="relative aspect-[16/10] w-20 shrink-0 overflow-hidden rounded-xl border border-line lg:w-28">
+          <Poster src={media?.poster} name={meta.name} sizes="112px" />
         </div>
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight lg:text-4xl">{meta.name}</h1>
@@ -241,72 +248,75 @@ export function BoardView({ meta }: { meta: EventMeta }) {
         </div>
       </div>
 
-      {pulse && (
-        <div className="mt-4 rounded-2xl bg-go/10 px-4 py-3 text-sm font-medium text-go">{describe(pulse)}</div>
-      )}
+      <section className="mt-6 rounded-3xl border border-line bg-surface p-5 lg:p-8" aria-labelledby="protected-now">
+        <p id="protected-now" className="text-5xl font-semibold tracking-tight tabular-nums lg:text-7xl">
+          {totals ? formatNaira(totals.escrowed) : "…"}
+        </p>
+        <p className="mt-1 text-lg text-muted lg:text-xl">protected right now</p>
+        {totals && <p className="mt-4 text-base font-medium lg:text-lg">{guestsLine(totals)}</p>}
+      </section>
 
-      <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {SERIES.map((s) => (
-          <div key={s.key} className="rounded-2xl border border-line bg-surface p-4">
-            <p className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted uppercase">
-              <span className={`inline-block h-2.5 w-2.5 rounded-sm ${s.swatch}`} aria-hidden />
-              {s.label}
-            </p>
-            <p className="mt-2 text-2xl font-semibold">{totals ? formatNaira(totals[s.key]) : "…"}</p>
-          </div>
-        ))}
+      <div role="status" aria-live="polite" className="min-h-0">
+        {pulse && <p className="mt-4 rounded-2xl bg-go/10 px-4 py-3 text-sm font-medium text-go">{describe(pulse)}</p>}
+      </div>
+
+      <section className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3" aria-label="Totals">
+        <Tile label="Paid to organizer" value={totals ? formatNaira(totals.released) : "…"} swatch="bg-viz-released" flash={paidFlash} />
+        <Tile label="Refunded" value={totals ? formatNaira(totals.refunded) : "…"} swatch="bg-viz-refunded" />
+        <Tile label="Guests checked in" value={totals ? `${totals.checkedIn} of ${totals.sold}` : "…"} />
       </section>
 
       <div className="lg:mt-6 lg:grid lg:grid-cols-[1.4fr_1fr] lg:items-start lg:gap-6">
-      <section className="mt-4 rounded-3xl border border-line bg-surface p-5 lg:mt-0 lg:p-6">
-        {totals ? <MoneyBar totals={totals} /> : <div className="h-24" />}
-        {totals && (
-          <dl className="mt-5 grid grid-cols-1 gap-x-8 gap-y-2 border-t border-line pt-4 text-sm sm:grid-cols-2">
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted">Tickets sold</dt>
-              <dd className="font-medium tabular-nums">{totals.sold} / {totals.capacity}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted">Checked in</dt>
-              <dd className="font-medium tabular-nums">{totals.checkedIn}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted">Withdrawn by organizer</dt>
-              <dd className="font-medium tabular-nums">{formatNaira(totals.withdrawn)}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted">Total paid in</dt>
-              <dd className="font-medium tabular-nums">{formatNaira(totals.paidIn)}</dd>
-            </div>
-          </dl>
-        )}
-      </section>
+        <section className="mt-4 rounded-3xl border border-line bg-surface p-5 lg:mt-0 lg:p-6">
+          {totals ? <MoneyBar totals={totals} /> : <div className="h-24" />}
+          {totals && (
+            <dl className="mt-5 grid grid-cols-1 gap-x-8 gap-y-2 border-t border-line pt-4 text-sm sm:grid-cols-2">
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Tickets sold</dt>
+                <dd className="font-medium tabular-nums">
+                  {totals.sold} / {totals.capacity}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Checked in</dt>
+                <dd className="font-medium tabular-nums">{totals.checkedIn}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Withdrawn by organizer</dt>
+                <dd className="font-medium tabular-nums">{formatNaira(totals.withdrawn)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Total paid in</dt>
+                <dd className="font-medium tabular-nums">{formatNaira(totals.paidIn)}</dd>
+              </div>
+            </dl>
+          )}
+        </section>
 
-      <section className="mt-6 lg:mt-0">
-        <h2 className="text-sm font-semibold">Activity</h2>
-        {feed.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">
-            {ENVIO_URL ? "No activity yet." : "Live activity appears here as it happens."}
-          </p>
-        ) : (
-          <ul className="mt-2 divide-y divide-line rounded-2xl border border-line bg-surface text-sm">
-            {feed.map((item) => (
-              <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3">
-                <span>{describe(item)}</span>
-                <a
-                  href={txUrl(item.txHash)}
-                  target="_blank"
-                  rel="noopener"
-                  className="shrink-0 text-xs text-muted underline underline-offset-2"
-                >
-                  {new Date(item.at).toLocaleTimeString("en-NG", { timeStyle: "short" })}
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
+        <section className="mt-6 lg:mt-0">
+          <h2 className="text-sm font-semibold">Activity</h2>
+          {feed.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">
+              {ENVIO_URL ? "No activity yet." : "Live activity appears here as it happens."}
+            </p>
+          ) : (
+            <ul className="mt-2 divide-y divide-line rounded-2xl border border-line bg-surface text-sm">
+              {feed.map((item) => (
+                <li key={item.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                  <span>{describe(item)}</span>
+                  <a
+                    href={txUrl(item.txHash)}
+                    target="_blank"
+                    rel="noopener"
+                    className="shrink-0 text-xs text-muted underline underline-offset-2"
+                  >
+                    {new Date(item.at).toLocaleTimeString("en-NG", { timeStyle: "short" })}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
       <p className="mt-6 text-center text-xs text-muted">

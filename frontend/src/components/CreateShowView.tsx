@@ -53,12 +53,12 @@ const longDate = new Intl.DateTimeFormat("en-NG", {
 
 function Stepper({ step }: { step: Step }) {
   return (
-    <ol className="mt-8 flex items-center gap-3 text-sm" aria-label="Steps">
+    <ol className="mt-8 flex items-center gap-2 text-sm sm:gap-3" aria-label="Steps">
       {STEPS.map((label, i) => {
         const done = i < step;
         const current = i === step;
         return (
-          <li key={label} className="flex items-center gap-3" aria-current={current ? "step" : undefined}>
+          <li key={label} className="flex items-center gap-2 sm:gap-3" aria-current={current ? "step" : undefined}>
             <span
               className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
                 current ? "bg-velvet text-velvet-ink" : done ? "bg-foreground text-background" : "text-muted ring-1 ring-line"
@@ -72,11 +72,11 @@ function Stepper({ step }: { step: Step }) {
                 i + 1
               )}
             </span>
-            <span className={current ? "font-semibold" : "text-muted"}>
+            <span className={current ? "font-semibold" : "sr-only text-muted min-[360px]:not-sr-only"}>
               {label}
               {done && <span className="sr-only"> (done)</span>}
             </span>
-            {i < STEPS.length - 1 && <span aria-hidden className="h-px w-6 bg-line sm:w-10" />}
+            {i < STEPS.length - 1 && <span aria-hidden className="h-px w-4 bg-line sm:w-10" />}
           </li>
         );
       })}

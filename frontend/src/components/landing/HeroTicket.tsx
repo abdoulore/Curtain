@@ -70,7 +70,7 @@ export function HeroTicket() {
             <dt className="sr-only">Where</dt>
             <dd className="text-muted">{TICKET.venue}</dd>
           </dl>
-          <div className="mt-6 flex items-end justify-between gap-3">
+          <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
             <p className="text-2xl font-semibold tabular-nums">{TICKET.price}</p>
             <span
               className={`inline-flex -rotate-3 items-center gap-1.5 rounded-md border-2 px-2 py-1 text-[0.7rem] font-bold tracking-[0.14em] uppercase transition-colors duration-500 motion-reduce:transition-none ${

@@ -64,7 +64,7 @@ export default function Home() {
   return (
     <main>
       {/* Hero */}
-      <section className="grid items-center gap-12 pt-10 pb-16 lg:min-h-[calc(88vh-5rem)] lg:grid-cols-[1.15fr_1fr] lg:gap-16 lg:pt-6 lg:pb-20">
+      <section className="grid grid-cols-[minmax(0,1fr)] items-center gap-12 pt-10 pb-16 lg:min-h-[calc(88vh-5rem)] lg:grid-cols-[1.15fr_1fr] lg:gap-16 lg:pt-6 lg:pb-20">
         <div>
           <h1 className="max-w-[12.5ch] font-display text-[2.9rem] leading-[1.02] text-balance sm:text-6xl lg:text-[5.25rem]">
             If the curtain never rises, your money comes back.

@@ -18,6 +18,7 @@ docs/*
 !docs/cre/
 !docs/brand/
 !docs/red-cases.json
+!docs/repo-metadata.md
 
 # Dotenv file
 .env

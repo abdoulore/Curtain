@@ -1,239 +1,252 @@
 # Curtain
 
-Pay-on-entry tickets on Monad: the organizer gets paid when you check in with Face ID or fingerprint, and you get
-your money back if the show never happens. Built for Monad Metropolis, Track 02 (Consumer Products and Payments).
+**Pay-on-entry ticket escrow on Monad.** Your money is held until the show happens. When you walk in, it's paid to the
+organizer at the door. If the show doesn't happen, it comes back to you automatically.
 
-Live site: https://curtaintickets.vercel.app
+[![CI](https://github.com/abdoulore/Curtain/actions/workflows/test.yml/badge.svg)](https://github.com/abdoulore/Curtain/actions/workflows/test.yml)
 
-## Try it (for judges)
+- **Live:** https://curtaintickets.vercel.app (Monad testnet, demo money)
+- **Demo video:** _placeholder, the final cut is published here by Oct 13_
+- **Built for:** Monad Metropolis, Track 02 (Consumer Products and Payments)
 
-Everything runs on Monad testnet with demo money. You need a phone and a laptop.
-
-**Phone:** Android with Chrome and Google Password Manager (run on a Samsung with fingerprint), or iPhone with
-Safari on iOS 18 or later and iCloud Keychain. On a laptop browser, Curtain shows a "Continue on your phone" code.
-Open links in Chrome or Safari rather than inside WhatsApp, Instagram or X.
-
-### Buy a ticket and walk in (5 minutes)
-
-1. **Laptop: open the gate.** Open this link:
-   [demo gate](https://curtaintickets.vercel.app/gate/pair#VWK_HMurzy8GAjn50kG6lmEhcTW0ZXgbjZDH9G9RwvXea_zUYhDRepxMAu_Zq0TrhPK_wg).
-   It pairs the browser as a gate device for "Curtain Demo Night" and shows a QR code that changes every few seconds.
-2. **Phone: buy.** Open https://curtaintickets.vercel.app (the demo show is first under Upcoming shows) or go straight
-   to https://curtaintickets.vercel.app/e/demo. Type a first name and tap **Get my ticket**. Your phone asks for your
-   fingerprint or Face ID once to create your Curtain passkey; Curtain adds demo money and buys the ticket. No wallet,
-   no seed phrase, no gas. **Add to calendar** saves the show to your phone's calendar.
-3. **Phone: walk in.** Point the phone's camera at the laptop's QR code, open the link, tap **Check in** and confirm
-   with your fingerprint or Face ID. Both screens turn green and ₦1,500 moves to the organizer.
-4. **Try to get in twice.** Scan again with the same ticket and tap **Check in**: both screens turn red.
-5. **Watch the money.** https://curtaintickets.vercel.app/board/demo shows what is held, paid to the organizer and
-   refunded, with every sale and check-in linked to its transaction.
-
-From **My tickets** you can also send a ticket to another phone, sell it at face value, or see a refund land.
-
-### Run your own show (organizer)
-
-1. Open https://curtaintickets.vercel.app/organizer/new on the phone (it can be the same passkey) and create a show:
-   name, venue, poster, description, doors-open time, price in naira, capacity and tickets per person.
-2. On the show's dashboard, tap **Add a gate device** and scan the pairing QR with the laptop's camera. The laptop
-   becomes that show's gate.
-3. Share the ticket page from the **Sell tickets** card, buy a ticket, and check in at your gate. The door list and the
-   sales chart on the dashboard update as people buy and walk in.
-4. Withdraw: type an amount in naira (₦1,500 is one 1 USDC ticket) or leave it empty to take everything released.
-   Or cancel the show and the unscanned tickets are refunded.
-
-Shows run six hours from doors open, and ticket sales run until the show ends.
-
-### Good to know
-
-- Demo money tops up 3 times per network per day; mobile data counts as another network.
-- Relayer and treasury status: https://curtaintickets.vercel.app/api/health
-
-### What to look at
-
-- Every red case reverting onchain, with links: [Every red case, refused onchain](#every-red-case-refused-onchain).
-- Real passkey runs with links: [Deployed on Monad testnet](#deployed-on-monad-testnet-chain-10143).
-- Bounties: Mera accounts and PRF claim keys ([One passkey for the account and the door](#one-passkey-for-the-account-and-the-door),
-  [The web app](#the-web-app)); Chainlink CRE ([Automatic settlement and refunds](#automatic-settlement-and-refunds-chainlink-cre));
-  Envio ([Money board and indexer](#money-board-and-indexer)).
-
-## Escrow v1
-
-- `src/CurtainFactory.sol` deploys one `CurtainEvent` clone per event and emits `EventCreated`. It holds no money and
-  nothing in it can touch an event's escrow. `createEventFor` takes the organizer's EIP-712 `CreateShow` signature
-  over every parameter plus the show's name and venue, so a relayer submits and the signer becomes the organizer; the
-  name and venue are stored (`details`) and emitted (`ShowDetails`).
-- `src/CurtainEvent.sol` is the escrow for one event.
-  - `buy`: the buyer's account signs an EIP-712 `BuyIntent` (buyer, ticketId, passkey qx and qy, price, nonce,
-    deadline) and an EIP-2612 permit. Anyone may submit, so a relayer pays gas. The ticket binds to the buyer for
-    refunds and to the passkey for the door. `ticketId` is 0 for a primary sale and the listed ticket for a resale, so
-    an intent signed for one sale reverts `WrongSale` anywhere else.
-  - `checkIn`: the gate nonce must come from a registered gate, inside the door window. A paired gate device signs an
-    EIP-712 `GatePass(gateNonce, challengeBlock)` for each code it shows, and anyone (the relayer) submits the
-    check-in with that pass; a gate can also call directly with an empty pass. The challenge is
-    `keccak256(abi.encode(chainid, event, ticketId, gateNonce, challengeBlock))`, single use, at most 300 blocks old.
-    `authenticatorData[0:32]` must equal the event's rpIdHash (OpenZeppelin's WebAuthn check ignores rpId), then
-    `WebAuthn.verify` with UP and UV. The ticket's price moves from escrowed to released.
-  - `withdraw`: the organizer takes up to released minus withdrawn, paid to the payout address fixed at creation.
-  - `withdraw`, `cancel` and `setGate` take the organizer's EIP-712 signature (`Withdraw`, `Cancel`, `SetGate`), so the
-    organizer signs with their passkey account and the relayer submits. An empty signature means a direct call from
-    the organizer.
-  - `cancel`, `settle`: cancelling makes unscanned tickets refundable. After `endTime + settleDelay` anyone can settle:
-    held if `checkedIn * 10000 >= heldThresholdBps * sold` (unscanned money is released), otherwise not held
-    (unscanned tickets are refundable).
-  - `pushRefunds(maxCount)` walks a cursor and pays holders; a failed transfer marks the ticket RefundOwed instead of
-    blocking everyone else. `claimRefund(ticketId)` pays one ticket to its holder.
-  - `listForResale` (at or below face value), `buyResale` (buyer pays the seller directly, holder and passkey rebind,
-    the escrowed face value stays), `setClaim` and `claim` (gift link signed by a claim key; every holder or key change
-    bumps a claim nonce so old links die).
-  - `maxPerBuyer` (set at creation, 0 means 4): `ticketsHeld` counts the tickets each account holds now. `buy`,
-    `buyResale` and `claim` revert `TooManyTickets(holder, max)` past the limit; selling or gifting a ticket frees a
-    place.
-- Accounting invariant: `totalPaidIn == released + refunded + escrowed`, and the token balance always equals
-  `escrowed + released - withdrawn`.
-
-Changes from the original spec, so buyers and organizers never need gas:
-
-- Holder actions (`listForResale`, `setClaim`) accept either a direct call from the holder or the holder's EIP-712
-  signature (`List`, `SetClaim`) submitted by anyone. Organizer actions work the same way. Buy intents, holder actions
-  and organizer actions share one nonce per address.
-- `claimRefund` can be called by anyone. The money only ever goes to the ticket's holder.
-
-### Tests
-
-`forge test` runs 122 tests: 14 canary, 59 escrow, 5 invariants, 18 keeper, 8 gate pass, 10 show creation, 8
-per-person limit. The web app adds 84 Vitest tests
-(`npm test` in `frontend/`): top-up limits, token allowlist, passkey key recovery and ES256-only options, in-app
-browser detection, claim-key derivation and links, PRF capability detection, the gate result log, organizer typed
-data, the packed gate token, the chain fallback for held tickets, which ticket the check-in page presents, gate passes
-and pairing links, gate device auth for the results feed, naira to USDC conversion, the create-show form and its
-typed data, show creation limits, resale listings and ticket card states, poster and description checks and the
-organizer-only write, upcoming-show filtering and the factory address derivation, calendar files, and the door list
-and sales chart series. The
-CRE workflow adds 9 (`bun test` in `cre/curtain-keeper/`).
-
-- Happy paths: buy, check-in, withdraw; cancel then push refunds (scanned tickets stay paid); batched refunds; pull
-  refund; settle held; settle not held; resale with rebind; listing directly by the holder; gift claim; adding a gate;
-  buy after a front-run permit.
-- Unhappy paths, each asserting its exact error: replay (`ChallengeAlreadyUsed`), stale (`ChallengeExpired`), future
-  (`ChallengeFromFuture`), second scan with a fresh nonce (`TicketNotActive`), wrong passkey (`InvalidAssertion`),
-  passkey from another domain (`WrongRpId`), non-gate caller (`NotGate`), before doors (`NotDoorTime`), seller enters
-  after resale (`InvalidAssertion`), resale above face value (`PriceAboveCap`), unlisted resale (`NotListed`), forged
-  listing (`BadSignature`), over-withdraw (`ExceedsReleased`), stranger withdraw or cancel (`NotOrganizer`), check-in
-  after cancel (`EventNotOpen`), sold out (`SoldOut`), sales closed (`SalesClosed`), forged intent (`BadSignature`),
-  replayed intent (`InvalidAccountNonce`), primary intent used on a resale, resale intent used on a primary sale or on
-  another listing (`WrongSale`), forged, replayed or expired organizer signature, holder action with no signature from
-  a non-holder (`NotHolder`), wrong price (`PriceMismatch`), invalid passkey (`InvalidPublicKey`), no
-  allowance (`InsufficientAllowance`), refund while open (`NotRefundable`), refund of a scanned ticket
-  (`NothingToRefund`), gift claim with the wrong key (`BadSignature`), revoked link (`NoClaimKey`), old link after
-  regenerating (`BadSignature`), settle too early or after cancel (`NotSettleable`), bad factory params
-  (`InvalidParams`), re-initializing a clone or the implementation (`InvalidInitialization`).
-- Refund to a holder whose transfers revert: the ticket becomes RefundOwed, other refunds still go through, and
-  `claimRefund` pays once transfers work again.
-- Invariant fuzz (128 runs x 100 calls over buy, check-in, withdraw, cancel, settle, push and pull refunds, resale, gift
-  and time jumps): paid in equals released plus refunded plus escrowed, paid in matches successful buys, the token
-  balance matches the accounting, withdrawn never exceeds released, and escrow matches the tickets still owed.
-
-Gas from `forge test --gas-report` (first-time storage writes, so an upper bound). Medians mix direct calls and
-signed calls; the max is the signed, successful path. Reverting calls set the min.
-
-| Function | Median | Max |
-| --- | ---: | ---: |
-| `createEvent` | 241,033 | 241,033 |
-| `createEventFor` (signed, with name and venue) | 61,952 | 326,451 |
-| `buy` | 247,287 | 247,287 |
-| `checkIn` (direct from a gate) | 92,858 | 92,858 |
-| `checkIn` (relayed with a gate pass) | 97,188 | 97,188 |
-| `withdraw` | 55,569 | 98,169 |
-| `cancel` | 8,978 | 38,321 |
-| `setGate` | 43,850 | 58,520 |
-| `buyResale` | 10,033 | 134,058 |
-| `listForResale` | 39,617 | 45,742 |
-| `setClaim` | 34,912 | 47,162 |
-| `claim` | 17,251 | 35,254 |
-| `settle` | 7,188 | 19,764 |
-| `pushRefunds` | 75,966 | 86,450 |
-| `claimRefund` | 24,147 | 59,840 |
-
-A gate pass costs about 4,300 gas over a direct gate call (one ECDSA recovery). Binding `BuyIntent` to one sale
-added 4 gas to `buy`. A signed organizer action costs about 30k more than a direct
-call (one ECDSA recovery, a nonce write).
-
-### One passkey for the account and the door
-
-Buyers sign up with Mera, which derives their account from the passkey's PRF output but does not expose the
-passkey's public key. Curtain passes Mera a custom WebAuthn client that makes the same browser calls and also keeps
-the P-256 key from the registration response, so the same passkey signs check-ins. Spike page:
-[`site/spike/mera.html`](site/spike/mera.html). Run on Samsung Android with Google Password Manager, Oct 5:
-
-- Sign-up and sign-in took one biometric prompt each and derived the same account.
-- That account signed an EIP-712 `BuyIntent` for the demo event.
-- The same credential checked in onchain:
-  [`0xc1dbf3b1...a3d3`](https://testnet.monadvision.com/tx/0xc1dbf3b165613de318b68bf23a1e8a387686cfbb61fcd5d4c6611863e31aa3d3)
-  (P256VERIFY at `0x0100`, 6,900 gas), and its rpIdHash matches the demo event's.
-
-### Money board and indexer
-
-[`indexer/`](indexer) is an Envio HyperIndex that follows `CurtainFactory`, registers each event escrow it creates,
-and keeps per-show totals (escrowed, released, withdrawn, refunded), every ticket's holder and state, and an
-activity feed. It runs on Envio Cloud over HyperSync; on Oct 5 its totals matched the contract exactly and a new
-purchase appeared in the index 680 ms after it confirmed. It now also indexes each show's name and venue
-(`ShowDetails`) and its paired gate devices (`GateSet`). Re-pointed at the current factory on Oct 6 (deployment
-`3143b07`): sold, checked in, held, released and withdrawn match the contract for every show. Envio feeds the money
-board, "My tickets" on any device, an organizer's "Your shows", the dashboard's gate list, and the Chainlink
-workflow's list of shows to check. If the indexer is down or has nothing for an account, the app reads each escrow
-directly.
-
-The money board, https://curtaintickets.vercel.app/board/demo, shows those totals and the feed, and pops each
-purchase and check-in the moment it happens from a WebSocket log subscription. "My tickets" also reads the
-indexer, so a buyer's tickets show on any device.
-
-### Automatic settlement and refunds (Chainlink CRE)
-
-Nobody has to remember to refund a cancelled show. [`cre/curtain-keeper`](cre/curtain-keeper) is a CRE workflow in
-TypeScript that runs every 5 minutes:
-
-1. It asks the Envio indexer for every show that could still need work (open, cancelled or not held), plus a fixed
-   list in its config in case the indexer is down.
-2. It reads `CurtainKeeper.pending(shows)` on Monad. The rule lives onchain in one tested place: an open show past
-   `endTime + settleDelay` needs `settle`, and a cancelled or not-held show whose refund cursor hasn't reached the
-   last ticket needs `pushRefunds`.
-3. If anything is due, it signs one report listing every job, and the Chainlink forwarder delivers it to
-   `CurtainKeeper.onReport`, which settles and pushes refunds in batches of 10. A show that settles as not held
-   is refunded in the same report.
-
-[`src/CurtainKeeper.sol`](src/CurtainKeeper.sol) holds no money and has no special role on the escrows, since
-`settle` and `pushRefunds` are open to anyone. It accepts reports only from the forwarder, acts only on genuine
-CurtainEvent clones (matched by code hash), and never reverts on a stale or failing job: it logs `Skipped` with the
-reason, so one show can't hold up the rest and a replayed report does nothing.
-
-Run on Monad testnet with `cre workflow simulate --broadcast` (CRE CLI 1.37.0, SDK 1.23.0), Oct 5, against two
-shows made by [`script/DeployKeeper.s.sol`](script/DeployKeeper.s.sol): one cancelled with 3 tickets, one ended
-with 2 tickets and nobody checked in. This run used the keeper for the previous contract version; the config now
-points at the current keeper, `0xe2F693e95eA2A2ff45fA08374198714CD49E58B1`.
-
-| Step | Result | Tx or log |
+| Contract (Monad testnet, chain 10143) | Address | Deploy tx |
 | --- | --- | --- |
-| Deploy CurtainKeeper (Sourcify exact match) | [`0x010F096F...bADe`](https://testnet.monadvision.com/address/0x010F096F8dC260b68A07025C00404aaf9F33bADe) | [`0x6458f5da...5c2d`](https://testnet.monadvision.com/tx/0x6458f5da713f8c7c000b794feb94abfcdd7fc68e3c739037cb768caa517a5c2d) |
-| Cancel the first show | 3 tickets refundable | [`0x9d50956a...514f`](https://testnet.monadvision.com/tx/0x9d50956aa2da0c930829410de08a5f9ac30d5beb888eacf72a573465e725514f) |
-| Workflow run 1 | settled the ended show as not held, refunded all 5 buyers 0.20 USDC each, in one report through the MockKeystoneForwarder | [`0xf0b0c6d0...6290`](https://testnet.monadvision.com/tx/0xf0b0c6d010af6e6b95efa04b1a72ba4a41ed4eae1eb69d988704e3ac0ef06290), [log](docs/cre/simulate-broadcast-1.log) |
-| Workflow run 2 | nothing due, no transaction | [log](docs/cre/simulate-broadcast-2-idle.log) |
-| Shows found through Envio alone (config list empty) | 3 | [log](docs/cre/simulate-envio-discovery.log) |
+| CurtainFactory | [`0xd22f6eb4...83bF`](https://testnet.monadvision.com/address/0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF) | [`0x50f7b66b...0b10`](https://testnet.monadvision.com/tx/0x50f7b66bfde281e7d4584bb94bf97c3bd6fe45edd38ee521206064f99f270b10) |
+| CurtainEvent implementation | [`0x33Bda352...dD8`](https://testnet.monadvision.com/address/0x33Bda35276C3582eD2129d54a63a21725C8cbdD8) | same tx |
+| Demo show (a clone, made with `createEventFor`) | [`0xa01EFA5B...CB0E`](https://testnet.monadvision.com/address/0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E) | [`0xd5136a0c...7e89`](https://testnet.monadvision.com/tx/0xd5136a0c1f91824e62331ce575c1a9435f109c386c6b35edafa4d63521077e89) |
+| CurtainKeeper (Chainlink CRE receiver) | [`0xC157558d...a18E`](https://testnet.monadvision.com/address/0xC157558da8C7d90EAE75C38A850515567ED5a18E) | [`0xc99d3cca...6346`](https://testnet.monadvision.com/tx/0xc99d3cca7f4df86e1a218b0a1db3427817b55277be83f3270b5c1c83e3356346) |
 
-```sh
-cd cre && cre workflow simulate ./curtain-keeper --target staging-settings --broadcast
+All four are source-verified on Sourcify (exact match). Earlier deployments are listed in the
+[appendix](#retired-deployments).
+
+## The problem
+
+Ticket buyers in Lagos pay weeks ahead for shows that get postponed, moved or quietly cancelled. Getting that money
+back means chasing an organizer on WhatsApp, and often it never comes. Screenshots of tickets are forged and resold,
+so the person at the door can't tell a real ticket from a copy. Organizers carry the cost of that distrust: buyers
+wait until the last minute, and touts take the margin. Nothing in the usual flow ties the money to the show actually
+happening.
+
+## The solution
+
+Every show is its own escrow contract. A ticket's money is **Protected** from purchase until its holder walks in.
+At the gate, the buyer scans a rotating code and confirms with their **fingerprint or Face ID**; the contract verifies
+that passkey signature onchain and pays that ticket's money to the organizer in the same transaction. After the show,
+if at least half the tickets sold were checked in, the rest is paid out; if not, or if the organizer cancels, every
+unscanned ticket is **Refunded** automatically, with nobody having to approve it.
+
+Buyers never see a wallet, a seed phrase or a gas fee. Resale is capped at face value, and a resold ticket only opens
+the door for the new holder's passkey.
+
+## 60-second demo
+
+1. **Laptop:** open the [demo gate](https://curtaintickets.vercel.app/gate/pair#VWK_HMurzy8GAjn50kG6lmEhcTW0ZXgbjZDH9G9RwvXea_zUYhDRepxMAu_Zq0TrhPK_wg).
+   It pairs the browser as a gate for "Curtain Demo Night" and shows a QR code that changes every few seconds.
+2. **Phone:** open https://curtaintickets.vercel.app/e/demo, type a first name, tap **Get my ticket** and confirm with
+   your fingerprint or Face ID. ₦1,500 is now protected.
+3. **Phone:** scan the laptop's code, tap **Check in**, confirm. The laptop shows **ADMIT**, the phone says
+   **You're in**, and ₦1,500 is paid to the organizer.
+4. **Scan again** with the same ticket: **DO NOT ADMIT**, refused by the contract.
+5. **Money board:** https://curtaintickets.vercel.app/board/demo shows what is protected, paid and refunded, live.
+
+Phones: Android with Chrome and Google Password Manager (tested on a Samsung with fingerprint), or iPhone with Safari
+on iOS 18+ and iCloud Keychain. Open links in Chrome or Safari, not inside WhatsApp, Instagram or X. To run your own
+show, open https://curtaintickets.vercel.app/organizer/new, then use **Add a gate device** on the dashboard.
+
+## Why Monad
+
+- **Passkeys are verified onchain.** Monad has the P-256 precompile at `0x0100` (EIP-7951), so the escrow checks a
+  real WebAuthn fingerprint or Face ID signature in the check-in transaction itself: 6,900 gas for the curve check,
+  about 97k for the whole relayed check-in. The same check in Solidity costs about 240k more. The door decision and
+  the payout are one atomic step, with no server deciding who gets in. Proof from a real phone:
+  [canary run](#canary-a-biometric-passkey-verified-onchain).
+- **Fast enough for a queue.** A check-in confirms in about a second, so the gate turns green while the guest is still
+  standing there.
+- **Cheap enough to relay everything.** Curtain pays gas for every buyer, holder, gate and organizer action, so nobody
+  needs MON.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Phone["Buyer's phone<br/>passkey (Mera account)"] -->|signed buy, check-in| Relayer
+  Gate["Gate tablet<br/>own key, signs each code"] -->|gate pass in QR| Phone
+  Org["Organizer's phone<br/>passkey"] -->|signed create, withdraw, gates, cancel| Relayer
+  Relayer["Relayer (Vercel)<br/>pays gas, holds no money"] --> Factory
+  Factory["CurtainFactory"] -->|one clone per show| Escrow["CurtainEvent escrow<br/>USDC held per ticket"]
+  Escrow -->|paid at check-in| Payout["Organizer payout"]
+  Escrow -->|refunds| Phone
+  Escrow -->|events| Envio["Envio HyperIndex"]
+  Envio --> App["Web app: board, tickets, dashboard"]
+  Envio --> CRE["Chainlink CRE workflow"]
+  CRE -->|settle, push refunds| Keeper["CurtainKeeper"] --> Escrow
 ```
 
-`cre/.env` holds `CRE_ETH_PRIVATE_KEY` for the simulation's transactions (gitignored). For a deployed workflow,
-`CurtainKeeper.setForwarder` switches to the production KeystoneForwarder
-`0xF8344CFd5c43616a4366C34E3EEE75af79a74482`. Tests: 18 Foundry tests for the keeper and 9 workflow unit tests
-(`bun test`) with the SDK's EVM and HTTP mocks.
+## Sponsors
 
-### Every red case, refused onchain
+### Mera: one passkey for the account and the door
 
-The app checks each action with a simulation first, so a refused scan or a bad request costs nothing and never
-reaches the chain. To show that the contract itself is what says no, [`frontend/scripts/red-cases.mjs`](frontend/scripts/red-cases.mjs)
-sends every red case from the demo as a real transaction with a fixed 400k gas limit on the demo show. Each one
-reverted onchain, Oct 6:
+Buyers and organizers sign up with Mera, which derives their account from the passkey's PRF output. Mera does not
+expose the passkey's public key, so Curtain passes Mera a custom WebAuthn client that makes the same browser calls and
+also keeps the P-256 key from the registration response. The result is **one fingerprint prompt that creates both the
+account that pays and the key that opens the door**. The account signs EIP-712 buys, listings and organizer actions;
+the same credential signs the WebAuthn assertion the escrow verifies at the gate.
+
+PRF also powers **Send to my phone**: a claim key derived from the passkey's PRF output lets a laptop hand a ticket to
+a phone with a different passkey, and the link dies when it is used or revoked. Spike page:
+[`frontend/public/spike/mera.html`](frontend/public/spike/mera.html). Run on Samsung Android with Google Password
+Manager, Oct 5: sign-up and sign-in derived the same account with one prompt each, that account signed a `BuyIntent`,
+and the same credential checked in onchain,
+[`0xc1dbf3b1...a3d3`](https://testnet.monadvision.com/tx/0xc1dbf3b165613de318b68bf23a1e8a387686cfbb61fcd5d4c6611863e31aa3d3).
+
+### Envio: the live state layer
+
+[`indexer/`](indexer) is an Envio HyperIndex that follows `CurtainFactory`, registers each escrow it creates, and keeps
+per-show totals (protected, paid, withdrawn, refunded), every ticket's holder and state, show names and venues, paired
+gates, and an activity feed. Everything that reads state goes through it:
+
+- the money board's totals and feed (a WebSocket log subscription adds each moment instantly; Envio confirms it);
+- **My tickets** on any device, an organizer's **Your shows**, the dashboard's gate list, door list and sales chart;
+- the upcoming shows on the home page;
+- the Chainlink workflow's list of shows to check.
+
+On Oct 5 its totals matched the contracts exactly, and a new purchase appeared in the index 680 ms after it
+confirmed. If the indexer is slow or down, every view falls back to reading the escrows directly.
+
+### Chainlink CRE: automation with no custody
+
+Nobody has to remember to settle a show or refund a cancelled one. [`cre/curtain-keeper`](cre/curtain-keeper) is a CRE
+workflow that runs every 5 minutes. It finds candidate shows through Envio (plus a fixed list in case the indexer is
+down), asks `CurtainKeeper.pending(shows)` on Monad what is due, and if anything is, signs one report that the
+forwarder delivers to `CurtainKeeper.onReport`, which settles shows and pushes refunds in batches of 10.
+
+[`src/CurtainKeeper.sol`](src/CurtainKeeper.sol) **holds no money and has no special role**: `settle` and `pushRefunds`
+are open to anyone, so the workflow only saves people from having to call them. It accepts reports only from the
+forwarder, acts only on genuine Curtain clones (matched by code hash), and logs `Skipped` instead of reverting, so one
+stale show can't block the rest. Simulated with `cre workflow simulate --broadcast` on Monad testnet: one report
+settled an ended show as not confirmed and refunded all 5 buyers ([runs](#chainlink-cre-runs)).
+
+## How the escrow works
+
+- **Buy:** the buyer's account signs an EIP-712 `BuyIntent` and a USDC permit; the relayer submits. The ticket binds to
+  the buyer for refunds and to their passkey for the door.
+- **Check in:** a paired gate device signs each rotating code (`GatePass`). The challenge covers chain, show, ticket,
+  gate nonce and block, is single use and at most 300 blocks old. The contract checks the passkey's WebAuthn assertion
+  (user present and verified, Curtain's rpId) and moves that ticket's price from protected to paid.
+- **After the show:** anyone can `settle`. If at least half the tickets sold were checked in (a fixed 5000 bps), the
+  show is confirmed and the rest is paid out; otherwise every unscanned ticket is refundable. `cancel` does the same
+  immediately. `pushRefunds` pays holders in batches; a failed transfer marks one ticket RefundOwed without blocking
+  the rest.
+- **Resale and gifts:** listings are capped at face value, the buyer pays the seller directly, and the ticket's
+  protected money and passkey move to the new holder. Gift links are signed by a one-time claim key.
+- **Per person:** each account holds at most the show's limit (default 4), counted across buys, resale and gifts.
+- **Accounting invariant:** `totalPaidIn == released + refunded + escrowed`, and the token balance always equals
+  `escrowed + released - withdrawn`, fuzzed over every action.
+
+## Security model
+
+- **The relayer never holds ticket money.** It pays gas and submits what buyers, holders, gates and organizers sign.
+  Money moves only between buyers, each show's escrow and the organizer's payout address, fixed at creation.
+- **The door is decided onchain.** A ticket is admitted only with a code from a paired gate, a fresh challenge and the
+  holder's passkey. A replayed scan, an expired code, someone else's fingerprint and a seller after resale are all
+  [refused by the contract](#every-red-case-refused-onchain).
+- **Passkeys sync with the user's Apple or Google account**, so the ticket works on every device signed in to it.
+  The fingerprint or Face ID never leaves the phone; Curtain only receives the signature.
+- **Relayer safety:** top-ups fail closed in production without the shared limit store (Upstash), each relay route
+  has a daily gas ceiling, and top-ups pause when the treasury or relayer runs low.
+  https://curtaintickets.vercel.app/api/health reports all of it.
+- **Keys are separate, one job each:** relayer, treasury, one key per gate device, and organizers' own passkeys. The
+  organizer key for the demo show is never on Vercel.
+
+## Tests and CI
+
+| Suite | Tests | Where |
+| --- | ---: | --- |
+| Contracts (`forge test`) | 127 | 59 escrow, 18 keeper, 14 canary, 10 show creation, 8 gate pass, 8 per-person limit, 5 held threshold, 5 invariants |
+| Web app (`npm test` in `frontend/`) | 177 | 27 files: passkeys and key recovery, error wording, copy and contrast checks, gate passes, top-up limits, gas ceilings, the money board's live moves, ticket states, create-show typed data, posters, calendar files and more |
+| Indexer (`npm test` in `indexer/`) | 3 | full show lifecycle, settlement and resale rebinding, show details and gates |
+| CRE workflow (`bun test` in `cre/curtain-keeper/`) | 9 | discovery, pending jobs and reports with the SDK's mocks |
+
+Counts verified Oct 7 (the indexer suite runs in CI, since Envio's CLI has no Windows build). CI runs all four
+suites, `forge fmt --check`, typechecks, lint and production builds on every push: see the badge above and the
+[workflow runs](https://github.com/abdoulore/Curtain/actions/workflows/test.yml).
+
+Every unhappy path asserts its exact error: replay (`ChallengeAlreadyUsed`), stale and future codes, second scan
+(`TicketNotActive`), wrong passkey (`InvalidAssertion`), wrong domain (`WrongRpId`), non-gate (`NotGate`), before doors,
+resale above face value (`PriceAboveCap`), over-withdraw (`ExceedsReleased`), strangers (`NotOrganizer`,
+`BadSignature`), sold out, sales closed, forged or replayed intents, wrong sale (`WrongSale`), refund rules
+(`NotRefundable`, `NothingToRefund`), revoked gift links (`NoClaimKey`), settlement timing (`NotSettleable`) and the
+per-person limit (`TooManyTickets`).
+
+## Repository
+
+| Path | What |
+| --- | --- |
+| [`src/`](src) | `CurtainFactory`, `CurtainEvent`, `CurtainKeeper`, and the `PasskeyCanary` that proved the primitive first |
+| [`test/`](test) | Foundry tests |
+| [`script/`](script) | Deploy scripts |
+| [`frontend/`](frontend) | Next.js app and relayer API on Vercel; [`frontend/scripts/`](frontend/scripts) holds the end-to-end and screenshot runs |
+| [`indexer/`](indexer) | Envio HyperIndex |
+| [`cre/curtain-keeper/`](cre/curtain-keeper) | Chainlink CRE workflow |
+| [`docs/screens/`](docs/screens) | Screenshots at 375 px and 1440 px |
+
+```sh
+forge test                              # contracts
+cd frontend && npm test                 # web app
+cd cre/curtain-keeper && bun test       # CRE workflow
+```
+
+## License
+
+MIT
+
+---
+
+# Appendix
+
+## Deployment details
+
+The demo show sells 200 tickets at 1 USDC (shown as ₦1,500; Circle testnet USDC
+`0x534b2f3A21130d7a60830c2Df862319e593943A3`, EIP-712 domain `USDC` version `2`), up to 4 per person, doors open
+now, ends 30 days after deploy, rpId `curtaintickets.vercel.app`. The held threshold is a contract constant: half the
+tickets sold.
+
+```sh
+forge script script/DeployCurtain.s.sol --rpc-url monad_testnet --broadcast --slow --gas-estimate-multiplier 110
+CURTAIN_FACTORY=0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF KEEPER_DEMO_SHOWS=false forge script script/DeployKeeper.s.sol --rpc-url monad_testnet --broadcast --slow --gas-estimate-multiplier 110
+```
+
+The relayer key deploys and submits; the organizer key only signs the demo show's `CreateShow`; the gate key's address
+is the demo show's first gate device.
+
+| Role | Address | Where it lives |
+| --- | --- | --- |
+| Relayer (submits buys, check-ins, resales, claims, show creation and organizer actions; pays gas) | `0xf3B5F191cDd51d78ec117B0f09239c532Fb6d0F6` | Vercel |
+| Gate devices (sign gate passes, never pay gas) | one per paired tablet, for example `0x31f7e1FcBD820cA29cece6Ac6386172557511fF5` | the tablet's browser |
+| Treasury (sends demo USDC for top-ups) | `0x4f930C2CF8Da49F8Ddf362DC77AC8754563D9d06` | Vercel |
+| Organizers and payouts | the organizer's passkey account; `0x0ab5384bC2669C2B9E26Fcf40e4B31af2e294937` for the demo show | never on Vercel |
+
+Limits: `/api/topup` allows 3 top-ups per network per day and 10 per hour across everyone; `/api/relay/create` allows
+5 shows per network per day and 20 per hour; each relay route has a daily gas ceiling (for example 150M gas for buys,
+75M for check-ins), overridable with `GAS_CEILING_<ROUTE>`. Counts live in Upstash Redis.
+
+## Retired deployments
+
+Earlier contract versions, kept for the runs recorded below. Their shows keep working, and tickets held for them
+still appear in My tickets.
+
+| Version | Factory | Demo show | Keeper |
+| --- | --- | --- | --- |
+| Held threshold set per show (until Oct 7) | `0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6` | `0x5562bF1ccBabcF2f060239f9D241Ba9661217135` | `0xc16008D869fC44E2af4d217C23adc2eCFdC57219` |
+| Before the per-person limit | `0x13391D9E0dD62d01c62821671F47A12eE320Ca58` | `0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D` | `0xe2F693e95eA2A2ff45fA08374198714CD49E58B1` |
+| Earlier | `0x00CC023C3BFB01eb3E5470247c7976966b04d0Db` | `0xd3F22B52F74D658318C29E0475E1833214eCA005` | `0x010F096F8dC260b68A07025C00404aaf9F33bADe` |
+| Earliest | `0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0` | `0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7` | none |
+
+## Every red case, refused onchain
+
+The app simulates each action first, so a refused scan or a bad request costs nothing. To show that the contract
+itself is what says no, [`frontend/scripts/red-cases.mjs`](frontend/scripts/red-cases.mjs) sends every red case as a
+real transaction with a fixed 400k gas limit on the demo show of the time. Each one reverted onchain, Oct 6:
 
 | Case | Contract error | Reverted tx |
 | --- | --- | --- |
@@ -244,80 +257,54 @@ reverted onchain, Oct 6:
 | Code from a screen that isn't a paired gate | `NotGate` | [`0x47eb06f2...e0ac`](https://testnet.monadvision.com/tx/0x47eb06f27d030f68865eae20df2c3f7cad52c2dc6a7d9aab6a27d0844986e0ac) |
 | Resale above face value | `PriceAboveCap` | [`0x2306b0bd...a18f`](https://testnet.monadvision.com/tx/0x2306b0bd9228e78e714be9c7105fee5d0797808e24ca4ab95420fb207bffa18f) |
 | Seller at the door after reselling | `InvalidAssertion` | [`0xf27ae8b1...1bd7`](https://testnet.monadvision.com/tx/0xf27ae8b149244e474ad22123dc6f7a0861b9860df94ec2e9676ddb62113c1bd7) |
-| Organizer withdraws more than was released | `ExceedsReleased` | [`0x286ed4ac...e4ad`](https://testnet.monadvision.com/tx/0x286ed4acb11db91107695ea1344098e1ecd7cc2df7a059662d1ed7774370e4ad) |
+| Organizer withdraws more than was paid | `ExceedsReleased` | [`0x286ed4ac...e4ad`](https://testnet.monadvision.com/tx/0x286ed4acb11db91107695ea1344098e1ecd7cc2df7a059662d1ed7774370e4ad) |
 | A stranger signs a cancellation | `BadSignature` | [`0x97a102d2...4b80`](https://testnet.monadvision.com/tx/0x97a102d2ed0034df3417534dc390647804a56108520775759ee25582d4b44b80) |
-| A fifth ticket for one person (Oct 7, current demo show, `limit-case.mjs`) | `TooManyTickets` | [`0xcfe168fe...f12a`](https://testnet.monadvision.com/tx/0xcfe168feeb7459845537b489259b93aaa18777f9676051225be1498cb7abf12a) |
+| A fifth ticket for one person (Oct 7, `limit-case.mjs`) | `TooManyTickets` | [`0xcfe168fe...f12a`](https://testnet.monadvision.com/tx/0xcfe168feeb7459845537b489259b93aaa18777f9676051225be1498cb7abf12a) |
 
 ```sh
 cd frontend && BASE_URL=https://curtaintickets.vercel.app npm run red-cases
 ```
 
-### Deployed on Monad testnet (chain 10143)
+## Real-device and end-to-end runs
 
-| Contract | Address | Tx |
-| --- | --- | --- |
-| CurtainFactory | [`0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6`](https://testnet.monadvision.com/address/0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6) | [`0xdc310e5b...2e4d`](https://testnet.monadvision.com/tx/0xdc310e5bb16589600306dbf055efc6ed38b41036295b4ea84a60407ffb6d2e4d) |
-| CurtainEvent implementation | [`0xB6174b89b16ae0c88005ed7d91dE40f61F929c3A`](https://testnet.monadvision.com/address/0xB6174b89b16ae0c88005ed7d91dE40f61F929c3A) | same tx |
-| Demo show (clone, made with `createEventFor`) | [`0x5562bF1ccBabcF2f060239f9D241Ba9661217135`](https://testnet.monadvision.com/address/0x5562bF1ccBabcF2f060239f9D241Ba9661217135) | [`0x597583fe...adaa`](https://testnet.monadvision.com/tx/0x597583fedaf5266ae49c83ca2a00f37b5dc6059a33c03e401b0dc1584145adaa) |
-| CurtainKeeper (CRE) | [`0xc16008D869fC44E2af4d217C23adc2eCFdC57219`](https://testnet.monadvision.com/address/0xc16008D869fC44E2af4d217C23adc2eCFdC57219) | [`0xd0f8eb46...d8db`](https://testnet.monadvision.com/tx/0xd0f8eb464fd470376e6d553cb1b3a17d12a1d47abfedcfc633d93d719c58d8db) |
-
-Factory, implementation and keeper are source-verified (exact match) on Sourcify. The demo show sells 200 tickets at
-1 USDC (Circle testnet USDC `0x534b2f3A21130d7a60830c2Df862319e593943A3`, EIP-712 domain name `USDC`, version
-`2`), up to 4 per person, doors open now, ends 30 days after deploy, held threshold 50%, rpId
-`curtaintickets.vercel.app`.
-
-```sh
-forge script script/DeployCurtain.s.sol --rpc-url monad_testnet --broadcast --slow --gas-estimate-multiplier 110
-CURTAIN_FACTORY=0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6 KEEPER_DEMO_SHOWS=false forge script script/DeployKeeper.s.sol --rpc-url monad_testnet --broadcast --slow --gas-estimate-multiplier 110
-```
-
-The relayer key deploys and submits; the organizer key only signs the demo show's `CreateShow`; the gate key's
-address is the demo show's first gate device.
-
-Retired deployments (earlier contract versions, kept for the runs recorded below): factory
-`0x13391D9E0dD62d01c62821671F47A12eE320Ca58` (before the per-person limit) with demo show
-`0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D` and keeper `0xe2F693e95eA2A2ff45fA08374198714CD49E58B1`; factory
-`0x00CC023C3BFB01eb3E5470247c7976966b04d0Db` with demo event `0xd3F22B52F74D658318C29E0475E1833214eCA005` and
-keeper `0x010F096F8dC260b68A07025C00404aaf9F33bADe`; factory `0x4F50565d089A2D12117e6dc52375C2c8F748Bfc0` with
-demo event `0x8df8b6D5CeF9FE34B1a6bE4E130a589Be4bB5cB7`.
-
-Real passkey run on the previous deployment (factory `0x13391D9E...Ca58`), Oct 6: Samsung Android (fingerprint, Mera passkey account
+Real passkey run on factory `0x13391D9E...Ca58`, Oct 6: Samsung Android (fingerprint, Mera passkey account
 `0xc1ACaC62...5291`) as organizer and buyer, a Windows laptop paired as the gate. Show "Magic show"
 [`0x3A9cF10b...FAd3`](https://testnet.monadvision.com/address/0x3A9cF10b9E427a472bd06145027826eD6D24FAd3).
 
 | Step | Signed by | Tx |
 | --- | --- | --- |
 | Create the show on `/organizer/new` | organizer passkey (`CreateShow`) | [`0xb3c079aa...7cc7`](https://testnet.monadvision.com/tx/0xb3c079aaa72bc0a4afffd4ddef9069a45965eab0ca59dafc3e8833b701a97cc7) |
-| Pair the laptop as a gate ("Add a gate device", QR scanned by the laptop) | organizer passkey (`SetGate`) | [`0x1afafe36...e1003`](https://testnet.monadvision.com/tx/0x1afafe36978502fcbae5705da698cac1edc4d5297ca222c9b5fa3d2a298e1003) |
+| Pair the laptop as a gate | organizer passkey (`SetGate`) | [`0x1afafe36...e1003`](https://testnet.monadvision.com/tx/0x1afafe36978502fcbae5705da698cac1edc4d5297ca222c9b5fa3d2a298e1003) |
 | Buy ticket #1 | buyer passkey | [`0x04c6f259...b5`](https://testnet.monadvision.com/tx/0x04c6f2594105ce870c3d6a8488ddcf7e4cad43822c768630d9cea8c54c6bd9b5) |
-| Check in at the paired laptop gate, green | buyer passkey, gate pass from the laptop's key | [`0xacb80b38...eac2`](https://testnet.monadvision.com/tx/0xacb80b3891b63a3bff4a5e89cd697b5aee98b96c4eb8bb1c6382baaeb510eac2) |
-| Withdraw "1500" (₦1,500 = 1 USDC) | organizer passkey (`Withdraw`) | [`0x60d01e6a...31cd`](https://testnet.monadvision.com/tx/0x60d01e6a7398745bd4ee71bf3f1fd29662e1082e02b59eb24e60418921ce31cd) |
+| Check in at the paired laptop gate | buyer passkey, gate pass from the laptop's key | [`0xacb80b38...eac2`](https://testnet.monadvision.com/tx/0xacb80b3891b63a3bff4a5e89cd697b5aee98b96c4eb8bb1c6382baaeb510eac2) |
+| Withdraw ₦1,500 (1 USDC) | organizer passkey (`Withdraw`) | [`0x60d01e6a...31cd`](https://testnet.monadvision.com/tx/0x60d01e6a7398745bd4ee71bf3f1fd29662e1082e02b59eb24e60418921ce31cd) |
 | Buy ticket #2, then "Sell at face value" | buyer passkey (`List`) | [`0xa686f3c6...f79e`](https://testnet.monadvision.com/tx/0xa686f3c6260c8d55ba36366494f1c7806e54c1ddacd166a4a4bf115a2cf7f79e) |
-| Ticket #2 bought on resale by a test account; the seller received 1 USDC | test buyer | [`0x9ab8bd73...ccaf`](https://testnet.monadvision.com/tx/0x9ab8bd73a40788ce3e778fb6371d2bad5e403fc836e25e10d402d27e7b22ccaf) |
+| Ticket #2 bought on resale; the seller received 1 USDC | test buyer | [`0x9ab8bd73...ccaf`](https://testnet.monadvision.com/tx/0x9ab8bd73a40788ce3e778fb6371d2bad5e403fc836e25e10d402d27e7b22ccaf) |
 
 The organizer never held MON; the relayer paid every transaction.
 
-Show with a poster on the current deployment, Oct 7 (`npm run e2e:create`, which also uploads a poster and
-description signed by the organizer): created [`0xbd4ca594...c3d3`](https://testnet.monadvision.com/tx/0xbd4ca594b76fb424db26b5fd36132cb46890179bd0383ed9c152a2ec8223c3d3),
-show `0x1c10dbC3425FD4F9fbb4c837E494cBb5AEB23399`, then pair a gate, admit a guest and withdraw ₦1,500 as before.
+Show with a poster on factory `0x5e236607...b3b6`, Oct 7 (`npm run e2e:create`, which also uploads a poster and
+description signed by the organizer): created
+[`0xbd4ca594...c3d3`](https://testnet.monadvision.com/tx/0xbd4ca594b76fb424db26b5fd36132cb46890179bd0383ed9c152a2ec8223c3d3),
+then pair a gate, admit a guest and withdraw ₦1,500.
 
-End-to-end runs against the previous deployment (Oct 5, through the app's relayer API; an EOA stands in for the
-passkey account, since Mera accounts are plain EOAs and sign the same typed data):
+End-to-end runs through the app's relayer API on an earlier deployment, Oct 5 (an EOA stands in for the passkey
+account, since Mera accounts are plain EOAs and sign the same typed data):
 
 | Run | Step | Tx |
 | --- | --- | --- |
 | `npm run e2e:create` | organizer creates "E2E Comedy Night" by signature | [`0xf825c8ce...11ee`](https://testnet.monadvision.com/tx/0xf825c8cefb5bb71ba2aee44cd263a2cbfd5821620235e0b02a56256f188511ee) |
 | | pair a gate device (signed SetGate) | [`0xf9991173...c225`](https://testnet.monadvision.com/tx/0xf9991173137974eb8ac3c0a4a6f6021221b4072ff3ab6e9d91302c72da19c225) |
 | | guest checks in with a pass signed by that device | [`0x714f87d2...65ae`](https://testnet.monadvision.com/tx/0x714f87d2dd55118f663593b403650d30acb35b983e2666e833fb8e54122f65ae) |
-| | withdraw "₦1,500" (exactly 1 USDC); the organizer never held MON | [`0x79ab2fb0...c612`](https://testnet.monadvision.com/tx/0x79ab2fb0395c4a84abe0e4e08d93faa81acdf10516a4977503968e439879c612) |
-| `npm run e2e:resale` | holder lists at face value (a listing above face value is refused, `PriceAboveCap`) | [`0xd8edb17c...8102`](https://testnet.monadvision.com/tx/0xd8edb17cabdde96cd77c225538563b55a79b658f740b02678ab5f459c2e78102) |
+| | withdraw ₦1,500 (exactly 1 USDC); the organizer never held MON | [`0x79ab2fb0...c612`](https://testnet.monadvision.com/tx/0x79ab2fb0395c4a84abe0e4e08d93faa81acdf10516a4977503968e439879c612) |
+| `npm run e2e:resale` | holder lists at face value (above face value is refused, `PriceAboveCap`) | [`0xd8edb17c...8102`](https://testnet.monadvision.com/tx/0xd8edb17cabdde96cd77c225538563b55a79b658f740b02678ab5f459c2e78102) |
 | | second buyer buys on resale; the seller is paid directly | [`0xe1cbdc02...709e`](https://testnet.monadvision.com/tx/0xe1cbdc02eb8355a9cf7d145d3b9aa88c470b96eec5cf2b75692cf7e84708709e) |
 | | seller's passkey at the door: refused (`InvalidAssertion`), no gas | none |
 | | new holder checks in | [`0xf57e2e81...fafc5`](https://testnet.monadvision.com/tx/0xf57e2e8139dc63c42766765b75e200d80722d1bf45425c71636a90db5c3fafc5) |
 | `npm run e2e:relay` | gasless buy, then check-in relayed with a gate pass (replay refused) | [`0x0ba0938d...18ba`](https://testnet.monadvision.com/tx/0x0ba0938de6d6855c280a11a111223a3d50e556da74cf46027d19923a883c18ba) |
 | `npm run e2e:claim` | send to my phone, revoke, claim, phone checks in | [`0x03c50fe2...f50`](https://testnet.monadvision.com/tx/0x03c50fe220ab0b74b4d8db8068d7973a6b16232ca4944d4a8a1a583ecba1ef50) |
 
-End-to-end runs on the previous deployment:
+Earlier end-to-end runs:
 
 | Run | Step | Tx |
 | --- | --- | --- |
@@ -331,15 +318,16 @@ End-to-end runs on the previous deployment:
 | | signed add gate | [`0x84fc7af6...6b4c`](https://testnet.monadvision.com/tx/0x84fc7af68dd270264e3eab824df421c0314221723a3c89d9a96b1b5bc2446b4c) |
 | | signed remove gate (a stranger's signature is refused before any gas) | [`0xaab44704...fcb8`](https://testnet.monadvision.com/tx/0xaab4470411dab324250e0579f9539e6bba8049d45d98fa202a1d3962c4e2fcb8) |
 
-Two-phone run on the previous deployment, Oct 5: Samsung Android (fingerprint) as the buyer, a Windows laptop as the gate.
+Two-device run on an earlier deployment, Oct 5: Samsung Android (fingerprint) as the buyer, a Windows laptop as
+the gate.
 
 | Step | Result | Tx |
 | --- | --- | --- |
 | Gasless buy, ticket #4 | success | [`0xae206d9d...8902`](https://testnet.monadvision.com/tx/0xae206d9d7f13bc462fd735b5e80761d35d28b77b0e9dc0e2dfd0fcf7b8fe8902) |
-| Check-in with fingerprint | green on phone and gate, 1 USDC released | [`0x82ce15ee...a2ae`](https://testnet.monadvision.com/tx/0x82ce15ee74ac0084589884596fc6bda74664700bb371a75bb836dbe3da7ca2ae) |
+| Check-in with fingerprint | green on phone and gate, 1 USDC paid to the organizer | [`0x82ce15ee...a2ae`](https://testnet.monadvision.com/tx/0x82ce15ee74ac0084589884596fc6bda74664700bb371a75bb836dbe3da7ca2ae) |
 | Second scan of the same ticket | red on phone and gate, refused at simulation (`TicketNotActive`), no gas spent | none |
 
-Laptop to phone on real devices, on the previous deployment, Oct 5:
+Laptop to phone on real devices, on an earlier deployment, Oct 5:
 
 | Device | Path | Result | Tx |
 | --- | --- | --- | --- |
@@ -349,150 +337,89 @@ Laptop to phone on real devices, on the previous deployment, Oct 5:
 | Samsung Android, Chrome | B: scan and claim | claimed | [`0xfe965f93...e3ec`](https://testnet.monadvision.com/tx/0xfe965f938f9fdbbc18c80375810510b80c52726b0b0bda7940da040fe1dce3ec) |
 | Samsung Android, Chrome | check in at the laptop gate, fingerprint | green | [`0xb160c881...c1b6`](https://testnet.monadvision.com/tx/0xb160c881abadf97bddcfb44e1e1a44d81b2855470450b11a9f88f231a93dc1b6) |
 
-Mac and iPhone have not been run. Claiming into a different account and revoking a link are covered by
-`npm run e2e:claim` above.
+Mac and iPhone have not been run.
 
-## The web app
+## Chainlink CRE runs
 
-Next.js on Vercel at https://curtaintickets.vercel.app. Screenshots at 375 px and 1440 px are in
-[`docs/screens/`](docs/screens).
+`cre workflow simulate --broadcast` (CRE CLI 1.37.0, SDK 1.23.0), Oct 5, against two shows made by
+[`script/DeployKeeper.s.sol`](script/DeployKeeper.s.sol): one cancelled with 3 tickets, one ended with 2 tickets and
+nobody checked in. This run used the keeper for an earlier contract version; the config now points at
+`0xC157558da8C7d90EAE75C38A850515567ED5a18E`.
 
-- Sign in on any browser. Passkeys are discoverable, so "Sign in" lists the user's passkeys with no username. The
-  door key (the passkey's P-256 public key) comes back from the user's tickets, through the indexer or straight from
-  the chain if the indexer is down. With no tickets yet, it is recovered from the sign-in signature (two candidates,
-  settled by the next signature). Passkeys are ES256 only (alg -7), because the contract verifies P-256.
-- In-app browsers (WhatsApp, Instagram, X, Facebook, TikTok, Snapchat, LINE, Android WebView) get a notice to open
-  the page in Chrome or Safari, since passkeys are unreliable there.
-- Laptop to phone. A browser without passkey PRF shows a "Continue on your phone" QR. On a laptop that can buy, the
-  ticket page says it is ready for the phone two ways: sign in on the phone with the same synced passkey (path A),
-  or "Send to my phone" (path B), which sets a claim key derived from the passkey's PRF output, shows it as a QR, and
-  lets the phone claim the ticket to its own passkey through the relayer. The laptop can revoke the link until it is
-  used.
-- Gate devices pair without addresses. "Add a gate device" on the dashboard makes a new gate key, registers it with
-  the organizer's passkey-signed `SetGate`, and shows a pairing QR. Scanning it on the tablet opens `/gate/pair`,
-  which keeps the key in that browser and opens the gate screen once the registration is onchain. Each device has a
-  short code (for example `67VY-3Z5X`) shown on both the dashboard and the gate screen, and can be removed from the
-  dashboard. The gate signs every rotating code (`GatePass`), the relayer submits the check-in, and the gate's
-  results feed is authorized by a signature from the device itself; no shared gate password or server gate key.
-- The gate screen is landscape-first: a big rotating QR, a full-screen green or red result for each scan, and a feed
-  of the last 20 results, refused scans included. A used ticket is still sent to the door, so the gate shows red
-  rather than the phone quietly stopping; a ticket its owner sold is presented too, and the seller's passkey is
-  refused.
-- Organizers use a Mera passkey account, the same as buyers. `/organizer/new` creates a show (name, venue, date and
-  time, price in naira, capacity, held threshold, default 50%); the passkey signs `CreateShow`, the relayer submits
-  `createEventFor`, and the organizer lands on the new show's dashboard with links to its event page, money board
-  and gate. `/organizer` lists their shows.
-- The organizer dashboard shows what is ready to withdraw, what is held and refunded, and signs withdraw, gate and
-  cancel actions with the passkey (one fingerprint or Face ID prompt each). The withdraw box is in naira at the
-  display rate: ₦1,500 withdraws one 1 USDC ticket's worth, and an empty box withdraws everything ready. A browser
-  wallet remains as a hidden fallback.
-- Resale: "Sell at face value" on a ready ticket in My tickets signs `List` and the relayer submits it. The event page
-  shows "1 resale ticket at ₦1,500", and buying it uses `buyResale`, paying the seller directly. The seller's card
-  then says "Sold".
-- Ticket cards show the date, the venue, and "At the door, scan the gate code with your camera and confirm with your
-  fingerprint or Face ID". A refunded ticket says "₦1,500 is back in your Curtain balance", and the balance explains
-  that refunds and resale money pay for the next ticket and that test money can't be withdrawn.
-- Upcoming shows on the home page: every open show that hasn't ended or sold out, with poster, date, venue, price in
-  naira and tickets left; the demo show is pinned first. They come from the Envio indexer, or from the chain when it
-  has nothing (each clone's address follows from the factory's nonce, so the app can list them without a log scan).
-- Posters and descriptions: `/organizer/new` takes an optional poster (JPG, PNG or WEBP, up to 3 MB) and a
-  description of up to 500 characters. They live in Vercel Blob under the show's address. The organizer's passkey
-  account signs the show address plus the SHA-256 of the file and of the text, and the server writes only when that
-  signer is the show's `organizer()` onchain. The event page, home cards and money board show the poster, with a
-  drawn-curtain default when there is none.
-- Add to calendar: the ticket card and the success screen download an `.ics` file with the show's name, venue,
-  doors-open time, a reminder two hours before, and a link back to the ticket.
-- The organizer dashboard has a live door list (ticket, status, bought at, checked in at, newest first) and a chart of
-  tickets sold and checked in over time, both from the indexer's tickets and activity.
-- Tickets per person: set on the create page (default 4) and shown on the event page as "Up to 4 per person".
-- Demo money: buying says "Adding demo money", the success screen adds "Demo money for this preview. In the live app
-  you pay by card or bank transfer.", and My tickets shows a "Demo balance".
-- Browser reads fall back across four public Monad testnet RPCs.
-- The money board and organizer dashboard use two-column layouts on desktop; buyer pages use two columns from 1024 px.
-
-### Security model
-
-- **Passkeys sync with the user's Apple or Google account.** The same passkey, and so the same ticket, works on every
-  device signed in to that account; the account is the ticket's owner.
-- **Gates sign every code.** Each gate device holds its own key, paired by the organizer's passkey-signed `SetGate`,
-  and signs each rotating code. The contract admits a ticket only for a code from a paired gate, a fresh challenge
-  and the ticket holder's passkey.
-- **The relayer never holds ticket money.** It pays gas and submits what buyers, holders, gates and organizers sign.
-  Ticket money moves only between buyers, each show's escrow and the organizer's fixed payout address.
-- **Each account can buy up to the show's per-person limit**, counted onchain across new tickets, resale and gift
-  claims.
-- **Resale is capped at face value onchain**, and a resold ticket opens the door only with the new holder's passkey.
-- **Payments in naira come through a payment partner on mainnet**, which settles into the same escrow.
-
-### Keys
-
-Separate keys, each with one job:
-
-| Role | Address | Where it lives |
+| Step | Result | Tx or log |
 | --- | --- | --- |
-| Relayer (submits buys, check-ins, resales, claims, show creation and organizer actions; pays gas) | `0xf3B5F191cDd51d78ec117B0f09239c532Fb6d0F6` | Vercel |
-| Gate devices (sign gate passes, never pay gas) | one per paired tablet, for example `0x31f7e1FcBD820cA29cece6Ac6386172557511fF5` on the demo show | the tablet's browser |
-| Treasury (sends demo USDC for top-ups) | `0x4f930C2CF8Da49F8Ddf362DC77AC8754563D9d06` | Vercel |
-| Organizers and payouts | the organizer's passkey account; `0x0ab5384bC2669C2B9E26Fcf40e4B31af2e294937` for the demo show | never on Vercel; signs on the organizer's device |
+| Deploy CurtainKeeper (Sourcify exact match) | [`0x010F096F...bADe`](https://testnet.monadvision.com/address/0x010F096F8dC260b68A07025C00404aaf9F33bADe) | [`0x6458f5da...5c2d`](https://testnet.monadvision.com/tx/0x6458f5da713f8c7c000b794feb94abfcdd7fc68e3c739037cb768caa517a5c2d) |
+| Cancel the first show | 3 tickets refundable | [`0x9d50956a...514f`](https://testnet.monadvision.com/tx/0x9d50956aa2da0c930829410de08a5f9ac30d5beb888eacf72a573465e725514f) |
+| Workflow run 1 | settled the ended show as not confirmed, refunded all 5 buyers 0.20 USDC each, in one report | [`0xf0b0c6d0...6290`](https://testnet.monadvision.com/tx/0xf0b0c6d010af6e6b95efa04b1a72ba4a41ed4eae1eb69d988704e3ac0ef06290), [log](docs/cre/simulate-broadcast-1.log) |
+| Workflow run 2 | nothing due, no transaction | [log](docs/cre/simulate-broadcast-2-idle.log) |
+| Shows found through Envio alone (config list empty) | 3 | [log](docs/cre/simulate-envio-discovery.log) |
 
-https://curtaintickets.vercel.app/api/health reports each address, its balance, and the demo event's organizer. The
-relayer only touches Curtain clones from the factory whose token is testnet USDC. `/api/topup` allows 3 top-ups per
-IP per day and 10 per hour across everyone; `/api/relay/create` allows 5 shows per IP per day and 20 per hour (Upstash
-when configured, in memory otherwise).
+```sh
+cd cre && cre workflow simulate ./curtain-keeper --target staging-settings --broadcast
+```
 
-## Canary: biometric passkey verified onchain
+`cre/.env` holds `CRE_ETH_PRIVATE_KEY` for the simulation's transactions (gitignored). For a deployed workflow,
+`CurtainKeeper.setForwarder` switches to the production KeystoneForwarder `0xF8344CFd5c43616a4366C34E3EEE75af79a74482`.
 
-Before any product code, this repo proves the core primitive: a Monad contract verifies a real biometric (Face ID or fingerprint)
-WebAuthn assertion from a phone, using the P-256 precompile at `0x0100` (EIP-7951) rather than a Solidity
-fallback.
+## Gas
 
-- `src/PasskeyCanary.sol`: `register(qx, qy)` binds a P-256 key to a ticket id. `checkIn(ticketId, gateNonce, challengeBlock, auth)`
-  derives `challenge = keccak256(abi.encode(ticketId, gateNonce, challengeBlock))`, rejects it if it is from the
-  future, older than `maxChallengeAge` blocks, or already used, then verifies the assertion with OpenZeppelin
-  `WebAuthn.verify` (UP and UV flags required).
-- `test/PasskeyCanary.t.sol`: real WebAuthn payloads built with `vm.signP256` (authenticatorData, clientDataJSON
-  with a base64url challenge). Covers valid check-in, replay, stale challenge, wrong key, tampered clientDataJSON,
-  plus future challenge, cross-ticket reuse, missing UV, high-s and unknown ticket.
-- `web/index.html`: one static page. Creates a passkey (alg -7), sends `register`, signs a challenge with the device biometric,
-  sends `checkIn`, then replays the same assertion. Uses viem. The burner key is pasted into the page and never
-  committed.
+From `forge test --gas-report` without the invariant runs (first-time storage writes, so an upper bound). Medians mix
+direct and signed calls; the max is the signed, successful path.
 
-### Run the tests
+| Function | Median | Max |
+| --- | ---: | ---: |
+| `createEvent` | 262,619 | 262,761 |
+| `createEventFor` (signed, with name and venue) | 61,905 | 347,970 |
+| `buy` | 272,009 | 272,009 |
+| `checkIn` (max is relayed with a gate pass) | 84,308 | 97,188 |
+| `withdraw` | 55,569 | 98,169 |
+| `cancel` | 8,935 | 38,278 |
+| `setGate` | 29,136 | 58,476 |
+| `buyResale` | 33,362 | 163,938 |
+| `listForResale` | 45,765 | 45,765 |
+| `setClaim` | 34,956 | 47,206 |
+| `claim` | 22,159 | 65,065 |
+| `settle` | 9,517 | 19,638 |
+| `pushRefunds` | 64,923 | 86,561 |
+| `claimRefund` | 24,098 | 59,797 |
+
+A gate pass costs about 4,300 gas over a direct gate call (one ECDSA recovery). A signed organizer action costs about
+30k more than a direct call (one ECDSA recovery, a nonce write). Monad charges the gas limit, not the gas used, so the
+relayer sends at the estimate plus 10%.
+
+## Canary: a biometric passkey verified onchain
+
+Before any product code, this repo proved the core primitive: a Monad contract verifies a real biometric WebAuthn
+assertion from a phone, using the P-256 precompile at `0x0100` (EIP-7951) rather than a Solidity fallback.
+
+- [`src/PasskeyCanary.sol`](src/PasskeyCanary.sol): `register(qx, qy)` binds a P-256 key to a ticket id.
+  `checkIn(ticketId, gateNonce, challengeBlock, auth)` derives the challenge, rejects it if it is from the future,
+  too old or already used, then verifies the assertion with OpenZeppelin `WebAuthn.verify` (UP and UV required).
+- [`test/PasskeyCanary.t.sol`](test/PasskeyCanary.t.sol): real WebAuthn payloads built with `vm.signP256`. Covers valid
+  check-in, replay, stale challenge, wrong key, tampered clientDataJSON, future challenge, cross-ticket reuse, missing
+  UV, high-s and unknown ticket.
+- [`web/index.html`](web/index.html): one static page that creates a passkey, registers it, signs a challenge with the
+  device biometric, checks in, then replays the same assertion.
 
 ```sh
 forge test -vv                               # Osaka EVM, P-256 precompile present
 FOUNDRY_PROFILE=noprecompile forge test -vv  # Prague EVM, OZ falls back to Solidity
 ```
 
-Local gas (forge 1.7.1, OZ 5.7.0, solc 0.8.35, optimizer 200 runs):
-
-| Measurement | Precompile (osaka) | No precompile (prague) |
+| Measurement (forge 1.7.1, OZ 5.7.0, solc 0.8.35) | Precompile (osaka) | No precompile (prague) |
 | --- | ---: | ---: |
 | `P256.verify` alone | 7,843 | 246,523 |
 | `checkIn` call, excluding the 21k base and calldata | 45,406 | 286,190 |
 
-The P-256 precompile itself costs 6,900 gas. The rest of `checkIn` is SHA-256 hashing, base64url encoding of the
-challenge, the string comparison and two storage writes.
-
-### Deploy
-
-```sh
-cp .env.example .env   # put a throwaway testnet key in PRIVATE_KEY
-source .env
-forge script script/Deploy.s.sol --rpc-url monad_testnet --private-key $PRIVATE_KEY --broadcast
-```
-
-### Testnet results (Monad testnet, chain 10143)
-
-Contract: [`0x927e3b171db648538072017c9fdb0e31f35bf0d2`](https://testnet.monadvision.com/address/0x927e3b171db648538072017c9fdb0e31f35bf0d2), `maxChallengeAge` 300 blocks.
-
-Real biometric run through the page: Samsung Android phone, fingerprint, synced passkey (authenticator flags `0x1d` = UP, UV, BE, BS). The flags prove user verification but not its method; the method is as reported by the tester. iPhone Face ID uses the same ES256 (P-256) passkey format and has not been run yet:
+Contract [`0x927e3b17...f0d2`](https://testnet.monadvision.com/address/0x927e3b171db648538072017c9fdb0e31f35bf0d2),
+`maxChallengeAge` 300 blocks. Real run: Samsung Android, fingerprint, synced passkey (authenticator flags `0x1d` = UP,
+UV, BE, BS; the flags prove user verification, the method is as reported by the tester).
 
 | Step | Tx | Result |
 | --- | --- | --- |
-| `register` (ticket 2) | [`0x3c1ac448...5bfc`](https://testnet.monadvision.com/tx/0x3c1ac4489e92f79c0492e532de8c4c49cbff087e1abdaf9c66efe63036725bfc) | success, `Registered(2, burner, qx, qy)` |
-| `checkIn` (fingerprint) | [`0x460cf435...4836`](https://testnet.monadvision.com/tx/0x460cf435051a74f4b1e1fd1782c8d23bf6a1c7d0881149805dc41869f5b54836) | success, `CheckedIn(2, 0x3aa4df34...dd78)`, included 11 blocks after `challengeBlock` |
-| replay of the same assertion | [`0x4a74961f...8a61`](https://testnet.monadvision.com/tx/0x4a74961fa32f710e54cbe09ff6020066ef3682d56fc6f162903b51eb17dc8a61) | reverted onchain, `ChallengeAlreadyUsed(0x3aa4df34...dd78)` (selector `0x7b0d632e`) |
+| `register` (ticket 2) | [`0x3c1ac448...5bfc`](https://testnet.monadvision.com/tx/0x3c1ac4489e92f79c0492e532de8c4c49cbff087e1abdaf9c66efe63036725bfc) | `Registered(2, burner, qx, qy)` |
+| `checkIn` (fingerprint) | [`0x460cf435...4836`](https://testnet.monadvision.com/tx/0x460cf435051a74f4b1e1fd1782c8d23bf6a1c7d0881149805dc41869f5b54836) | `CheckedIn(2, 0x3aa4df34...dd78)`, 11 blocks after `challengeBlock` |
+| replay of the same assertion | [`0x4a74961f...8a61`](https://testnet.monadvision.com/tx/0x4a74961fa32f710e54cbe09ff6020066ef3682d56fc6f162903b51eb17dc8a61) | reverted, `ChallengeAlreadyUsed(0x3aa4df34...dd78)` |
 
 Which P-256 path ran, from `debug_traceTransaction` (callTracer) on the fingerprint check-in:
 
@@ -503,17 +430,15 @@ CALL       PasskeyCanary      gas 90379 (tx gas limit)
   STATICCALL 0x...0100 (P256VERIFY) gas 6900 -> 0x...01
 ```
 
-`eth_estimateGas` for that `checkIn` was 82,163 including the 21k base and calldata. The Solidity fallback alone
-would add about 240k, so the estimate rules it out on its own.
-
-Note on Monad gas reporting: Monad charges the gas limit, and `receipt.gasUsed` equals the transaction's gas limit
-on every transaction we checked (deploy, register, check-in, replay). Use `eth_estimateGas` or a call trace, not the
-receipt, to see actual execution gas.
-
-A synthetic run with a script-generated P-256 key (`script/SyntheticCheckIn.s.sol`, ticket 1, tx
+`eth_estimateGas` for that `checkIn` was 82,163 including the 21k base and calldata; the Solidity fallback alone would
+add about 240k. Monad charges the gas limit, and `receipt.gasUsed` equals the transaction's gas limit on every
+transaction checked, so use `eth_estimateGas` or a call trace to see execution gas. A synthetic run with a
+script-generated key (`script/SyntheticCheckIn.s.sol`,
 [`0xe265d8ca...a046`](https://testnet.monadvision.com/tx/0xe265d8ca1d8819f7cf2f9324e758ab7a726eac0d87d439142d31f86a627da046))
 shows the same 6,900 gas STATICCALL to `0x0100`.
 
-## License
-
-MIT
+```sh
+cp .env.example .env   # a throwaway testnet key in PRIVATE_KEY
+source .env
+forge script script/Deploy.s.sol --rpc-url monad_testnet --private-key $PRIVATE_KEY --broadcast
+```

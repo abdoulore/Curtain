@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   createWalletClient,
   custom,
@@ -15,20 +15,20 @@ import {
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { curtainEventAbi } from "@/lib/abis";
 import { unlock } from "@/lib/account";
+import { describe, sortFeed, type FeedItem } from "@/lib/activity";
 import { postJson } from "@/lib/api";
 import { STATUS_TEXT } from "@/lib/board";
-import { monadTestnet, PUBLIC_RPC_URL, txUrl } from "@/lib/chain";
+import { monadTestnet, PUBLIC_RPC_URL, RP_ID, txUrl } from "@/lib/chain";
 import { PlainError, plainError } from "@/lib/errors";
 import { eventPath, type EventMeta } from "@/lib/events";
 import { gateCode, pairingUrl } from "@/lib/gate";
 import { useAccount, useHydrated } from "@/lib/hooks";
-import { fetchGates } from "@/lib/indexer";
+import { fetchBoard, fetchGates } from "@/lib/indexer";
 import { formatNaira, nairaToUsdcUnits } from "@/lib/money";
 import { organizerTypedData, type OrganizerAction } from "@/lib/organizer";
 import { createdShow, pairedGates, rememberPairedGate } from "@/lib/organizer-local";
 import { browserClient, EVENT_STATUS } from "@/lib/reads";
 import { DoorList } from "./DoorList";
-import { ShareShow } from "./ShareShow";
 import { SignInButton } from "./SignInButton";
 
 type State = {
@@ -127,6 +127,60 @@ async function walletSigner(): Promise<Signer> {
   return { address, sign: (td) => client.signTypedData({ account: address, ...td } as never) };
 }
 
+type Tab = "overview" | "guests" | "gates";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "guests", label: "Guests" },
+  { id: "gates", label: "Gates" },
+];
+
+function tabFromHash(): Tab {
+  const h = typeof window === "undefined" ? "" : window.location.hash.slice(1);
+  return h === "guests" || h === "gates" ? h : "overview";
+}
+
+/** The last few things that happened at this show, newest first. */
+function RecentActivity({ event }: { event: Address }) {
+  const [items, setItems] = useState<FeedItem[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetchBoard(event)
+      .then((b) =>
+        sortFeed(
+          b.activity.map((r) => ({
+            id: r.id,
+            kind: r.kind,
+            ticketId: r.ticketId ?? undefined,
+            amount: BigInt(r.amount),
+            account: r.account ?? undefined,
+            at: Number(r.timestamp) * 1000,
+            txHash: r.txHash,
+          })),
+        ).slice(0, 5),
+      )
+      .then((list) => alive && setItems(list))
+      .catch(() => alive && setItems([]));
+    return () => {
+      alive = false;
+    };
+  }, [event]);
+
+  if (items === null) return <div className="mt-4 h-24 animate-pulse rounded-2xl bg-line/60" />;
+  if (items.length === 0) return <p className="mt-3 text-sm text-muted">Sales and check-ins appear here as they happen.</p>;
+  return (
+    <ul className="mt-3 divide-y divide-line">
+      {items.map((item) => (
+        <li key={item.id} className="flex items-start justify-between gap-4 py-3 text-sm">
+          <span>{describe(item)}</span>
+          <a href={txUrl(item.txHash)} target="_blank" rel="noopener" className="shrink-0 text-xs text-muted underline underline-offset-2">
+            {new Date(item.at).toLocaleTimeString("en-NG", { timeStyle: "short" })}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function OrganizerView({ meta }: { meta: EventMeta }) {
   const hydrated = useHydrated();
   const account = useAccount();
@@ -137,6 +191,9 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string; hash?: string } | null>(null);
   const [pairing, setPairing] = useState<{ gateKey: Hex; gate: Address } | null>(null);
+  const [tab, setTab] = useState<Tab>("overview");
+  const [copied, setCopied] = useState(false);
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ overview: null, guests: null, gates: null });
   const recent = JSON.parse(
     useSyncExternalStore(noSubscribe, () => recentCreatedSnapshot(meta.address), () => "null"),
   ) as ReturnType<typeof createdShow> | null;
@@ -147,6 +204,29 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
     refresh().catch(() => setNotice({ ok: false, text: "Couldn't load this show." }));
     refreshGates().catch(() => setGates([]));
   }, [refresh, refreshGates]);
+
+  // The open tab follows the address hash, so #gates or #guests can be shared and survives a reload.
+  useEffect(() => {
+    const sync = () => setTab(tabFromHash());
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  function selectTab(next: Tab, focus = false) {
+    setTab(next);
+    history.replaceState(null, "", next === "overview" ? window.location.pathname : `#${next}`);
+    if (focus) tabRefs.current[next]?.focus();
+  }
+
+  function onTabKey(e: React.KeyboardEvent, index: number) {
+    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (e.key === "Home") return selectTab(TABS[0]!.id, true);
+    if (e.key === "End") return selectTab(TABS[TABS.length - 1]!.id, true);
+    if (!step) return;
+    e.preventDefault();
+    selectTab(TABS[(index + step + TABS.length) % TABS.length]!.id, true);
+  }
 
   const organizer = state ? getAddress(state.organizer) : null;
   const passkeyIsOrganizer = Boolean(account && organizer && getAddress(account.address) === organizer);
@@ -217,196 +297,266 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
 
   const naira = (v: bigint | undefined) => (v === undefined ? "…" : formatNaira(v));
   const locked = !canAct || busy !== null;
-  const card = "min-w-0 rounded-3xl border border-line bg-surface p-5 disabled:opacity-60";
+  const ticketUrl = `https://${RP_ID}${eventPath(meta)}`;
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(ticketUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
+
+  const noticeLine = notice && (
+    <p role={notice.ok ? "status" : "alert"} className={`mt-4 text-sm ${notice.ok ? "text-go" : "text-stop"}`}>
+      {notice.ok ? "✓ " : ""}
+      {notice.text}{" "}
+      {notice.hash && (
+        <a href={txUrl(notice.hash)} target="_blank" rel="noopener" className="underline">
+          Proof
+        </a>
+      )}
+    </p>
+  );
 
   return (
     <main className="pt-6 lg:pt-10">
-      <p className="text-sm text-muted">Organizer</p>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight lg:text-4xl">{meta.name}</h1>
-      <p className="mt-1 text-sm text-muted">
-        {state ? (STATUS_TEXT[state.status] ?? state.status) : "…"} ·{" "}
-        <Link href={eventPath(meta)} className="underline">
-          Ticket page
-        </Link>{" "}
-        ·{" "}
-        <Link href={`/board/${meta.slug}`} className="underline">
-          Money board
-        </Link>{" "}
-        ·{" "}
-        <Link href={`/gate/${meta.slug}`} className="underline">
-          Gate screen
-        </Link>
-      </p>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="min-w-0">
+          <Link href="/organizer" className="text-sm text-muted hover:text-foreground">
+            Your shows
+          </Link>
+          <h1 className="mt-1 font-display text-4xl leading-[1.05] text-balance lg:text-5xl">{meta.name}</h1>
+          <p className="mt-2 text-sm text-muted">{state ? (STATUS_TEXT[state.status] ?? state.status) : "…"}</p>
+        </div>
+        <p className="text-sm text-muted">
+          {!hydrated
+            ? null
+            : canAct
+              ? walletIsOrganizer && !passkeyIsOrganizer
+                ? "Signed in with your wallet"
+                : `Signed in as ${account?.name || "the organizer"}`
+              : null}
+        </p>
+      </div>
+
+      {hydrated && !canAct && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface p-4 ring-1 ring-line">
+          <div>
+            <p className="font-semibold">{account ? "Sign in as this show's organizer" : "Sign in to manage this show"}</p>
+            <p className="text-sm text-muted">Use the passkey you created the show with.</p>
+          </div>
+          {account ? <SignInButton variant="link" label="Sign in with another passkey" /> : <SignInButton />}
+        </div>
+      )}
 
       {recent && (
-        <div className="mt-4 rounded-2xl border border-go/40 bg-surface p-4 text-sm">
-          <p className="font-semibold text-go">Your show is live.</p>
-          <p className="mt-1 text-muted">
-            Share the ticket page below so people can buy, and pair a gate device before doors open.{" "}
-            <a href={txUrl(recent.hash)} target="_blank" rel="noopener" className="underline">
-              Proof it was created
-            </a>
-          </p>
-        </div>
+        <p className="mt-6 rounded-2xl bg-go/10 px-4 py-3 text-sm">
+          <span className="font-semibold text-go">Your show is live.</span> Share the ticket page and pair a gate before
+          doors open.{" "}
+          <a href={txUrl(recent.hash)} target="_blank" rel="noopener" className="underline">
+            Proof it was created
+          </a>
+        </p>
       )}
 
-      <section
-        aria-label="Your money"
-        className="mt-6 rounded-3xl border border-line bg-surface p-5 lg:flex lg:items-end lg:justify-between lg:gap-10 lg:p-8"
-      >
-        <div>
-          <p className="text-5xl font-semibold tracking-tight tabular-nums lg:text-7xl">{naira(state?.available)}</p>
-          <p className="mt-1 text-lg text-muted lg:text-xl">ready to withdraw</p>
-          <p className="mt-4 text-base font-medium lg:text-lg">
-            {state ? `${state.checkedIn} checked in · ${state.sold} sold` : "…"}
-          </p>
-        </div>
-        <dl className="mt-5 grid grid-cols-3 gap-2 lg:mt-0 lg:min-w-[28rem] lg:gap-3">
-          {(
-            [
-              ["Protected", state?.escrowed],
-              ["Paid to organizer", state?.released],
-              ["Refunded", state?.refunded],
-            ] as const
-          ).map(([label, value]) => (
-            <div key={label} className="rounded-2xl bg-background p-3 lg:p-4">
-              <dt className="text-xs text-muted">{label}</dt>
-              <dd className="mt-1 font-semibold tabular-nums lg:text-xl">{naira(value)}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-line px-4 py-3 text-sm">
-        {!hydrated ? (
-          <span className="h-5" />
-        ) : canAct ? (
-          <p className="font-semibold">
-            {walletIsOrganizer && !passkeyIsOrganizer
-              ? "Signed in with your wallet"
-              : `Signed in as ${account?.name || "the organizer"}`}
-          </p>
-        ) : (
-          <div className="min-w-0">
-            <p className="font-semibold">
-              {account ? "Sign in as this show's organizer" : "Sign in to manage this show"}
-            </p>
-            <p className="text-muted">Use the passkey you created the show with.</p>
-          </div>
-        )}
-        {hydrated && !canAct && (
-          <div className="w-full sm:w-auto">
-            {account ? <SignInButton variant="link" label="Sign in with another passkey" /> : <SignInButton />}
-          </div>
-        )}
-        <p className="w-full text-xs text-muted">
-          You confirm each action with your fingerprint or Face ID. Curtain pays the network fee.
-        </p>
+      <div role="tablist" aria-label="Show sections" className="mt-8 flex gap-1 border-b border-line">
+        {TABS.map((t, i) => (
+          <button
+            key={t.id}
+            ref={(el) => {
+              tabRefs.current[t.id] = el;
+            }}
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`panel-${t.id}`}
+            tabIndex={tab === t.id ? 0 : -1}
+            onClick={() => selectTab(t.id)}
+            onKeyDown={(e) => onTabKey(e, i)}
+            className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold ${
+              tab === t.id ? "border-velvet text-foreground" : "border-transparent text-muted hover:text-foreground"
+            }`}
+          >
+            {t.label}
+            {t.id === "gates" && gates !== null && <span className="ml-1.5 text-muted tabular-nums">{gates.length}</span>}
+          </button>
+        ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
-        <ShareShow meta={meta} />
+      {tab === "overview" && (
+        <section role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" className="pt-8">
+          <div className="lg:grid lg:grid-cols-[1.2fr_1fr] lg:gap-14">
+            <div>
+              <p className="text-6xl font-semibold tracking-tight tabular-nums lg:text-7xl">{naira(state?.available)}</p>
+              <p className="mt-1 text-lg text-muted">ready to withdraw</p>
+              <p className="mt-4 text-base font-medium">{state ? `${state.checkedIn} checked in · ${state.sold} sold` : "…"}</p>
 
-        <fieldset disabled={locked} className={card}>
-          <legend className="sr-only">Gate devices</legend>
-          <p className="font-semibold">Gate devices</p>
-          {gates === null ? (
-            <p className="mt-2 text-sm text-muted">Checking…</p>
-          ) : gates.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">No gates yet. Add the tablet or phone that will stand at the door.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
-              {gates.map((g) => (
-                <li key={g} className="flex items-center justify-between px-4 py-2.5">
-                  <span className="font-mono font-semibold tracking-wider">Gate {gateCode(g)}</span>
-                  <button onClick={() => removeGate(g)} className="text-sm text-stop underline">
-                    Remove
+              <fieldset disabled={locked} className="mt-8 max-w-md min-w-0 disabled:opacity-60">
+                <legend className="sr-only">Withdraw</legend>
+                <div className="flex gap-2">
+                  <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-surface px-4 ring-1 ring-line focus-within:ring-velvet">
+                    <span className="text-muted">₦</span>
+                    <input
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ""))}
+                      inputMode="decimal"
+                      aria-label="Amount in naira"
+                      placeholder={state ? formatNaira(state.available).replace("₦", "") : "0"}
+                      className="min-w-0 flex-1 bg-transparent py-3.5 pl-1 text-base outline-none"
+                    />
+                  </div>
+                  <button onClick={withdraw} className="rounded-2xl bg-velvet px-6 font-semibold text-velvet-ink">
+                    {busy?.startsWith("Withdrew") ? "Confirm…" : "Withdraw"}
                   </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <button onClick={addGate} className="mt-3 w-full rounded-xl border border-line px-3 py-2.5 text-sm font-semibold">
-            {busy?.startsWith("Gate") ? "Confirm with your fingerprint" : "Add a gate device"}
-          </button>
-        </fieldset>
-
-        <fieldset disabled={locked} className={card}>
-          <legend className="sr-only">Withdraw</legend>
-          <p className="font-semibold">Withdraw</p>
-          <div className="mt-3 flex gap-2">
-            <div className="flex min-w-0 flex-1 items-center rounded-xl border border-line bg-background px-3 focus-within:border-velvet">
-              <span className="text-muted">₦</span>
-              <input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ""))}
-                inputMode="decimal"
-                aria-label="Amount in naira"
-                placeholder={state ? formatNaira(state.available).replace("₦", "") : "0"}
-                className="min-w-0 flex-1 bg-transparent py-2.5 pl-1 outline-none"
-              />
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  Leave it empty to withdraw everything ready. Paid to the payout account fixed when the show was created.
+                  {state && state.withdrawn > 0n ? ` You've withdrawn ${formatNaira(state.withdrawn)} so far.` : ""}
+                </p>
+              </fieldset>
+              {noticeLine}
             </div>
-            <button onClick={withdraw} className="rounded-xl bg-velvet px-4 font-semibold text-velvet-ink">
-              {busy?.startsWith("Withdrew") ? "Confirm…" : "Withdraw"}
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-muted">
-            Leave it empty to withdraw everything ready. Paid to the payout account fixed when the show was created.
-          </p>
-          <p className="mt-3 border-t border-line pt-3 text-sm text-muted">
-            Withdrawn so far <span className="font-semibold text-foreground tabular-nums">{naira(state?.withdrawn)}</span>
-          </p>
-        </fieldset>
-      </div>
 
-      {notice && (
-        <p role={notice.ok ? "status" : "alert"} className={`mt-4 text-sm ${notice.ok ? "text-go" : "text-stop"}`}>
-          {notice.ok ? "✓ " : ""}
-          {notice.text}{" "}
-          {notice.hash && (
-            <a href={txUrl(notice.hash)} target="_blank" rel="noopener" className="underline">
-              Proof
-            </a>
-          )}
-        </p>
+            <dl className="mt-10 divide-y divide-line border-y border-line lg:mt-2">
+              {(
+                [
+                  ["Protected", state?.escrowed, "bg-viz-held"],
+                  ["Paid to organizer", state?.released, "bg-viz-released"],
+                  ["Refunded", state?.refunded, "bg-viz-refunded"],
+                ] as const
+              ).map(([label, value, swatch]) => (
+                <div key={label} className="flex items-center justify-between gap-4 py-4">
+                  <dt className="flex items-center gap-2.5 text-muted">
+                    <span className={`inline-block h-2.5 w-2.5 rounded-full ${swatch}`} aria-hidden />
+                    {label}
+                  </dt>
+                  <dd className="text-lg font-semibold tabular-nums">{naira(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <div className="mt-14 grid gap-12 lg:grid-cols-[1.2fr_1fr] lg:gap-14">
+            <div>
+              <h2 className="text-lg font-semibold">Ticket page</h2>
+              <p className="mt-1 truncate font-mono text-sm text-muted">{ticketUrl.replace("https://", "")}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={copyLink} className="rounded-2xl bg-foreground px-5 py-3 text-sm font-semibold text-background">
+                  {copied ? "Link copied" : "Copy link"}
+                </button>
+                <Link href={eventPath(meta)} className="rounded-2xl px-5 py-3 text-sm font-semibold ring-1 ring-line hover:bg-surface">
+                  Open ticket page
+                </Link>
+                <Link href={`/board/${meta.slug}`} className="rounded-2xl px-5 py-3 text-sm font-semibold ring-1 ring-line hover:bg-surface">
+                  Money board
+                </Link>
+              </div>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Recent activity</h2>
+              <RecentActivity event={meta.address} />
+            </div>
+          </div>
+
+          <section aria-labelledby="cancel-heading" className="mt-16 border-t border-line pt-8">
+            <h2 id="cancel-heading" className="font-semibold text-stop">
+              Cancel the show
+            </h2>
+            <fieldset disabled={locked} className="mt-2 max-w-xl min-w-0 disabled:opacity-60">
+              <legend className="sr-only">Cancel the show</legend>
+              <p className="text-sm text-muted">
+                Every ticket that wasn&apos;t checked in is refunded automatically. Money for checked-in tickets stays paid to
+                you. This can&apos;t be undone.
+              </p>
+              <button
+                onClick={() =>
+                  confirm("Cancel the show? Every ticket that wasn't checked in will be refunded.") &&
+                  run("Show cancelled", { kind: "cancel" })
+                }
+                className="mt-4 rounded-2xl px-5 py-3 text-sm font-semibold text-stop ring-1 ring-stop"
+              >
+                {busy === "Show cancelled" ? "Confirm with your fingerprint" : "Cancel the show"}
+              </button>
+            </fieldset>
+
+            <details className="mt-8 text-xs text-muted">
+              <summary className="cursor-pointer">Use a browser wallet instead</summary>
+              <p className="mt-2">For an organizer account held in a wallet such as MetaMask.</p>
+              <button
+                onClick={() =>
+                  walletSigner()
+                    .then(setWallet)
+                    .catch((e) => setNotice({ ok: false, text: plainError(e) }))
+                }
+                className="mt-2 underline"
+              >
+                {wallet ? `Connected ${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}` : "Connect a wallet"}
+              </button>
+            </details>
+          </section>
+        </section>
       )}
 
-      <DoorList event={meta.address} />
+      {tab === "guests" && (
+        <section role="tabpanel" id="panel-guests" aria-labelledby="tab-guests" className="pt-2">
+          <DoorList event={meta.address} />
+        </section>
+      )}
 
-      <section aria-label="Cancel the show" className="mt-12 border-t border-line pt-6">
-        <fieldset disabled={locked} className="max-w-xl rounded-3xl border border-stop/40 p-5 disabled:opacity-60">
-          <legend className="sr-only">Cancel the show</legend>
-          <p className="font-semibold">Cancel the show</p>
-          <p className="mt-1 text-sm text-muted">
-            Every ticket that wasn&apos;t checked in is refunded automatically. Money for checked-in tickets stays paid
-            to you. This can&apos;t be undone.
-          </p>
-          <button
-            onClick={() =>
-              confirm("Cancel the show? Every ticket that wasn't checked in will be refunded.") &&
-              run("Show cancelled", { kind: "cancel" })
-            }
-            className="mt-3 rounded-xl border border-stop px-4 py-2.5 text-sm font-semibold text-stop"
-          >
-            {busy === "Show cancelled" ? "Confirm with your fingerprint" : "Cancel the show"}
-          </button>
-        </fieldset>
-
-        <details className="mt-6 text-xs text-muted">
-          <summary className="cursor-pointer">Use a browser wallet instead</summary>
-          <p className="mt-2">For an organizer account held in a wallet such as MetaMask.</p>
-          <button
-            onClick={() =>
-              walletSigner()
-                .then(setWallet)
-                .catch((e) => setNotice({ ok: false, text: plainError(e) }))
-            }
-            className="mt-2 underline"
-          >
-            {wallet ? `Connected ${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}` : "Connect a wallet"}
-          </button>
-        </details>
-      </section>
+      {tab === "gates" && (
+        <section role="tabpanel" id="panel-gates" aria-labelledby="tab-gates" className="pt-8">
+          <div className="lg:grid lg:grid-cols-[1.2fr_1fr] lg:gap-14">
+            <div>
+              {gates === null ? (
+                <div className="h-24 animate-pulse rounded-2xl bg-line/60" />
+              ) : gates.length === 0 ? (
+                <p className="text-muted">No gates yet. Add the tablet or phone that will stand at the door.</p>
+              ) : (
+                <ul className="divide-y divide-line rounded-2xl bg-surface ring-1 ring-line">
+                  {gates.map((g) => (
+                    <li key={g} className="flex items-center justify-between gap-4 px-5 py-4">
+                      <span>
+                        <span className="block text-xs text-muted">Gate</span>
+                        <span className="font-mono text-lg font-semibold tracking-wider">{gateCode(g)}</span>
+                      </span>
+                      <button
+                        onClick={() => removeGate(g)}
+                        disabled={locked}
+                        className="rounded-xl px-3 py-2 text-sm font-semibold text-stop hover:bg-background disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  onClick={addGate}
+                  disabled={locked}
+                  className="rounded-2xl bg-velvet px-5 py-3 text-sm font-semibold text-velvet-ink disabled:opacity-50"
+                >
+                  {busy?.startsWith("Gate") ? "Confirm with your fingerprint" : "Add a gate device"}
+                </button>
+                <Link href={`/gate/${meta.slug}`} className="rounded-2xl px-5 py-3 text-sm font-semibold ring-1 ring-line hover:bg-surface">
+                  Open the gate screen
+                </Link>
+              </div>
+              {noticeLine}
+            </div>
+            <div className="mt-10 lg:mt-0">
+              <h2 className="text-lg font-semibold">Pairing a gate</h2>
+              <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-muted">
+                <li>Tap Add a gate device and confirm with your fingerprint.</li>
+                <li>Scan the code that appears with the tablet or phone that will stand at the door.</li>
+                <li>Its gate screen opens with the same gate code. Guests scan it to check in.</li>
+                <li>Remove a gate any time; it stops admitting people straight away.</li>
+              </ol>
+            </div>
+          </div>
+        </section>
+      )}
 
       {pairing && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">

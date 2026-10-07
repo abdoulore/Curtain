@@ -78,6 +78,8 @@ const pages = [
   { name: "organizer-shows", path: "/organizer", seed: "organizer" },
   { name: "organizer-new", path: "/organizer/new", seed: "organizer" },
   { name: "organizer", path: "/organizer/demo", seed: "organizer" },
+  { name: "organizer-guests", path: "/organizer/demo#guests", seed: "organizer" },
+  { name: "organizer-gates", path: "/organizer/demo#gates", seed: "organizer" },
   { name: "organizer-pairing", path: "/organizer/demo", seed: "organizer", pair: true },
   // A real purchase with a virtual passkey authenticator (with PRF), saved as bought, then a real check-in through
   // the gate code with the gate screen open in its own browser: the phone's "You're in" is saved as checkin-done and
@@ -187,6 +189,7 @@ for (const vp of viewports) {
     if (p.pair) {
       await page.getByText("Use a browser wallet instead").click();
       await page.getByRole("button", { name: "Connect a wallet" }).click();
+      await page.getByRole("tab", { name: /Gates/ }).click();
       await page.getByRole("button", { name: "Add a gate device" }).click();
       const opened = await page.getByRole("dialog").waitFor({ timeout: 60_000 }).then(() => true, () => false);
       if (!opened) throw new Error(`pairing failed: ${await page.locator("p.text-stop").allInnerTexts()}`);

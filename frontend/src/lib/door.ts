@@ -3,7 +3,7 @@ export type DoorRow = { ticketId: number; state: string; boughtAt: number | null
 
 export const DOOR_STATUS: Record<string, { label: string; tone: "go" | "muted" | "velvet" }> = {
   Active: { label: "Not in yet", tone: "muted" },
-  CheckedIn: { label: "In", tone: "go" },
+  CheckedIn: { label: "Checked in", tone: "go" },
   Refunded: { label: "Refunded", tone: "muted" },
   RefundOwed: { label: "Refund owed", tone: "velvet" },
 };

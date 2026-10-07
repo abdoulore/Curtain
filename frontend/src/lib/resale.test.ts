@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { concat, encodeAbiParameters, hashTypedData, keccak256, toBytes } from "viem";
 import { cardStatus, listingsFor, listTypedData } from "./resale";
 
-const EVENT = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+const EVENT = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 const ME = "0x1111111111111111111111111111111111111111" as const;
 const SELLER = "0x2222222222222222222222222222222222222222" as const;
 

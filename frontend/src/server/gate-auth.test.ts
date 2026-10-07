@@ -3,7 +3,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { gateResultsMessage } from "@/lib/gate";
 import { verifyGateDevice } from "./gate-auth";
 
-const EVENT = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+const EVENT = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 const device = privateKeyToAccount(generatePrivateKey());
 const NOW = 1_791_300_000;
 

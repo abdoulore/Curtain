@@ -12,8 +12,8 @@ export const monadTestnet = defineChain({
   blockExplorers: { default: { name: "MonadVision", url: EXPLORER_URL } },
 });
 
-export const CURTAIN_FACTORY: Address = "0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6";
-export const DEMO_EVENT: Address = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+export const CURTAIN_FACTORY: Address = "0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF";
+export const DEMO_EVENT: Address = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 
 /** Circle USDC on Monad testnet. Its EIP-712 domain is name "USDC", version "2". */
 export const USDC: Address = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
@@ -84,7 +84,6 @@ export const createShowTypes = {
     { name: "doorsOpen", type: "uint64" },
     { name: "endTime", type: "uint64" },
     { name: "settleDelay", type: "uint64" },
-    { name: "heldThresholdBps", type: "uint16" },
     { name: "maxChallengeAge", type: "uint32" },
     { name: "maxPerBuyer", type: "uint16" },
     { name: "rpIdHash", type: "bytes32" },

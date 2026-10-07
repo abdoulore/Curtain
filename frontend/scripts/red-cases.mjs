@@ -15,7 +15,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { curtainEventAbi } from "../src/lib/abis.ts";
 import { api, assertion, buy, eventAbi, gatePass, must, person, pub, USDC } from "./e2e-lib.mjs";
 
-const EVENT = process.env.EVENT ?? "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+const EVENT = process.env.EVENT ?? "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 const GAS = 400_000n;
 const env = readFileSync(new URL("../../.env", import.meta.url), "utf8");
 const key = (name) => env.match(new RegExp(`^${name}=(0x[0-9a-fA-F]{64})`, "m"))[1];

@@ -12,7 +12,6 @@ export type ShowParams = {
   doorsOpen: bigint;
   endTime: bigint;
   settleDelay: bigint;
-  heldThresholdBps: number;
   maxChallengeAge: number;
   maxPerBuyer: number;
   rpIdHash: Hex;
@@ -26,7 +25,6 @@ export type ShowForm = {
   startsAt: number;
   priceNaira: string;
   capacity: string;
-  heldPercent: string;
   perPerson: string;
 };
 
@@ -61,10 +59,6 @@ export function buildShow(form: ShowForm, organizer: Address, now: number): Buil
   if (!Number.isInteger(perPerson) || perPerson < 1 || perPerson > MAX_PER_PERSON) {
     return { ok: false, error: `Tickets per person is a whole number from 1 to ${MAX_PER_PERSON}.` };
   }
-  const held = Number(form.heldPercent);
-  if (!Number.isInteger(held) || held < 0 || held > 100) {
-    return { ok: false, error: "The held threshold is a percentage from 0 to 100." };
-  }
   return {
     ok: true,
     name,
@@ -78,8 +72,6 @@ export function buildShow(form: ShowForm, organizer: Address, now: number): Buil
       doorsOpen: BigInt(form.startsAt),
       endTime: BigInt(endTime),
       settleDelay: BigInt(SETTLE_DELAY_SECONDS),
-      // 0 would mean "use the contract default", so store 0% as 1 basis point: practically always held.
-      heldThresholdBps: held === 0 ? 1 : held * 100,
       maxChallengeAge: 300,
       maxPerBuyer: perPerson,
       rpIdHash: sha256(toBytes(RP_ID)),

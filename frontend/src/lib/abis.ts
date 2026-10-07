@@ -47,19 +47,6 @@ export const curtainEventAbi = [
   },
   {
     "type": "function",
-    "name": "DEFAULT_HELD_THRESHOLD_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "DEFAULT_MAX_CHALLENGE_AGE",
     "inputs": [],
     "outputs": [
@@ -93,6 +80,19 @@ export const curtainEventAbi = [
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HELD_THRESHOLD_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "stateMutability": "view"
@@ -714,19 +714,6 @@ export const curtainEventAbi = [
   },
   {
     "type": "function",
-    "name": "heldThresholdBps",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -778,11 +765,6 @@ export const curtainEventAbi = [
             "name": "settleDelay",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "heldThresholdBps",
-            "type": "uint16",
-            "internalType": "uint16"
           },
           {
             "name": "maxChallengeAge",
@@ -1911,11 +1893,6 @@ export const curtainFactoryAbi = [
             "internalType": "uint64"
           },
           {
-            "name": "heldThresholdBps",
-            "type": "uint16",
-            "internalType": "uint16"
-          },
-          {
             "name": "maxChallengeAge",
             "type": "uint32",
             "internalType": "uint32"
@@ -2000,11 +1977,6 @@ export const curtainFactoryAbi = [
             "name": "settleDelay",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "heldThresholdBps",
-            "type": "uint16",
-            "internalType": "uint16"
           },
           {
             "name": "maxChallengeAge",
@@ -2191,11 +2163,6 @@ export const curtainFactoryAbi = [
             "name": "settleDelay",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "heldThresholdBps",
-            "type": "uint16",
-            "internalType": "uint16"
           },
           {
             "name": "maxChallengeAge",

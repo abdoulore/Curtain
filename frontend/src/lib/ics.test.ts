@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildIcs, escapeText, fold, icsFileName } from "./ics";
 
 const entry = {
-  uid: "0x5562bf1ccbabcf2f060239f9d241ba9661217135-4@curtaintickets.vercel.app",
+  uid: "0xa01efa5bc1cdb594a6ec70d2bd1b1138b496cb0e-4@curtaintickets.vercel.app",
   name: "Lagos Laughs",
   venue: "Terra Kulture, Victoria Island",
   start: 1_791_400_000,

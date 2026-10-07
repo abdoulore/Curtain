@@ -13,7 +13,7 @@ import { deriveClaimKey } from "../src/lib/claim-key.ts";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const CHAIN_ID = 10143;
-const EVENT = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+const EVENT = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 const USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
 const RP_ID = "curtaintickets.vercel.app";
 const pub = createPublicClient({ transport: http("https://testnet-rpc.monad.xyz") });

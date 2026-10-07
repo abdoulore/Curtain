@@ -8,6 +8,7 @@ import { curtainFactoryAbi } from "@/lib/abis";
 import { friendlyPasskeyError, signUp, unlock } from "@/lib/account";
 import { ApiError, postJson } from "@/lib/api";
 import { CURTAIN_FACTORY } from "@/lib/chain";
+import { ORGANIZER_PROMISE, PASSKEY_PRIVACY, PROTECTION_RULES } from "@/lib/copy";
 import {
   buildShow,
   createShowBody,
@@ -17,7 +18,6 @@ import {
   type ShowForm,
 } from "@/lib/create-show";
 import { useAccount, useHydrated } from "@/lib/hooks";
-import { NAIRA_PER_USDC } from "@/lib/money";
 import { rememberCreatedShow } from "@/lib/organizer-local";
 import { browserClient } from "@/lib/reads";
 import { uploadShowMedia } from "@/lib/use-show-media";
@@ -31,6 +31,7 @@ function localInputValue(d: Date): string {
 }
 
 const field = "mt-1 w-full rounded-xl border border-line bg-background px-3 py-2.5 outline-none focus:border-velvet";
+const section = "rounded-3xl border border-line bg-surface p-5 lg:p-6";
 
 export function CreateShowView() {
   const hydrated = useHydrated();
@@ -41,7 +42,6 @@ export function CreateShowView() {
   const [startsAt, setStartsAt] = useState(() => localInputValue(new Date()));
   const [price, setPrice] = useState("1500");
   const [capacity, setCapacity] = useState("100");
-  const [held, setHeld] = useState("50");
   const [perPerson, setPerPerson] = useState(String(DEFAULT_PER_PERSON));
   const [yourName, setYourName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -59,7 +59,6 @@ export function CreateShowView() {
       startsAt: Math.floor(new Date(startsAt).getTime() / 1000),
       priceNaira: price,
       capacity,
-      heldPercent: held,
       perPerson,
     };
     const now = Math.floor(Date.now() / 1000);
@@ -107,7 +106,7 @@ export function CreateShowView() {
           Organizers sign in with a passkey, the same way buyers do: your fingerprint or Face ID, no password and no
           wallet.
         </p>
-        <div className="mt-6 rounded-3xl border border-line bg-surface p-5">
+        <div className={`mt-6 ${section}`}>
           <label className="text-sm font-medium" htmlFor="org-name">
             Your name or company
           </label>
@@ -125,7 +124,8 @@ export function CreateShowView() {
           >
             {busy ?? "Create your organizer passkey"}
           </button>
-          {error && <p className="mt-2 text-sm text-stop">{error}</p>}
+          <p className="mt-3 text-xs text-muted">{PASSKEY_PRIVACY}</p>
+          {error && <p className="mt-2 text-sm text-stop" role="alert">{error}</p>}
           <div className="mt-4 text-center">
             <SignInButton variant="link" label="I already have a Curtain passkey" />
           </div>
@@ -142,82 +142,96 @@ export function CreateShowView() {
         </Link>
       </p>
       <h1 className="mt-1 text-2xl font-semibold lg:text-3xl">Create a show</h1>
-      <p className="mt-1 text-sm text-muted">
-        Ticket money waits in the show&apos;s own escrow and reaches you one ticket at a time, as people walk in.
-      </p>
+      <p className="mt-1 text-sm text-muted">{ORGANIZER_PROMISE}</p>
 
-      <form onSubmit={create} className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <label className="text-sm font-medium sm:col-span-2">
-          Name
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Lagos Laughs" maxLength={80} className={field} />
-        </label>
-        <label className="text-sm font-medium sm:col-span-2">
-          Venue
-          <input
-            value={venue}
-            onChange={(e) => setVenue(e.target.value)}
-            placeholder="Terra Kulture, Victoria Island"
-            maxLength={120}
-            className={field}
-          />
-        </label>
-        <PosterFields poster={poster} onPoster={setPoster} description={description} onDescription={setDescription} />
-        <label className="text-sm font-medium">
-          Date and time doors open
-          <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={field} />
-          <span className="mt-1 block text-xs font-normal text-muted">
-            The show runs {SHOW_LENGTH_SECONDS / 3600} hours. Sales close when it ends.
-          </span>
-        </label>
-        <label className="text-sm font-medium">
-          Ticket price
-          <div className={`${field} flex items-center`}>
-            <span className="text-muted">₦</span>
-            <input
-              value={price}
-              onChange={(e) => setPrice(e.target.value.replace(/[^\d.,]/g, ""))}
-              inputMode="decimal"
-              className="min-w-0 flex-1 bg-transparent pl-1 outline-none"
-            />
+      <form onSubmit={create} className="mt-6 space-y-5">
+        <section className={section} aria-labelledby="about-heading">
+          <h2 id="about-heading" className="text-lg font-semibold">
+            About the show
+          </h2>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium sm:col-span-2">
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Lagos Laughs" maxLength={80} className={field} />
+            </label>
+            <label className="text-sm font-medium sm:col-span-2">
+              Venue
+              <input
+                value={venue}
+                onChange={(e) => setVenue(e.target.value)}
+                placeholder="Terra Kulture, Victoria Island"
+                maxLength={120}
+                className={field}
+              />
+            </label>
+            <label className="text-sm font-medium sm:col-span-2">
+              Date and time doors open
+              <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className={field} />
+              <span className="mt-1 block text-xs font-normal text-muted">
+                The show runs {SHOW_LENGTH_SECONDS / 3600} hours, and tickets sell until it ends.
+              </span>
+            </label>
+            <PosterFields poster={poster} onPoster={setPoster} description={description} onDescription={setDescription} />
           </div>
-          <span className="mt-1 block text-xs font-normal text-muted">
-            Settled in USDC at ₦{NAIRA_PER_USDC.toLocaleString()} per dollar.
-          </span>
-        </label>
-        <label className="text-sm font-medium">
-          Capacity
-          <input value={capacity} onChange={(e) => setCapacity(e.target.value.replace(/\D/g, ""))} inputMode="numeric" className={field} />
-        </label>
-        <label className="text-sm font-medium">
-          Tickets per person
-          <input
-            value={perPerson}
-            onChange={(e) => setPerPerson(e.target.value.replace(/\D/g, ""))}
-            inputMode="numeric"
-            className={field}
-          />
-          <span className="mt-1 block text-xs font-normal text-muted">
-            The most tickets one person can hold, including resale and gifts.
-          </span>
-        </label>
-        <label className="text-sm font-medium">
-          Held threshold
-          <div className={`${field} flex items-center`}>
-            <input
-              value={held}
-              onChange={(e) => setHeld(e.target.value.replace(/\D/g, ""))}
-              inputMode="numeric"
-              className="min-w-0 flex-1 bg-transparent outline-none"
-            />
-            <span className="text-muted">%</span>
-          </div>
-          <span className="mt-1 block text-xs font-normal text-muted">
-            If fewer than this share of tickets are scanned, the show counts as not held and unscanned tickets are
-            refunded.
-          </span>
-        </label>
+        </section>
 
-        <div className="sm:col-span-2">
+        <section className={section} aria-labelledby="tickets-heading">
+          <h2 id="tickets-heading" className="text-lg font-semibold">
+            Tickets
+          </h2>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <label className="text-sm font-medium">
+              Price
+              <div className={`${field} flex items-center`}>
+                <span className="text-muted">₦</span>
+                <input
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value.replace(/[^\d.,]/g, ""))}
+                  inputMode="decimal"
+                  aria-label="Price in naira"
+                  className="min-w-0 flex-1 bg-transparent pl-1 outline-none"
+                />
+              </div>
+            </label>
+            <label className="text-sm font-medium">
+              Capacity
+              <input
+                value={capacity}
+                onChange={(e) => setCapacity(e.target.value.replace(/\D/g, ""))}
+                inputMode="numeric"
+                className={field}
+              />
+            </label>
+            <label className="text-sm font-medium">
+              Tickets per person
+              <input
+                value={perPerson}
+                onChange={(e) => setPerPerson(e.target.value.replace(/\D/g, ""))}
+                inputMode="numeric"
+                className={field}
+              />
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-muted">Tickets per person counts resale and gifts too.</p>
+        </section>
+
+        <section className={section} aria-labelledby="protection-heading">
+          <h2 id="protection-heading" className="text-lg font-semibold">
+            Protection
+          </h2>
+          <ul className="mt-3 space-y-2 text-sm">
+            {PROTECTION_RULES.map((rule) => (
+              <li key={rule} className="flex gap-2">
+                <span aria-hidden className="text-go">
+                  ✓
+                </span>
+                <span>{rule}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <div>
           <button
             type="submit"
             disabled={busy !== null}
@@ -225,9 +239,13 @@ export function CreateShowView() {
           >
             {busy ?? "Create the show"}
           </button>
-          {error && <p className="mt-2 text-sm text-stop">{error}</p>}
+          {error && (
+            <p className="mt-2 text-sm text-stop" role="alert">
+              {error}
+            </p>
+          )}
           <p className="mt-2 text-center text-xs text-muted">
-            You confirm with your fingerprint or Face ID. Curtain pays the network fee.
+            You&apos;ll confirm once with your fingerprint. Curtain covers the network fee.
           </p>
         </div>
       </form>

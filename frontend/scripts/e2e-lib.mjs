@@ -10,7 +10,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 export const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 export const CHAIN_ID = 10143;
 export const USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
-export const FACTORY = "0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6";
+export const FACTORY = "0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF";
 export const RP_ID = "curtaintickets.vercel.app";
 export const pub = createPublicClient({ transport: http("https://testnet-rpc.monad.xyz") });
 export const eventAbi = parseAbi([

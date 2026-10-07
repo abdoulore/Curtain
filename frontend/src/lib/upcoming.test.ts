@@ -3,7 +3,7 @@ import { getContractAddress } from "viem";
 import { factoryShowAddresses, upcomingShows, type ShowSummary } from "./upcoming";
 
 const NOW = 1_791_400_000;
-const DEMO = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+const DEMO = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 const show = (address: `0x${string}`, over: Partial<ShowSummary> = {}): ShowSummary => ({
   address,
   name: address.slice(0, 6),
@@ -48,7 +48,7 @@ describe("hidden shows", () => {
 
 describe("factoryShowAddresses", () => {
   it("derives clone addresses from the factory nonce, newest first", () => {
-    const factory = "0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6";
+    const factory = "0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF";
     const list = factoryShowAddresses(factory, 5, 10);
     expect(list).toEqual([4n, 3n, 2n].map((nonce) => getContractAddress({ from: factory, nonce })));
     expect(factoryShowAddresses(factory, 5, 2)).toHaveLength(2);
@@ -56,6 +56,6 @@ describe("factoryShowAddresses", () => {
   });
 
   it("finds the live demo show at nonce 2", () => {
-    expect(factoryShowAddresses("0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6", 3, 10)).toEqual([DEMO]);
+    expect(factoryShowAddresses("0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF", 3, 10)).toEqual([DEMO]);
   });
 });

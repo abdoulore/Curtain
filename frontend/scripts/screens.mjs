@@ -22,7 +22,7 @@ const organizer = privateKeyToAccount(keyFromEnv("ORGANIZER_PRIVATE_KEY"));
 const gateKey = keyFromEnv("GATE_PRIVATE_KEY");
 const state = JSON.parse(readFileSync(new URL("state.json", OUT), "utf8"));
 
-const DEMO = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+const DEMO = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 const b64url = (hex) => Buffer.from(hexToBytes(hex)).toString("base64url");
 const gate = await issueGatePass(DEMO);
 const sampleGate = b64url(concat([DEMO, gate.gateNonce, toHex(BigInt(gate.challengeBlock), { size: 8 }), gate.pass]));

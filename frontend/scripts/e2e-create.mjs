@@ -16,7 +16,7 @@ console.log("organizer:", organizer.address);
 const now = Math.floor(Date.now() / 1000);
 const show = {
   payout: organizer.address, token: USDC, price: 1_000_000n, capacity: 50, salesEnd: BigInt(now + 6 * 3600),
-  doorsOpen: BigInt(now), endTime: BigInt(now + 6 * 3600), settleDelay: 3600n, heldThresholdBps: 5000,
+  doorsOpen: BigInt(now), endTime: BigInt(now + 6 * 3600), settleDelay: 3600n,
   maxChallengeAge: 300, maxPerBuyer: 4, rpIdHash: sha256(toBytes(RP_ID)), gates: [],
 };
 const name = "E2E Comedy Night";
@@ -33,7 +33,7 @@ const sig = await organizer.signTypedData({
     Show: [
       { name: "payout", type: "address" }, { name: "token", type: "address" }, { name: "price", type: "uint96" },
       { name: "capacity", type: "uint32" }, { name: "salesEnd", type: "uint64" }, { name: "doorsOpen", type: "uint64" },
-      { name: "endTime", type: "uint64" }, { name: "settleDelay", type: "uint64" }, { name: "heldThresholdBps", type: "uint16" },
+      { name: "endTime", type: "uint64" }, { name: "settleDelay", type: "uint64" },
       { name: "maxChallengeAge", type: "uint32" }, { name: "maxPerBuyer", type: "uint16" }, { name: "rpIdHash", type: "bytes32" },
       { name: "gates", type: "address[]" },
     ],

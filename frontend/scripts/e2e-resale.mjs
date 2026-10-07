@@ -6,7 +6,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { readFileSync } from "node:fs";
 import { api, buy, checkIn, eventAbi, must, person, pub, usdcOf } from "./e2e-lib.mjs";
 
-const EVENT = process.env.EVENT ?? "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+const EVENT = process.env.EVENT ?? "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 const gateKey = readFileSync(new URL("../../.env", import.meta.url), "utf8").match(/^GATE_PRIVATE_KEY=(0x[0-9a-fA-F]{64})/m)?.[1];
 const device = privateKeyToAccount(gateKey);
 const price = await pub.readContract({ address: EVENT, abi: eventAbi, functionName: "price" });

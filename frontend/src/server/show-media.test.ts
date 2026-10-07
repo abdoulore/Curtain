@@ -3,7 +3,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { checkPoster, descriptionHash, mediaMessage, NO_POSTER, posterHash, type ShowMedia } from "@/lib/show-media";
 import { saveShowMedia, type MediaStore } from "./show-media";
 
-const EVENT = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+const EVENT = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 const organizer = privateKeyToAccount(generatePrivateKey());
 const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
@@ -42,7 +42,7 @@ describe("saveShowMedia", () => {
     const sig = await sign(posterHash(png), "Two hours of stand-up.");
     const meta = await saveShowMedia(EVENT, { poster: { bytes: png, type: "image/png" }, description: "Two hours of stand-up.", sig }, organizerOf, store, 7);
     expect(meta.description).toBe("Two hours of stand-up.");
-    expect(meta.poster).toMatch(/^https:\/\/blob\.example\/shows\/0x5562bf1ccbabcf2f060239f9d241ba9661217135\/poster-[0-9a-f]{12}\.png$/);
+    expect(meta.poster).toMatch(/^https:\/\/blob\.example\/shows\/0xa01efa5bc1cdb594a6ec70d2bd1b1138b496cb0e\/poster-[0-9a-f]{12}\.png$/);
     expect(meta.updatedAt).toBe(7);
   });
 

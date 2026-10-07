@@ -21,7 +21,7 @@ function at<T extends object>(item: T) {
   seq += 1;
   return {
     ...item,
-    block: { number: 68_800_000 + seq, timestamp: 1_791_200_000 + seq }, // after config.yaml start_block
+    block: { number: 69_000_000 + seq, timestamp: 1_791_200_000 + seq }, // after config.yaml start_block
     transaction: { hash: `0x${seq.toString(16).padStart(64, "0")}` as Hex },
     logIndex: 0,
   };

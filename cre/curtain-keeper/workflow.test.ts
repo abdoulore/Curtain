@@ -12,7 +12,7 @@ import { type Address, bytesToHex, decodeAbiParameters, getAddress } from 'viem'
 import { type Config, encodeJobs, initWorkflow, keeperAbi, mergeShows, onCronTrigger, SHOWS_QUERY } from './workflow'
 
 const MONAD_TESTNET = 2183018362218727504n
-const KEEPER = "0xc16008D869fC44E2af4d217C23adc2eCFdC57219" as Address
+const KEEPER = "0xC157558da8C7d90EAE75C38A850515567ED5a18E" as Address
 const CANCELLED = '0xC0731dA73709F548f28f9d373E36e79d1a1Ed29A' as Address
 const ENDING = '0x537a071e81734ecd498FC0D3CE8c36AfEDcB9A09' as Address
 const DEMO = '0xd3F22B52F74D658318C29E0475E1833214eCA005' as Address

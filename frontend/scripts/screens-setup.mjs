@@ -29,7 +29,7 @@ async function fund(address, amount) {
   await pub.waitForTransactionReceipt({ hash });
 }
 
-const DEMO = "0x5562bF1ccBabcF2f060239f9D241Ba9661217135";
+const DEMO = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 const CANCELLED = "0xC0731dA73709F548f28f9d373E36e79d1a1Ed29A";
 const log = (...a) => console.error(...a);
 

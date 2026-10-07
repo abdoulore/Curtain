@@ -45,19 +45,6 @@
   },
   {
     "type": "function",
-    "name": "DEFAULT_HELD_THRESHOLD_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "DEFAULT_MAX_CHALLENGE_AGE",
     "inputs": [],
     "outputs": [
@@ -91,6 +78,19 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "HELD_THRESHOLD_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "stateMutability": "view"
@@ -712,19 +712,6 @@
   },
   {
     "type": "function",
-    "name": "heldThresholdBps",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -776,11 +763,6 @@
             "name": "settleDelay",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "heldThresholdBps",
-            "type": "uint16",
-            "internalType": "uint16"
           },
           {
             "name": "maxChallengeAge",

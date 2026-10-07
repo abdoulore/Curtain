@@ -8,11 +8,11 @@ import { loadUpcoming } from "@/lib/load-upcoming";
 import { formatNaira } from "@/lib/money";
 import type { ShowSummary } from "@/lib/upcoming";
 import { useShowsMedia } from "@/lib/use-show-media";
+import { whenText } from "@/lib/when";
 import { Poster } from "./Poster";
 
-const when = new Intl.DateTimeFormat("en-NG", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
-function ShowCard({ show, poster, featured }: { show: ShowSummary; poster?: string | null; featured?: boolean }) {
+function ShowCard({ show, poster, featured, now }: { show: ShowSummary; poster?: string | null; featured?: boolean; now: number }) {
   return (
     <Link
       href={show.address === DEMO_EVENT ? "/e/demo" : `/e/${show.address}`}
@@ -38,7 +38,7 @@ function ShowCard({ show, poster, featured }: { show: ShowSummary; poster?: stri
             {show.name}
           </p>
           <p className="mt-1 text-sm text-muted">
-            {when.format(new Date(show.doorsOpen * 1000))}
+            {whenText({ doorsOpen: show.doorsOpen, endTime: show.endTime, readAt: now }, true)}
             <span className="block truncate">{show.venue}</span>
           </p>
         </div>
@@ -51,12 +51,18 @@ function ShowCard({ show, poster, featured }: { show: ShowSummary; poster?: stri
 /** Upcoming shows. On the home page, one featured show and two more with a link to /shows; on /shows, every show. */
 export function UpcomingShows({ heading = true, limit }: { heading?: boolean; limit?: number }) {
   const [shows, setShows] = useState<ShowSummary[] | null>(null);
+  const [now, setNow] = useState(0);
   const media = useShowsMedia(shows?.map((s) => s.address) ?? []);
 
   useEffect(() => {
     let alive = true;
-    loadUpcoming(Math.floor(Date.now() / 1000))
-      .then((s) => alive && setShows(s))
+    const t = Math.floor(Date.now() / 1000);
+    loadUpcoming(t)
+      .then((s) => {
+        if (!alive) return;
+        setNow(t);
+        setShows(s);
+      })
       .catch(() => alive && setShows([]));
     return () => {
       alive = false;
@@ -91,7 +97,7 @@ export function UpcomingShows({ heading = true, limit }: { heading?: boolean; li
           return (
             <li key={s?.address ?? i} className={featured ? "sm:col-span-2 lg:col-span-1" : undefined}>
               {s ? (
-                <ShowCard show={s} poster={media[s.address]?.poster} featured={featured} />
+                <ShowCard show={s} poster={media[s.address]?.poster} featured={featured} now={now} />
               ) : (
                 <div className="aspect-[16/10] animate-pulse rounded-2xl bg-line/60" />
               )}

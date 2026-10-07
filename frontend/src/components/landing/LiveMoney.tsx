@@ -38,7 +38,7 @@ export function LiveMoney() {
           The money, in the open.
         </h2>
         <p className="mt-4 max-w-md text-stage-muted">
-          Curtain Demo Night, right now. Every ticket&apos;s money is protected until its holder walks in.
+          Ticket money stays protected while the show is pending. Check-ins release payments at the door.
         </p>
       </div>
 

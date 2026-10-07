@@ -17,7 +17,7 @@ const CATALOG: EventMeta[] = [
     slug: "demo",
     address: DEMO_EVENT,
     name: "Curtain Demo Night",
-    tagline: "Stand-up and live music. Your money is held until the show happens, then paid to the artists at the door.",
+    tagline: "Stand-up and live music. Your money is held until the show happens, then paid to the organizer at the door.",
     venue: "The Velvet Room",
     city: "Victoria Island, Lagos",
     isDemo: true,

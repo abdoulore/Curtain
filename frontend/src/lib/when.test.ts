@@ -13,6 +13,6 @@ describe("whenText", () => {
   it("says doors are open once they are, with the last day", () => {
     const text = whenText({ doorsOpen: DOORS, endTime: DOORS + 6 * 3600, readAt: DOORS + 60 });
     expect(text).toMatch(/^Doors open now · until Sun,? 18 Oct$/);
-    expect(whenText({ doorsOpen: DOORS, endTime: DOORS + 6 * 3600, readAt: DOORS + 60 }, true)).toMatch(/^Open until Sun,? 18 Oct$/);
+    expect(whenText({ doorsOpen: DOORS, endTime: DOORS + 6 * 3600, readAt: DOORS + 60 }, true)).toMatch(/^On now · until Sun,? 18 Oct$/);
   });
 });

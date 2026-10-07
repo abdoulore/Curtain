@@ -31,8 +31,9 @@ function FingerprintMark({ className }: { className: string }) {
 }
 
 /**
- * The hero's ticket. On first view it plays the whole product once: protected, fingerprint at the gate, paid to
- * the organizer. With reduced motion it shows the finished state straight away.
+ * The hero's ticket. On first view it plays the whole product once on the ticket itself: the PROTECTED stamp, the
+ * fingerprint lighting up at the gate, then the PAID stamp. With reduced motion it shows the finished state straight
+ * away. The steps are also written out, visually hidden, for screen readers.
  */
 export function HeroTicket() {
   const [step, setStep] = useState(0);
@@ -59,6 +60,7 @@ export function HeroTicket() {
       <div
         role="img"
         aria-label={`Example ticket: ${TICKET.show}, ${TICKET.when}, ${TICKET.venue}, ticket ${TICKET.number}, ${TICKET.price}.`}
+        aria-describedby="hero-ticket-steps"
         className="hero-ticket-in relative flex overflow-hidden rounded-[1.25rem] bg-surface shadow-[0_24px_60px_-28px_rgba(40,14,18,0.45)] ring-1 ring-line"
       >
         <div className="min-w-0 flex-1 p-5 sm:p-7">
@@ -102,35 +104,10 @@ export function HeroTicket() {
         </div>
       </div>
 
-      <ol className="relative mt-6 space-y-2.5 sm:px-2" aria-label="What happens to your money">
-        {STEPS.map((s, i) => {
-          const done = i <= step;
-          return (
-            <li
-              key={s.title}
-              className={`flex items-center gap-3 transition-opacity duration-500 motion-reduce:transition-none ${done ? "opacity-100" : "opacity-45"}`}
-            >
-              <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors duration-500 motion-reduce:transition-none ${
-                  done ? (i === STEPS.length - 1 ? "bg-go text-surface" : "bg-foreground text-surface") : "ring-1 ring-line"
-                }`}
-              >
-                {done ? (
-                  <svg viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden>
-                    <path d="M4.5 10.5l3.5 3.5 7.5-8" />
-                  </svg>
-                ) : (
-                  i + 1
-                )}
-              </span>
-              <span className="min-w-0 text-sm">
-                <span className="font-semibold">{s.title}</span>
-                <span className="text-muted"> · {s.detail}</span>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      {/* The story the stamp and fingerprint tell, for screen readers. */}
+      <p id="hero-ticket-steps" className="sr-only">
+        {STEPS.map((s) => `${s.title}: ${s.detail}.`).join(" ")}
+      </p>
     </div>
   );
 }

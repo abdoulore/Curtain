@@ -6,8 +6,8 @@ import { buildShow, createShowTypedData, SHOW_LENGTH_SECONDS, type ShowForm } fr
 const ORGANIZER = getAddress("0x43b477ac071e8a790cf1d7fb64eb4dd80058dc91");
 const NOW = 1_791_300_000;
 const form: ShowForm = {
-  name: "Lagos Laughs",
-  venue: "Terra Kulture, Victoria Island",
+  name: "Ember Comedy Night",
+  venue: "The Ember Room, Yaba",
   startsAt: NOW + 3600,
   priceNaira: "1500",
   capacity: "120",

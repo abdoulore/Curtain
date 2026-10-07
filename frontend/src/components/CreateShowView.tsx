@@ -153,14 +153,14 @@ export function CreateShowView() {
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="text-sm font-medium sm:col-span-2">
               Name
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Lagos Laughs" maxLength={80} className={field} />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ember Comedy Night" maxLength={80} className={field} />
             </label>
             <label className="text-sm font-medium sm:col-span-2">
               Venue
               <input
                 value={venue}
                 onChange={(e) => setVenue(e.target.value)}
-                placeholder="Terra Kulture, Victoria Island"
+                placeholder="The Ember Room, Yaba"
                 maxLength={120}
                 className={field}
               />

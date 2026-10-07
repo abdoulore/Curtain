@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createPublicClient, webSocket, type Address } from "viem";
+import { createPublicClient, webSocket } from "viem";
 import { curtainEventAbi } from "@/lib/abis";
 import { describe, sortFeed, type FeedItem } from "@/lib/activity";
 import { applyLive, guestsLine, mergeRead, STATUS_TEXT, type Totals } from "@/lib/board";
 import { monadTestnet, txUrl } from "@/lib/chain";
 import type { EventMeta } from "@/lib/events";
 import { ENVIO_URL, fetchBoard, type ActivityRow } from "@/lib/indexer";
+import { readTotalsFromChain, totalsFromRow } from "@/lib/load-totals";
 import { formatNaira } from "@/lib/money";
-import { browserClient, EVENT_STATUS } from "@/lib/reads";
 import { useShowMedia } from "@/lib/use-show-media";
 import { Poster } from "./Poster";
 
@@ -26,37 +26,6 @@ const fromRow = (r: ActivityRow): FeedItem => ({
   at: Number(r.timestamp) * 1000,
   txHash: r.txHash,
 });
-
-async function readTotalsFromChain(event: Address): Promise<Totals> {
-  const read = <T,>(functionName: string) =>
-    browserClient.readContract({ address: event, abi: curtainEventAbi, functionName } as never) as Promise<T>;
-  const [status, price, capacity, sold, checkedIn, paidIn, escrowed, released, withdrawn, refunded] = await Promise.all([
-    read<number>("status"),
-    read<bigint>("price"),
-    read<number>("capacity"),
-    read<number>("sold"),
-    read<number>("checkedIn"),
-    read<bigint>("totalPaidIn"),
-    read<bigint>("escrowed"),
-    read<bigint>("released"),
-    read<bigint>("withdrawn"),
-    read<bigint>("refunded"),
-  ]);
-  return {
-    status: EVENT_STATUS[status] ?? "Open",
-    price,
-    capacity: Number(capacity),
-    sold: Number(sold),
-    checkedIn: Number(checkedIn),
-    refundedCount: null,
-    paidIn,
-    escrowed,
-    released,
-    withdrawn,
-    refunded,
-    source: "chain",
-  };
-}
 
 const SERIES = [
   { key: "released", label: "Paid to organizer", swatch: "bg-viz-released" },
@@ -138,21 +107,7 @@ export function BoardView({ meta }: { meta: EventMeta }) {
       try {
         const board = await fetchBoard(meta.address);
         if (board.show) {
-          const s = board.show;
-          const next: Totals = {
-            status: s.status,
-            price: BigInt(s.price),
-            capacity: Number(s.capacity),
-            sold: s.sold,
-            checkedIn: s.checkedIn,
-            refundedCount: s.refundedCount,
-            paidIn: BigInt(s.paidIn),
-            escrowed: BigInt(s.escrowed),
-            released: BigInt(s.released),
-            withdrawn: BigInt(s.withdrawn),
-            refunded: BigInt(s.refunded),
-            source: "Envio",
-          };
+          const next = totalsFromRow(board.show);
           setTotals((current) => mergeRead(current, next));
           setFeed((current) => {
             const indexed = board.activity.map(fromRow);

@@ -20,7 +20,7 @@ const show = {
   maxChallengeAge: 300, maxPerBuyer: 4, rpIdHash: sha256(toBytes(RP_ID)), gates: [],
 };
 const name = "E2E Comedy Night";
-const venue = "Terra Kulture, Victoria Island";
+const venue = "The Ember Room, Yaba";
 const nonce = await pub.readContract({ address: FACTORY, abi: eventAbi, functionName: "nonces", args: [organizer.address] });
 const deadline = BigInt(now + 900);
 const sig = await organizer.signTypedData({

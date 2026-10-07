@@ -8,8 +8,8 @@ import {CurtainTestBase} from "./utils/CurtainTestBase.sol";
 
 /// @dev Organizers create shows by signing `CreateShow`; the relayer pays.
 contract CurtainFactoryTest is CurtainTestBase {
-    string internal constant NAME = "Lagos Laughs";
-    string internal constant VENUE = "Terra Kulture, Victoria Island";
+    string internal constant NAME = "Ember Comedy Night";
+    string internal constant VENUE = "The Ember Room, Yaba";
 
     function _signShow(
         uint256 key,

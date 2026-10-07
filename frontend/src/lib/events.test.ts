@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_EVENT, RETIRED_DEMOS } from "./chain";
-import { findEvent, withDetails } from "./events";
+import { DEMO_SHOWS, findEvent, isDemoShow, withDetails } from "./events";
 
 describe("findEvent", () => {
   it("finds the demo by slug and address", () => {
@@ -26,5 +26,12 @@ describe("findEvent", () => {
 
   it("rejects anything that isn't a slug or an address", () => {
     expect(findEvent("nope")).toBeUndefined();
+  });
+
+  it("labels the extra demo shows as Demo", () => {
+    expect(findEvent(DEMO_SHOWS[0]!)?.isDemo).toBe(true);
+    expect(isDemoShow(DEMO_SHOWS[1]!.toLowerCase())).toBe(true);
+    expect(isDemoShow(DEMO_EVENT)).toBe(true);
+    expect(isDemoShow("0x1111111111111111111111111111111111111111")).toBe(false);
   });
 });

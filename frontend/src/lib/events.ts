@@ -30,6 +30,20 @@ const CATALOG: EventMeta[] = [
  */
 export const HIDDEN_SHOWS: readonly Address[] = ["0x1c10dbC3425FD4F9fbb4c837E494cBb5AEB23399"];
 
+/** Extra demo shows with fictional names and venues, made by the demo organizer (scripts/demo-shows.mjs). */
+export const DEMO_SHOWS: readonly Address[] = [
+  "0xC25f44F71Ae269A06560e6275d6343C0FcFE6baA",
+  "0x009723fCE8460F764Aeff412D52699A6415A33DC",
+  "0xa182874c52F30362f82d71c6c551236419261E3a",
+];
+
+/** True for the demo show and the other demo shows, which carry a Demo label everywhere. */
+export function isDemoShow(address: string): boolean {
+  if (!isAddress(address)) return false;
+  const a = getAddress(address);
+  return a === DEMO_EVENT || DEMO_SHOWS.includes(a);
+}
+
 /** Events this app lists. */
 export const CATALOG_EVENTS: readonly Address[] = CATALOG.map((e) => e.address);
 
@@ -49,7 +63,7 @@ export function findEvent(id: string): EventMeta | undefined {
     venue: "Venue to be announced",
     // Shows made on the create page carry their own name and venue onchain; see withDetails.
     city: "",
-    isDemo: false,
+    isDemo: DEMO_SHOWS.includes(address),
   };
 }
 

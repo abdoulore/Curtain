@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import { DM_Serif_Display, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { InAppBrowserNotice } from "@/components/InAppBrowserNotice";
 
@@ -12,6 +12,13 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+// The posters' serif, for show names and the landing page's headlines only.
+const display = DM_Serif_Display({
+  variable: "--font-dm-serif",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -30,7 +37,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${display.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <a
           href="#content"
@@ -47,11 +54,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Shows
             </Link>
             <Link href="/tickets" className="rounded-full border border-line px-2.5 py-1.5 sm:px-3">
-              My tickets
+              <span className="sm:hidden">Tickets</span>
+              <span className="hidden sm:inline">My tickets</span>
             </Link>
             <Link href="/organizer" className="rounded-full px-2 py-1.5 text-muted hover:text-foreground sm:px-3">
-              <span className="sm:hidden">Organizers</span>
-              <span className="hidden sm:inline">For organizers</span>
+              Organize
             </Link>
           </nav>
         </header>
@@ -67,14 +74,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/#how-it-works" className="hover:text-foreground">
               How it works
             </Link>
+            <Link href="/shows" className="hover:text-foreground">
+              Shows
+            </Link>
+            <Link href="/organizer" className="hover:text-foreground">
+              Organize
+            </Link>
             <Link href="/board/demo" className="hover:text-foreground">
               Money board
             </Link>
-            <a href="https://www.monad.xyz" target="_blank" rel="noopener" className="hover:text-foreground">
-              Built on Monad
-            </a>
             <a href="https://github.com/abdoulore/Curtain" target="_blank" rel="noopener" className="hover:text-foreground">
               GitHub
+            </a>
+            <a href="https://www.monad.xyz" target="_blank" rel="noopener" className="hover:text-foreground">
+              Built on Monad
             </a>
           </nav>
         </footer>

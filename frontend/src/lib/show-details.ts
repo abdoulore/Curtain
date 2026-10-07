@@ -36,6 +36,27 @@ export function readShowDetails(event: Address) {
   return hit;
 }
 
+/**
+ * Whether a show has a real name and venue: true for catalogued shows or once the factory's details arrive, false
+ * once they arrive empty, undefined while loading. Unnamed shows are kept out of lists.
+ */
+export function useShowNamed(event: Address | undefined): boolean | undefined {
+  const known = event ? findEvent(event) : undefined;
+  const catalogued = Boolean(known && known.name !== "Curtain event");
+  const [result, setResult] = useState<{ event: Address; named: boolean }>();
+  useEffect(() => {
+    if (!event || catalogued) return;
+    let alive = true;
+    readShowDetails(event).then((d) => alive && setResult({ event, named: Boolean(d?.name.trim() && d.venue.trim()) }));
+    return () => {
+      alive = false;
+    };
+  }, [event, catalogued]);
+  if (!event) return undefined;
+  if (catalogued) return true;
+  return result?.event === event ? result.named : undefined;
+}
+
 /** Event metadata for client views that only know the address. */
 export function useShowMeta(event: Address | undefined): EventMeta | undefined {
   const base = event ? findEvent(event) : undefined;

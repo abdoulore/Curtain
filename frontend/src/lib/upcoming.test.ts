@@ -40,6 +40,13 @@ describe("upcomingShows", () => {
   });
 });
 
+describe("unnamed shows", () => {
+  it("leaves out a show with no name or no venue", () => {
+    const list = upcomingShows([show(A, { name: "" }), show(B, { venue: "  " }), show(DEMO)], NOW, DEMO);
+    expect(list.map((s) => s.address)).toEqual([DEMO]);
+  });
+});
+
 describe("hidden shows", () => {
   it("leaves out shows on the hidden list", () => {
     expect(upcomingShows([show(A), show(B)], NOW, DEMO, [B]).map((s) => s.address)).toEqual([A]);

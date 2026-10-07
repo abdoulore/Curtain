@@ -13,7 +13,8 @@ export type ShowSummary = {
 };
 
 /**
- * Shows people can still buy for: open, not over, not sold out. The demo show comes first, then the soonest.
+ * Shows people can still buy for: open, not over, not sold out, and named with a venue (a show without them can't
+ * tell a buyer where to go). The demo show comes first, then the soonest.
  */
 export function upcomingShows(
   shows: readonly ShowSummary[],
@@ -24,7 +25,15 @@ export function upcomingShows(
   const pin = getAddress(pinned);
   const skip = new Set(hidden.map((a) => getAddress(a)));
   return shows
-    .filter((s) => s.status === "Open" && s.endTime > now && s.sold < s.capacity && !skip.has(getAddress(s.address)))
+    .filter(
+      (s) =>
+        s.status === "Open" &&
+        s.endTime > now &&
+        s.sold < s.capacity &&
+        s.name.trim() !== "" &&
+        s.venue.trim() !== "" &&
+        !skip.has(getAddress(s.address)),
+    )
     .sort((a, b) => {
       if (getAddress(a.address) === pin) return -1;
       if (getAddress(b.address) === pin) return 1;

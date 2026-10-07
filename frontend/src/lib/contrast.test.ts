@@ -41,6 +41,11 @@ describe.each([
     expect(contrast(t["velvet-ink"]!, t.velvet!)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("keeps text readable on the dark stage band", () => {
+    expect(contrast(t["stage-ink"]!, t.stage!)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(t["stage-muted"]!, t.stage!)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("keeps white verdict text readable on ADMIT and DO NOT ADMIT", () => {
     expect(contrast("#ffffff", t.admit!)).toBeGreaterThanOrEqual(4.5);
     expect(contrast("#ffffff", t.deny!)).toBeGreaterThanOrEqual(4.5);

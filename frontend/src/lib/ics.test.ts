@@ -3,8 +3,8 @@ import { buildIcs, escapeText, fold, icsFileName } from "./ics";
 
 const entry = {
   uid: "0xa01efa5bc1cdb594a6ec70d2bd1b1138b496cb0e-4@curtaintickets.vercel.app",
-  name: "Lagos Laughs",
-  venue: "Terra Kulture, Victoria Island",
+  name: "Ember Comedy Night",
+  venue: "The Ember Room, Yaba",
   start: 1_791_400_000,
   end: 1_791_421_600,
   url: "https://curtaintickets.vercel.app/tickets",
@@ -22,8 +22,8 @@ describe("buildIcs", () => {
 
   it("carries the name, venue, doors-open time in UTC and a link to the ticket", () => {
     const unfolded = ics.replace(/\r\n /g, "");
-    expect(unfolded).toContain("SUMMARY:Lagos Laughs");
-    expect(unfolded).toContain("LOCATION:Terra Kulture\\, Victoria Island");
+    expect(unfolded).toContain("SUMMARY:Ember Comedy Night");
+    expect(unfolded).toContain("LOCATION:The Ember Room\\, Yaba");
     expect(unfolded).toContain(`DTSTART:${new Date(entry.start * 1000).toISOString().replace(/[-:]/g, "").replace(".000", "")}`);
     expect(unfolded).toMatch(/DTSTART:\d{8}T\d{6}Z/);
     expect(unfolded).toContain("URL:https://curtaintickets.vercel.app/tickets");
@@ -44,7 +44,7 @@ describe("helpers", () => {
   });
 
   it("names the file after the show", () => {
-    expect(icsFileName("Lagos Laughs!")).toBe("lagos-laughs.ics");
+    expect(icsFileName("Ember Comedy Night!")).toBe("ember-comedy-night.ics");
     expect(icsFileName("₦₦")).toBe("curtain-show.ics");
   });
 });

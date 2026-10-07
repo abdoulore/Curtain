@@ -179,7 +179,7 @@ describe("Curtain indexer", () => {
             at({
               contract: "CurtainFactory",
               event: "ShowDetails",
-              params: { eventAddress: SHOW, name: "Lagos Laughs", venue: "Terra Kulture" },
+              params: { eventAddress: SHOW, name: "Ember Comedy Night", venue: "The Ember Room" },
             }),
             at({ contract: "CurtainEvent", event: "GateSet", srcAddress: SHOW, params: { gate: GATE, allowed: true } }),
             at({ contract: "CurtainEvent", event: "GateSet", srcAddress: SHOW, params: { gate: ALICE, allowed: true } }),
@@ -190,7 +190,7 @@ describe("Curtain indexer", () => {
     });
 
     const show = await indexer.Show.getOrThrow(SHOW);
-    t.expect([show.name, show.venue, show.organizer]).toEqual(["Lagos Laughs", "Terra Kulture", ORGANIZER]);
+    t.expect([show.name, show.venue, show.organizer]).toEqual(["Ember Comedy Night", "The Ember Room", ORGANIZER]);
     const [gate, removed] = await Promise.all([
       indexer.Gate.getOrThrow(`${SHOW}-${GATE}`),
       indexer.Gate.getOrThrow(`${SHOW}-${ALICE}`),

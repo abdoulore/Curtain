@@ -1,29 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { txUrl } from "@/lib/chain";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { signOut, unlock, type StoredAccount } from "@/lib/account";
+import { txUrl } from "@/lib/chain";
 import { plainError } from "@/lib/errors";
+import { findEvent } from "@/lib/events";
 import { useAccount, useHydrated } from "@/lib/hooks";
-import { useMyTickets } from "@/lib/use-my-tickets";
 import { formatNaira } from "@/lib/money";
 import { browserClient, readBalance, readEventInfo, readTicket, type EventInfo, type TicketInfo } from "@/lib/reads";
-import { cardStatus, listTicket, rememberListed, wasListedHere } from "@/lib/resale";
-import { useShowMeta } from "@/lib/show-details";
+import { cardStatus, listTicket, rememberListed, wasListedHere, type CardStatus } from "@/lib/resale";
+import { readShowDetails, useShowMeta } from "@/lib/show-details";
 import { ticketBadge, type BadgeIcon, type TicketBadge } from "@/lib/ticket-badge";
+import { mainAction, sortTickets, ticketGroup } from "@/lib/ticket-groups";
 import type { SavedTicket } from "@/lib/tickets";
+import { useMyTickets } from "@/lib/use-my-tickets";
 import { useShowMedia } from "@/lib/use-show-media";
+import { whenText } from "@/lib/when";
 import { AddToCalendar } from "./AddToCalendar";
 import { Poster } from "./Poster";
 import { SendToPhone } from "./SendToPhone";
 import { SignInButton } from "./SignInButton";
 
-const whenFmt = new Intl.DateTimeFormat("en-NG", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-
-const noSubscribe = () => () => {};
-
-/** Several cards often share a show; read its details once per page load. */
+/** Several tickets often share a show; read its details once per page load. */
 const showInfo = new Map<string, Promise<EventInfo>>();
 function readShowOnce(event: SavedTicket["event"]): Promise<EventInfo> {
   const key = event.toLowerCase();
@@ -37,6 +36,17 @@ function readShowOnce(event: SavedTicket["event"]): Promise<EventInfo> {
   }
   return hit;
 }
+
+/** Whether a show has a real name and venue; tickets for unnamed shows stay off the list. */
+async function isNamed(event: SavedTicket["event"]): Promise<boolean> {
+  const known = findEvent(event);
+  if (known && known.name !== "Curtain event") return true;
+  const d = await readShowDetails(event);
+  return Boolean(d?.name.trim() && d.venue.trim());
+}
+
+type Loaded = { info: TicketInfo | null; show: EventInfo | null; named: boolean };
+const keyOf = (t: SavedTicket) => `${t.event.toLowerCase()}-${t.ticketId}`;
 
 const ICON_PATHS: Record<BadgeIcon, ReactNode> = {
   check: <path d="M4.5 10.5l3.5 3.5 7.5-8" />,
@@ -107,49 +117,37 @@ function Perforation() {
   );
 }
 
-const ACTION =
-  "flex flex-1 basis-0 flex-col items-center justify-center gap-1 px-2 py-3 text-xs font-semibold hover:bg-background disabled:opacity-50";
+const SECONDARY = "inline-flex items-center gap-2 rounded-xl border border-line px-3.5 py-2.5 text-sm font-semibold hover:bg-background disabled:opacity-50";
 
-function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account: StoredAccount; onMoney: () => void }) {
-  const owner = account.address;
+function TicketCard({
+  ticket,
+  account,
+  info,
+  show,
+  status,
+  past,
+  onChanged,
+}: {
+  ticket: SavedTicket;
+  account: StoredAccount;
+  info: TicketInfo | null;
+  show: EventInfo | null;
+  status: CardStatus;
+  past: boolean;
+  onChanged: () => void;
+}) {
   const meta = useShowMeta(ticket.event);
   const media = useShowMedia(ticket.event);
-  const [info, setInfo] = useState<TicketInfo | null>(null);
-  const [show, setShow] = useState<EventInfo | null>(null);
-  const [justListed, setJustListed] = useState(false);
-  const listedBefore = useSyncExternalStore(
-    noSubscribe,
-    () => wasListedHere(ticket.event, ticket.ticketId),
-    () => false,
-  );
-  const listedHere = listedBefore || justListed;
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(
-    () =>
-      readTicket(ticket.event, BigInt(ticket.ticketId))
-        .then(setInfo)
-        .catch(() => {}),
-    [ticket.event, ticket.ticketId],
-  );
-
-  useEffect(() => {
-    let alive = true;
-    refresh();
-    readShowOnce(ticket.event)
-      .then((s) => alive && setShow(s))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [refresh, ticket.event]);
-
-  const status = cardStatus(info, owner, listedHere);
   const price = show ? formatNaira(show.price) : "…";
   const badge = ticketBadge(status, status === "listed" && info ? formatNaira(info.resalePrice) : price);
-  const open = show?.status === "Open" && show.readAt < show.endTime;
+  const action = mainAction(status);
   const name = meta?.name ?? "Curtain show";
+  const panelId = `ticket-${keyOf(ticket)}`;
+  const canSell = !past && (status === "ready" || status === "listed");
 
   async function setOnSale(onSale: boolean) {
     if (!show) return;
@@ -160,12 +158,8 @@ function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account
       // The passkey prompt opens straight from the tap, before any network call.
       const { signer } = await unlock(account);
       await listTicket(browserClient, ticket.event, BigInt(ticket.ticketId), onSale ? show.price : 0n, signer);
-      if (onSale) {
-        rememberListed(ticket.event, ticket.ticketId);
-        setJustListed(true);
-      }
-      await refresh();
-      onMoney();
+      if (onSale) rememberListed(ticket.event, ticket.ticketId);
+      onChanged();
     } catch (e) {
       setError(plainError(e));
     } finally {
@@ -174,16 +168,16 @@ function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account
   }
 
   return (
-    <li className="overflow-hidden rounded-3xl border border-line bg-surface" aria-label={`${name}, ticket ${ticket.ticketId}`}>
+    <li className="overflow-hidden rounded-3xl bg-surface ring-1 ring-line" aria-label={`${name}, ticket ${ticket.ticketId}`}>
       <div className="flex gap-4 p-4">
-        <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border border-line">
+        <div className={`relative h-20 w-28 shrink-0 overflow-hidden rounded-xl bg-stage ${past ? "grayscale-[60%]" : ""}`}>
           <Poster src={media?.poster} name={name} sizes="112px" />
         </div>
         <div className="min-w-0 flex-1">
           <Badge badge={badge} />
-          <p className="mt-2 truncate text-base font-semibold">{name}</p>
+          <p className="mt-2 truncate font-display text-xl leading-tight">{name}</p>
           <p className="mt-0.5 text-sm text-muted">
-            {show ? whenFmt.format(new Date(show.doorsOpen * 1000)) : "…"}
+            {show ? whenText(show, true) : "…"}
             {meta?.venue ? <span className="block truncate">{meta.venue}</span> : null}
           </p>
         </div>
@@ -196,60 +190,84 @@ function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account
           <p className="text-xs font-medium tracking-wide text-muted uppercase">Ticket</p>
           <p className="font-mono text-4xl leading-none font-semibold text-velvet">#{ticket.ticketId}</p>
         </div>
-        <div className="text-right">
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Price</p>
-          <p className="font-semibold">{price}</p>
-        </div>
+        <p className="font-semibold tabular-nums">{price}</p>
       </div>
-      {badge.detail && <p className="px-5 pt-3 text-sm text-muted">{badge.detail}</p>}
 
-      {open && (status === "ready" || status === "listed") ? (
-        <div className="mt-4 flex flex-wrap divide-x divide-line border-t border-line">
-          {status === "ready" && show && (
-            <AddToCalendar
-              event={ticket.event}
-              ticketId={ticket.ticketId}
-              name={name}
-              venue={meta?.venue ?? ""}
-              doorsOpen={show.doorsOpen}
-              endTime={show.endTime}
-              className={ACTION}
-              icon={<Icon name="calendar" />}
-            />
-          )}
-          {status === "ready" && (
-            <SendToPhone
-              account={account}
-              event={ticket.event}
-              ticketId={ticket.ticketId}
-              className={ACTION}
-              icon={<Icon name="send" />}
-            />
-          )}
-          <button onClick={() => setOnSale(status === "ready")} disabled={busy} className={ACTION}>
-            <Icon name="tag" />
-            {busy ? "Confirm with your fingerprint" : status === "ready" ? "Sell at face value" : "Take off sale"}
+      <div className="px-5 pt-4 pb-5">
+        {action && (
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-controls={panelId}
+            className={`flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold ${
+              status === "ready" && !past && !open ? "bg-velvet text-velvet-ink" : "ring-1 ring-line hover:bg-background"
+            }`}
+          >
+            {open ? "Close" : action}
+            <svg
+              viewBox="0 0 20 20"
+              className={`h-4 w-4 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="M5 8l5 5 5-5" />
+            </svg>
           </button>
-          {error && (
-            <p role="alert" className="order-last basis-full border-t border-line px-5 py-3 text-sm text-stop">
-              {error}
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="h-4" />
-      )}
+        )}
 
-      <div className="flex items-center justify-between border-t border-line px-5 py-3 text-xs text-muted">
-        <span>
-          {ticket.boughtAt > 0
-            ? `Bought ${new Date(ticket.boughtAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}`
-            : ""}
-        </span>
-        {ticket.hash.length === 66 && (
-          <a href={txUrl(ticket.hash)} target="_blank" rel="noopener" className="underline underline-offset-2">
-            Proof of payment
-          </a>
+        {open && (
+          <div id={panelId} className="mt-4 space-y-4">
+            {badge.detail && <p className="text-sm text-muted">{badge.detail}</p>}
+            {canSell && (
+              <div className="flex flex-wrap gap-2">
+                {status === "ready" && show && (
+                  <AddToCalendar
+                    event={ticket.event}
+                    ticketId={ticket.ticketId}
+                    name={name}
+                    venue={meta?.venue ?? ""}
+                    doorsOpen={show.doorsOpen}
+                    endTime={show.endTime}
+                    className={SECONDARY}
+                    icon={<Icon name="calendar" />}
+                  />
+                )}
+                {status === "ready" && (
+                  <SendToPhone
+                    account={account}
+                    event={ticket.event}
+                    ticketId={ticket.ticketId}
+                    className={SECONDARY}
+                    icon={<Icon name="send" />}
+                  />
+                )}
+                <button onClick={() => setOnSale(status === "ready")} disabled={busy} className={SECONDARY}>
+                  <Icon name="tag" />
+                  {busy ? "Confirm with your fingerprint" : status === "ready" ? "Sell at face value" : "Take off sale"}
+                </button>
+              </div>
+            )}
+            {error && (
+              <p role="alert" className="text-sm text-stop">
+                {error}
+              </p>
+            )}
+            <p className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-muted">
+              <span>
+                {ticket.boughtAt > 0
+                  ? `Bought ${new Date(ticket.boughtAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}`
+                  : ""}
+              </span>
+              {ticket.hash.length === 66 && (
+                <a href={txUrl(ticket.hash)} target="_blank" rel="noopener" className="underline underline-offset-2">
+                  Proof of payment
+                </a>
+              )}
+            </p>
+          </div>
         )}
       </div>
     </li>
@@ -260,7 +278,8 @@ export function TicketsView() {
   const hydrated = useHydrated();
   const account = useAccount();
   const [balance, setBalance] = useState<bigint | null>(null);
-  const [balanceVersion, setBalanceVersion] = useState(0);
+  const [version, setVersion] = useState(0);
+  const [loaded, setLoaded] = useState<Record<string, Loaded>>({});
   // Tickets bought here plus the ones the indexer says this account holds, so they show on any device.
   const mine = useMyTickets(account);
 
@@ -273,67 +292,134 @@ export function TicketsView() {
     return () => {
       alive = false;
     };
-  }, [account, balanceVersion]);
+  }, [account, version]);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all(
+      mine.map(async (t) => {
+        const [info, show, named] = await Promise.all([
+          readTicket(t.event, BigInt(t.ticketId)).catch(() => null),
+          readShowOnce(t.event).catch(() => null),
+          isNamed(t.event).catch(() => true),
+        ]);
+        return [keyOf(t), { info, show, named }] as const;
+      }),
+    ).then((rows) => alive && setLoaded(Object.fromEntries(rows)));
+    return () => {
+      alive = false;
+    };
+  }, [mine, version]);
+
+  const changed = useCallback(() => setVersion((v) => v + 1), []);
 
   if (!hydrated) return null;
 
   if (!account) {
     return (
       <main className="mx-auto max-w-md pt-10 text-center lg:pt-20">
-        <h1 className="text-2xl font-semibold">Your tickets</h1>
-        <p className="mt-2 text-muted">
+        <h1 className="font-display text-4xl">Your tickets</h1>
+        <p className="mt-3 text-muted">
           Already bought on another device? Sign in with the same passkey and your tickets come with you.
         </p>
         <div className="mx-auto mt-6 max-w-sm">
           <SignInButton />
         </div>
-        <Link href="/e/demo" className="mt-5 inline-block text-sm font-semibold text-velvet underline">
-          New here? See the demo show
+        <Link href="/shows" className="mt-5 inline-block text-sm font-semibold text-velvet underline underline-offset-4">
+          New here? Browse shows
         </Link>
       </main>
     );
   }
 
+  const rows = mine
+    .map((t) => {
+      const l = loaded[keyOf(t)];
+      const status = cardStatus(l?.info ?? null, account.address, wasListedHere(t.event, t.ticketId));
+      return { ticket: t, info: l?.info ?? null, show: l?.show ?? null, named: l?.named, status, boughtAt: t.boughtAt };
+    })
+    .filter((r) => r.named !== false);
+  const upcoming = sortTickets(
+    rows.filter((r) => ticketGroup(r.status, r.show) === "upcoming"),
+    "upcoming",
+  );
+  const past = sortTickets(
+    rows.filter((r) => ticketGroup(r.status, r.show) === "past"),
+    "past",
+  );
+  const loading = mine.length > 0 && Object.keys(loaded).length === 0;
+
+  const list = (items: typeof rows, isPast: boolean) => (
+    <ul className="mt-5 grid grid-cols-1 items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
+      {items.map((r) => (
+        <TicketCard
+          key={keyOf(r.ticket)}
+          ticket={r.ticket}
+          account={account}
+          info={r.info}
+          show={r.show}
+          status={r.status}
+          past={isPast}
+          onChanged={changed}
+        />
+      ))}
+    </ul>
+  );
+
   return (
     <main className="pt-6 lg:pt-10">
-      <div className="lg:flex lg:items-end lg:justify-between lg:gap-8">
-        <h1 className="text-2xl font-semibold">{account.name ? `${account.name}'s tickets` : "My tickets"}</h1>
-        <div className="mt-3 rounded-2xl border border-line bg-surface p-4 lg:mt-0 lg:max-w-md">
-          <p className="text-sm">
-            Demo balance <span className="font-semibold">{balance === null ? "…" : formatNaira(balance)}</span>
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            Refunds and resale money land here, and it pays for your next ticket.
-          </p>
-        </div>
-      </div>
+      <h1 className="font-display text-4xl leading-none sm:text-5xl">{account.name ? `${account.name}'s tickets` : "My tickets"}</h1>
+      <p className="mt-3 text-sm text-muted">
+        Demo balance <span className="font-semibold text-foreground tabular-nums">{balance === null ? "…" : formatNaira(balance)}</span>
+        <span className="hidden sm:inline"> · refunds and resale money land here and pay for your next ticket</span>
+      </p>
 
-      {mine.length === 0 ? (
-        <div className="mt-8 rounded-3xl border border-dashed border-line p-6 text-center">
-          <p className="font-medium">No tickets yet</p>
-          <Link href="/e/demo" className="mt-3 inline-block text-sm font-semibold text-velvet underline">
-            Get one for the demo show
+      {loading ? (
+        <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {[0, 1].map((i) => (
+            <div key={i} className="h-72 animate-pulse rounded-3xl bg-line/60" />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="mt-10 border-t border-line pt-8">
+          <p className="font-display text-2xl">No tickets yet</p>
+          <Link href="/shows" className="mt-3 inline-block text-sm font-semibold text-velvet underline underline-offset-4">
+            Browse shows
           </Link>
         </div>
       ) : (
-        <ul className="mt-6 grid grid-cols-1 items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {mine.map((t) => (
-            <TicketCard
-              key={`${t.event}-${t.ticketId}`}
-              ticket={t}
-              account={account}
-              onMoney={() => setBalanceVersion((v) => v + 1)}
-            />
-          ))}
-        </ul>
+        <>
+          <section aria-labelledby="upcoming-heading" className="mt-10">
+            <h2 id="upcoming-heading" className="text-sm font-semibold tracking-wide text-muted uppercase">
+              Upcoming
+            </h2>
+            {upcoming.length > 0 ? (
+              list(upcoming, false)
+            ) : (
+              <p className="mt-4 text-muted">
+                Nothing coming up.{" "}
+                <Link href="/shows" className="font-semibold text-velvet underline underline-offset-4">
+                  Browse shows
+                </Link>
+              </p>
+            )}
+          </section>
+          {past.length > 0 && (
+            <section aria-labelledby="past-heading" className="mt-14">
+              <h2 id="past-heading" className="text-sm font-semibold tracking-wide text-muted uppercase">
+                Past
+              </h2>
+              {list(past, true)}
+            </section>
+          )}
+        </>
       )}
 
-      <p className="mt-8 text-center text-xs text-muted">If a show is cancelled, your money comes back on its own.</p>
       <button
         onClick={() => {
           if (confirm("Sign out of Curtain on this phone? Your tickets stay with your passkey.")) signOut();
         }}
-        className="mx-auto mt-6 block text-xs text-muted underline"
+        className="mt-14 block text-xs text-muted underline"
       >
         Sign out on this phone
       </button>

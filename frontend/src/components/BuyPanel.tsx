@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { isPrfUnavailable, signUp, unlock } from "@/lib/account";
 import { detectPrfSupport, type PrfSupport } from "@/lib/capabilities";
 import { buyTicket, hasBalanceFor, requestTopup, type BuyResult } from "@/lib/buy";
@@ -35,6 +35,7 @@ export function BuyPanel({
   onBought,
   listing,
   onCheckoutChange,
+  note,
 }: {
   meta: EventMeta;
   info: EventInfo;
@@ -42,6 +43,8 @@ export function BuyPanel({
   listing?: Listing;
   /** Told when a purchase starts or finishes, so the page can hide its sticky buy bar. */
   onCheckoutChange?: (active: boolean) => void;
+  /** One line shown right under the button, such as the protection promise. */
+  note?: ReactNode;
 }) {
   const hydrated = useHydrated();
   const desktop = useIsDesktop();
@@ -204,11 +207,8 @@ export function BuyPanel({
               ? `Buy for ${formatNaira(price)}`
               : "Get my ticket"}
       </button>
-      <p className="mt-3 text-center text-xs text-muted">
-        {account
-          ? `Signed in as ${account.name || "you"}. One fingerprint or Face ID to pay.`
-          : "No password, no app. Your fingerprint or Face ID is your ticket."}
-      </p>
+      {note}
+      {account && <p className="mt-2 text-center text-xs text-muted">Signed in as {account.name || "you"}</p>}
       {error && (
         <p role="alert" className="mt-3 text-sm text-stop">
           {error}

@@ -12,16 +12,9 @@ import { readEventInfo, readTicket, type EventInfo, type TicketState } from "@/l
 import { listingsFor, type Listing } from "@/lib/resale";
 import { saleState } from "@/lib/sale-state";
 import { useShowMedia } from "@/lib/use-show-media";
+import { whenText } from "@/lib/when";
 import { BuyPanel } from "./BuyPanel";
 import { Poster } from "./Poster";
-
-const dateFmt = new Intl.DateTimeFormat("en-NG", { weekday: "short", day: "numeric", month: "short" });
-
-function whenText(info: EventInfo): string {
-  const until = dateFmt.format(new Date(info.endTime * 1000));
-  if (info.readAt >= info.doorsOpen) return `Doors open now, until ${until}`;
-  return `Doors open ${dateFmt.format(new Date(info.doorsOpen * 1000))}`;
-}
 
 type RawListing = { ticketId: bigint; state: TicketState; resalePrice: bigint; holder: Address };
 
@@ -42,30 +35,24 @@ async function loadResale(event: Address, sold: number): Promise<RawListing[]> {
   return infos.flatMap((t, i) => (t ? [{ ticketId: ids[i]!, state: t.state, resalePrice: t.resalePrice, holder: t.holder }] : []));
 }
 
-const PROTECTION_STEPS = [
+const PROTECTION = [
   "You pay, and the money is held for this show. Nobody can move it early, not even Curtain.",
   "At the gate you scan the code and confirm with your fingerprint or Face ID. That moment, your ticket's money is paid to the organizer.",
-  "If the show is cancelled or doesn't happen, every ticket that wasn't checked in is refunded automatically. Nobody has to approve it.",
-  "Resale is capped at face value, so a ticket never costs more than its price.",
+  "After the show, if at least half the tickets sold were checked in, the show counts as happened and the rest is paid to the organizer.",
+  "If fewer than half were checked in, or the organizer cancels, every ticket that wasn't checked in is refunded automatically. Nobody has to approve it.",
+  "Resale is capped at face value, and a resold ticket only opens the door for its new holder.",
 ];
 
-function Tick() {
+function ShieldIcon() {
   return (
-    <svg
-      viewBox="0 0 20 20"
-      className="mt-0.5 h-4 w-4 shrink-0 text-go"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      aria-hidden
-    >
-      <path d="M4.5 10.5l3.5 3.5 7.5-8" />
+    <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0 text-go" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" aria-hidden>
+      <path d="M10 2.5l6 2.5v4.5c0 3.6-2.6 6.2-6 7.5-3.4-1.3-6-3.9-6-7.5V5z" />
+      <path d="M7.2 10l2 2 3.6-4" strokeLinecap="round" />
     </svg>
   );
 }
 
-/** Scrolls to the checkout card and puts focus on its first field or button. */
+/** Scrolls to the checkout and puts focus on its first field or button. */
 function goToCheckout() {
   const card = document.getElementById("checkout");
   if (!card) return;
@@ -106,7 +93,7 @@ export function EventView({ meta }: { meta: EventMeta }) {
     };
   }, [meta.address, info]);
 
-  // The sticky bar steps aside while the checkout card itself is on screen.
+  // The phone's buy bar steps aside while the checkout itself is on screen.
   useEffect(() => {
     const card = cardRef.current;
     if (!card || typeof IntersectionObserver === "undefined") return;
@@ -119,47 +106,37 @@ export function EventView({ meta }: { meta: EventMeta }) {
   const listings: Listing[] = listingsFor(raw, account?.address);
   const cheapest = listings[0];
   const showBar = sale !== null && !checkingOut && !cardVisible;
+  const venue = meta.city ? `${meta.venue}, ${meta.city}` : meta.venue;
 
   return (
-    <main className="pt-6 pb-24 lg:grid lg:grid-cols-[1.2fr_1fr] lg:items-start lg:gap-x-12 lg:pt-12 lg:pb-0">
+    <main className="flex flex-col pt-6 pb-24 lg:grid lg:grid-cols-[1.35fr_1fr] lg:items-start lg:gap-x-14 lg:pt-10 lg:pb-0">
       <section className="lg:col-start-1 lg:row-start-1">
-        <div className="relative mb-5 aspect-[16/10] overflow-hidden rounded-3xl border border-line">
-          <Poster src={media?.poster} name={meta.name} sizes="(min-width: 1024px) 600px, 100vw" priority />
+        <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-stage">
+          <Poster src={media?.poster} name={meta.name} sizes="(min-width: 1024px) 680px, 100vw" priority />
         </div>
-        {meta.isDemo && (
-          <span className="inline-block rounded-full border border-line px-2.5 py-1 text-xs font-medium text-muted">
-            Demo show
-          </span>
-        )}
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight lg:text-5xl">{meta.name}</h1>
-        <p className="mt-3 whitespace-pre-line text-muted lg:text-lg">{media?.description || meta.tagline}</p>
-        <dl className="mt-6 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <div className="rounded-2xl border border-line bg-surface p-4">
-            <dt className="text-xs font-medium tracking-wide text-muted uppercase">Where</dt>
-            <dd className="mt-1 font-medium">
-              {meta.venue}
-              {meta.city && <span className="block text-muted">{meta.city}</span>}
-            </dd>
-          </div>
-          <div className="rounded-2xl border border-line bg-surface p-4">
-            <dt className="text-xs font-medium tracking-wide text-muted uppercase">When</dt>
-            <dd className="mt-1 font-medium">{info ? whenText(info) : "…"}</dd>
-          </div>
-        </dl>
+        <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+          {meta.isDemo && (
+            <span className="rounded-full bg-foreground px-2.5 py-0.5 text-xs font-semibold text-background">Demo</span>
+          )}
+          <span className="font-medium">{info ? whenText(info) : "…"}</span>
+        </div>
+        <h1 className="mt-3 font-display text-4xl leading-[1.05] text-balance lg:text-6xl">{meta.name}</h1>
+        <p className="mt-2 text-lg text-muted">{venue}</p>
+        <p className="mt-6 max-w-[62ch] whitespace-pre-line">{media?.description || meta.tagline}</p>
       </section>
 
       <section
         id="checkout"
         ref={cardRef}
         aria-label="Get a ticket"
-        className="mt-6 scroll-mt-6 rounded-3xl border border-line bg-surface p-5 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:p-6"
+        className="mt-8 scroll-mt-6 rounded-2xl bg-surface p-5 ring-1 ring-line lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:p-7"
       >
         <div className="flex items-baseline justify-between gap-4">
-          <p className="text-3xl font-semibold">{info ? formatNaira(info.price) : "…"}</p>
+          <p className="text-4xl font-semibold tracking-tight tabular-nums">{info ? formatNaira(info.price) : "…"}</p>
           {info && sale && (
             <p className="text-right text-sm text-muted">
               {sale.kind === "open" ? (
-                `${sale.left} of ${info.capacity} left`
+                `${sale.left} left`
               ) : (
                 <span className="font-semibold text-foreground">{sale.kind === "soldOut" ? "Sold out" : "Closed"}</span>
               )}
@@ -167,18 +144,7 @@ export function EventView({ meta }: { meta: EventMeta }) {
             </p>
           )}
         </div>
-        <p className="mt-4 rounded-xl bg-background px-3 py-2 text-sm font-medium">Held until the show happens</p>
-        <ul className="mt-3 space-y-1.5 text-sm">
-          <li className="flex gap-2">
-            <Tick />
-            Ticket secured by your fingerprint or Face ID
-          </li>
-          <li className="flex gap-2">
-            <Tick />
-            Automatic refund if the show doesn&apos;t happen
-          </li>
-        </ul>
-        <div className="mt-5">
+        <div className="mt-6">
           {loadError && (
             <p role="alert" className="text-sm text-stop">
               {loadError}
@@ -190,67 +156,70 @@ export function EventView({ meta }: { meta: EventMeta }) {
               info={info}
               onBought={() => setVersion((v) => v + 1)}
               onCheckoutChange={onCheckoutChange}
+              note={
+                <p className="mt-3 flex items-center justify-center gap-2 text-sm font-medium">
+                  <ShieldIcon />
+                  Protected if the show doesn&apos;t happen
+                </p>
+              }
             />
           )}
-        </div>
-        <a href="#protection" className="mt-4 inline-block text-sm font-medium text-velvet underline underline-offset-2">
-          How your payment is protected
-        </a>
-        {info && cheapest && (
-          <div className="mt-5 rounded-2xl border border-line p-4">
-            <p className="font-medium">
-              {listings.length} resale ticket{listings.length === 1 ? "" : "s"} at {formatNaira(cheapest.price)}
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              Resold at face value or less. You pay the seller; the ticket and its refund move to you, and only your
-              fingerprint or Face ID opens the door with it.
-            </p>
-            {buyingResale ? (
-              <div className="mt-4">
-                <BuyPanel
-                  meta={meta}
-                  info={info}
-                  listing={cheapest}
-                  onBought={() => setVersion((v) => v + 1)}
-                  onCheckoutChange={onCheckoutChange}
-                />
-                <button onClick={() => setBuyingResale(false)} className="mt-3 text-sm text-muted underline">
-                  Back to new tickets
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setBuyingResale(true)}
-                className="mt-3 w-full rounded-xl border border-velvet px-4 py-2.5 text-sm font-semibold text-velvet"
-              >
-                Buy a resale ticket
+          {info && buyingResale && cheapest && (
+            <>
+              <p className="mb-3 text-sm text-muted">
+                Ticket #{cheapest.ticketId.toString()} on resale. You pay the seller; the ticket and its refund move to you.
+              </p>
+              <BuyPanel
+                meta={meta}
+                info={info}
+                listing={cheapest}
+                onBought={() => setVersion((v) => v + 1)}
+                onCheckoutChange={onCheckoutChange}
+              />
+              <button onClick={() => setBuyingResale(false)} className="mt-3 w-full text-sm text-muted underline">
+                Back to new tickets
               </button>
-            )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </section>
 
-      <section
-        id="protection"
-        aria-labelledby="protection-heading"
-        className="mt-8 scroll-mt-6 rounded-3xl border border-line p-5 lg:col-start-1 lg:row-start-2 lg:p-6"
-      >
-        <h2 id="protection-heading" className="text-lg font-semibold">
+      {info && cheapest && !buyingResale && (
+        <p className="mt-3 text-center text-sm text-muted lg:col-start-2 lg:row-start-3">
+          {listings.length === 1 ? "1 resale ticket" : `${listings.length} resale tickets`} at {formatNaira(cheapest.price)}.{" "}
+          <button onClick={() => setBuyingResale(true)} className="font-medium text-foreground underline underline-offset-4">
+            Buy resale
+          </button>
+        </p>
+      )}
+
+      <details id="protection" className="group mt-10 scroll-mt-6 border-t border-line pt-6 lg:col-start-1 lg:row-start-2 lg:mt-12">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold [&::-webkit-details-marker]:hidden">
           How your payment is protected
-        </h2>
-        <p className="mt-2 text-sm text-muted">{BUYER_PROMISE}</p>
-        <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm">
-          {PROTECTION_STEPS.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ol>
-        <Link
-          href={`/board/${meta.slug}`}
-          className="mt-4 inline-block text-sm font-medium text-velvet underline underline-offset-2"
-        >
-          See where this show&apos;s money is, live
-        </Link>
-      </section>
+          <svg
+            viewBox="0 0 20 20"
+            className="h-5 w-5 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            aria-hidden
+          >
+            <path d="M5 8l5 5 5-5" />
+          </svg>
+        </summary>
+        <div className="mt-4 max-w-[62ch]">
+          <p className="text-muted">{BUYER_PROMISE}</p>
+          <ol className="mt-4 list-decimal space-y-2 pl-5">
+            {PROTECTION.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ol>
+          <Link href={`/board/${meta.slug}`} className="mt-4 inline-block font-medium text-velvet underline underline-offset-4">
+            See where this show&apos;s money is, live
+          </Link>
+        </div>
+      </details>
 
       {showBar && info && sale && (
         <div
@@ -260,21 +229,21 @@ export function EventView({ meta }: { meta: EventMeta }) {
         >
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-lg leading-tight font-semibold">{formatNaira(info.price)}</p>
+              <p className="text-lg leading-tight font-semibold tabular-nums">{formatNaira(info.price)}</p>
               <p className="truncate text-xs text-muted">
-                {sale.kind === "open" ? `${sale.left} tickets left` : sale.label}
+                {sale.kind === "open" ? "Protected if the show doesn't happen" : sale.label}
               </p>
             </div>
             {sale.kind === "open" ? (
-              <button
-                onClick={goToCheckout}
-                className="shrink-0 rounded-2xl bg-velvet px-6 py-3 text-base font-semibold text-velvet-ink"
-              >
+              <button onClick={goToCheckout} className="shrink-0 rounded-2xl bg-velvet px-6 py-3 text-base font-semibold text-velvet-ink">
                 Get ticket
               </button>
             ) : sale.kind === "soldOut" && cheapest ? (
               <button
-                onClick={goToCheckout}
+                onClick={() => {
+                  setBuyingResale(true);
+                  goToCheckout();
+                }}
                 className="shrink-0 rounded-2xl border border-velvet px-4 py-3 text-sm font-semibold text-velvet"
               >
                 Resale from {formatNaira(cheapest.price)}

@@ -7,9 +7,9 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { concat, hexToBytes, toHex } from "viem";
+import { concat, createWalletClient, defineChain, erc20Abi, hexToBytes, http, toHex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { organizerAction } from "./e2e-lib.mjs";
+import { organizerAction, pub, USDC } from "./e2e-lib.mjs";
 import { issueGatePass } from "./gate-device.mjs";
 
 const BASE_URL = process.env.BASE_URL ?? "https://curtaintickets.vercel.app";
@@ -20,6 +20,23 @@ const env = readFileSync(new URL("../../.env", import.meta.url), "utf8");
 const keyFromEnv = (name) => env.match(new RegExp(`^${name}=(0x[0-9a-fA-F]{64})`, "m"))?.[1];
 const organizer = privateKeyToAccount(keyFromEnv("ORGANIZER_PRIVATE_KEY"));
 const gateKey = keyFromEnv("GATE_PRIVATE_KEY");
+
+// REAL_TOPUP=1 sends the screenshot buyer through the app's own top-up. By default the treasury funds it directly
+// (still a real transfer), so screenshot runs don't use up visitors' daily top-up allowance.
+const treasury = createWalletClient({
+  account: privateKeyToAccount(keyFromEnv("TREASURY_PRIVATE_KEY")),
+  chain: defineChain({ id: 10143, name: "Monad Testnet", nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 }, rpcUrls: { default: { http: ["https://testnet-rpc.monad.xyz"] } } }),
+  transport: http("https://testnet-rpc.monad.xyz"),
+});
+async function fundDirectly(page) {
+  if (process.env.REAL_TOPUP) return;
+  await page.route("**/api/topup", async (route) => {
+    const { address } = JSON.parse(route.request().postData() ?? "{}");
+    const hash = await treasury.writeContract({ address: USDC, abi: erc20Abi, functionName: "transfer", args: [address, 3_000_000n] });
+    await pub.waitForTransactionReceipt({ hash });
+    await route.fulfill({ json: { toppedUp: true, amount: "3000000", hash } });
+  });
+}
 const state = JSON.parse(readFileSync(new URL("state.json", OUT), "utf8"));
 
 const DEMO = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
@@ -132,6 +149,7 @@ for (const vp of viewports) {
     if (p.pair) await installWallet(page);
     const gatePage = p.door ? await openGate(vp) : null;
     if (p.buy) {
+      await fundDirectly(page);
       const cdp = await context.newCDPSession(page);
       await cdp.send("WebAuthn.enable");
       await cdp.send("WebAuthn.addVirtualAuthenticator", {

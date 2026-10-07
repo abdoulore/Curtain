@@ -16,7 +16,7 @@ import { issueGatePass } from "./gate-device.mjs";
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const RPC = "https://testnet-rpc.monad.xyz";
 const CHAIN_ID = 10143;
-const EVENT = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
+const EVENT = "0x6385e193b18c4291Da556121e6E9eCF04b384672";
 const USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
 const RP_ID = "curtaintickets.vercel.app";
 

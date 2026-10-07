@@ -25,16 +25,20 @@ const CATALOG: EventMeta[] = [
 ];
 
 /**
- * Test shows kept off the home page. A scripted test run created this one and didn't keep its organizer key, so it
+ * Shows kept off the lists. A scripted test run created the first and didn't keep its organizer key, so it
  * can't be cancelled; it ends on its own. Test runs now cancel their shows when they finish.
  */
-export const HIDDEN_SHOWS: readonly Address[] = ["0x1c10dbC3425FD4F9fbb4c837E494cBb5AEB23399"];
+export const HIDDEN_SHOWS: readonly Address[] = [
+  "0x1c10dbC3425FD4F9fbb4c837E494cBb5AEB23399",
+  // The October demo show, replaced by the December one; its tickets still work and keep their name.
+  "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E",
+];
 
 /** Extra demo shows with fictional names and venues, made by the demo organizer (scripts/demo-shows.mjs). */
 export const DEMO_SHOWS: readonly Address[] = [
-  "0xC25f44F71Ae269A06560e6275d6343C0FcFE6baA",
-  "0x009723fCE8460F764Aeff412D52699A6415A33DC",
-  "0xa182874c52F30362f82d71c6c551236419261E3a",
+  "0xD9bAe0794514D4De8C5c5B140Db419Bc40b670F9",
+  "0xa8a6013A82C9C65f586D10fa0146eEAE01CF2e24",
+  "0x6a33f89D9122C2dd8A92c6D25affEb057dAF0722",
 ];
 
 /** True for the demo show and the other demo shows, which carry a Demo label everywhere. */

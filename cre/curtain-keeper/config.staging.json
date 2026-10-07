@@ -4,7 +4,7 @@
   "keeperAddress": "0xC157558da8C7d90EAE75C38A850515567ED5a18E",
   "envioUrl": "https://indexer.dev.hyperindex.xyz/2c9d58b/v1/graphql",
   "events": [
-    "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E"
+    "0x6385e193b18c4291Da556121e6E9eCF04b384672"
   ],
   "gasLimit": "600000"
 }

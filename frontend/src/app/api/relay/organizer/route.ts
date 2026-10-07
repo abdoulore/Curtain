@@ -4,6 +4,7 @@ import { txUrl } from "@/lib/chain";
 import { walletFor } from "@/server/clients";
 import { env } from "@/server/env";
 import { assertCurtainEvent } from "@/server/events";
+import { gasGuard } from "@/server/gas-budget";
 import { address, fail, hexBytes, ok, parse, uint } from "@/server/http";
 import { sendContract } from "@/server/relay";
 
@@ -26,7 +27,11 @@ export async function POST(request: Request) {
         : action.kind === "cancel"
           ? { functionName: "cancel", args: [nonce, deadline, sig] }
           : { functionName: "setGate", args: [action.gate, action.allowed, nonce, deadline, sig] };
-    const sent = await sendContract(walletFor(env.relayerKey()), { address: event, abi: curtainEventAbi, ...call });
+    const sent = await sendContract(
+      walletFor(env.relayerKey()),
+      { address: event, abi: curtainEventAbi, ...call },
+      gasGuard("organizer"),
+    );
     return ok({ hash: sent.hash, explorer: txUrl(sent.hash) });
   } catch (error) {
     return fail(error);

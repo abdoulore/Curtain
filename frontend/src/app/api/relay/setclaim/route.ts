@@ -5,6 +5,7 @@ import { txUrl } from "@/lib/chain";
 import { walletFor } from "@/server/clients";
 import { env } from "@/server/env";
 import { assertCurtainEvent } from "@/server/events";
+import { gasGuard } from "@/server/gas-budget";
 import { address, fail, hexBytes, ok, parse, uint } from "@/server/http";
 import { sendContract } from "@/server/relay";
 
@@ -22,12 +23,16 @@ export async function POST(request: Request) {
   try {
     const { event, ticketId, claimKey, nonce, deadline, holderSig } = await parse(request, body);
     const eventAddress = await assertCurtainEvent(event);
-    const sent = await sendContract(walletFor(env.relayerKey()), {
-      address: eventAddress,
-      abi: curtainEventAbi,
-      functionName: "setClaim",
-      args: [ticketId, claimKey, nonce, deadline, holderSig],
-    });
+    const sent = await sendContract(
+      walletFor(env.relayerKey()),
+      {
+        address: eventAddress,
+        abi: curtainEventAbi,
+        functionName: "setClaim",
+        args: [ticketId, claimKey, nonce, deadline, holderSig],
+      },
+      gasGuard("setclaim"),
+    );
     const [set] = parseEventLogs({ abi: curtainEventAbi, logs: sent.receipt.logs, eventName: "ClaimSet" });
     return ok({ hash: sent.hash, explorer: txUrl(sent.hash), claimNonce: set?.args.claimNonce });
   } catch (error) {

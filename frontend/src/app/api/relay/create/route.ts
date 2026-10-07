@@ -6,6 +6,7 @@ import { MAX_CAPACITY } from "@/lib/create-show";
 import { walletFor } from "@/server/clients";
 import { env } from "@/server/env";
 import { isSupportedToken } from "@/server/events";
+import { gasGuard } from "@/server/gas-budget";
 import { address, bytes32, fail, hexBytes, ok, parse, uint } from "@/server/http";
 import { clientIp, enforceCreateLimits, limitStore } from "@/server/limits";
 import { RelayError, sendContract } from "@/server/relay";
@@ -49,12 +50,16 @@ export async function POST(request: Request) {
       throw new RelayError(400, "WrongRpId", "Shows must accept passkeys made for this site");
     }
     await enforceCreateLimits(limitStore(), clientIp(request));
-    const sent = await sendContract(walletFor(env.relayerKey()), {
-      address: CURTAIN_FACTORY,
-      abi: curtainFactoryAbi,
-      functionName: "createEventFor",
-      args: [organizer, params, name, venue, nonce, deadline, sig],
-    });
+    const sent = await sendContract(
+      walletFor(env.relayerKey()),
+      {
+        address: CURTAIN_FACTORY,
+        abi: curtainFactoryAbi,
+        functionName: "createEventFor",
+        args: [organizer, params, name, venue, nonce, deadline, sig],
+      },
+      gasGuard("create"),
+    );
     const [created] = parseEventLogs({ abi: curtainFactoryAbi, logs: sent.receipt.logs, eventName: "EventCreated" });
     if (!created) throw new RelayError(502, "NotCreated", "The show was not created");
     return ok({ event: getAddress(created.args.eventAddress), hash: sent.hash, explorer: txUrl(sent.hash) });

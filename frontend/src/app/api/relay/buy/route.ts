@@ -6,6 +6,7 @@ import { walletFor } from "@/server/clients";
 import { env } from "@/server/env";
 import { assertCurtainEvent } from "@/server/events";
 import { address, bytes32, fail, hexBytes, ok, parse, uint } from "@/server/http";
+import { gasGuard } from "@/server/gas-budget";
 import { sendContract } from "@/server/relay";
 
 const body = z.object({
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       resale
         ? { address: eventAddress, abi: curtainEventAbi, functionName: "buyResale", args: [intent.ticketId, intent, buyerSig, p] }
         : { address: eventAddress, abi: curtainEventAbi, functionName: "buy", args: [intent, buyerSig, p] },
+      gasGuard("buy"),
     );
     const [purchased] = parseEventLogs({ abi: curtainEventAbi, logs: sent.receipt.logs, eventName: "Purchased" });
     return ok({

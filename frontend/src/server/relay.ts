@@ -34,11 +34,13 @@ export type Sent = { hash: Hash; receipt: TransactionReceipt; estimate: bigint; 
 
 /**
  * Simulates first, so a call that would revert never costs gas, then sends with the gas limit at the
- * estimate plus 10%. Monad charges the gas limit, not the gas used.
+ * estimate plus 10%. Monad charges the gas limit, not the gas used. A refused simulation is never charged.
  */
 export async function sendContract(
   wallet: Wallet,
   call: { address: Address; abi: Abi; functionName: string; args: readonly unknown[] },
+  /** Runs with the gas limit before sending, and may refuse (the route's daily gas ceiling). */
+  guard?: (gasLimit: bigint) => Promise<void>,
 ): Promise<Sent> {
   const account = wallet.account;
   let estimate: bigint;
@@ -48,6 +50,7 @@ export async function sendContract(
     throw toRelayError(error);
   }
   const gasLimit = estimate + estimate / 10n;
+  await guard?.(gasLimit);
 
   for (let attempt = 0; ; attempt++) {
     try {

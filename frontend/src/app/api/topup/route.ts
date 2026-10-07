@@ -3,8 +3,9 @@ import { erc20Abi } from "viem";
 import { txUrl, USDC } from "@/lib/chain";
 import { publicClient, walletFor } from "@/server/clients";
 import { env } from "@/server/env";
+import { gasGuard } from "@/server/gas-budget";
 import { address, fail, ok, parse } from "@/server/http";
-import { assertTreasuryCovers, clientIp, enforceTopupLimits, limitStore } from "@/server/limits";
+import { assertTopupsOpen, clientIp, enforceTopupLimits, limitStore } from "@/server/limits";
 import { privateKeyToAccount } from "viem/accounts";
 import { sendContract } from "@/server/relay";
 
@@ -19,22 +20,30 @@ export async function POST(request: Request) {
     const { address: to } = await parse(request, body);
     const balance = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [to] });
     if (balance >= LOW_BALANCE) return ok({ toppedUp: false, balance });
-    // Counted only when money would actually move: per network per day, and for the whole app per hour.
+    // Counted only when money would actually move: per network per day, and for the whole app per hour. In
+    // production without Upstash this refuses, so top-ups fail closed.
     await enforceTopupLimits(limitStore(), clientIp(request));
 
+    // Paused while the treasury can't pay, or the relayer is too low on gas to carry the buys that follow.
     const amount = env.topupAmount();
     const treasury = privateKeyToAccount(env.treasuryKey()).address;
-    const [treasuryUsdc, treasuryGas] = await Promise.all([
+    const relayer = privateKeyToAccount(env.relayerKey()).address;
+    const [treasuryUsdc, treasuryMon, relayerMon] = await Promise.all([
       publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [treasury] }),
       publicClient.getBalance({ address: treasury }),
+      publicClient.getBalance({ address: relayer }),
     ]);
-    assertTreasuryCovers(treasuryUsdc, amount, treasuryGas);
-    const sent = await sendContract(walletFor(env.treasuryKey()), {
-      address: USDC,
-      abi: erc20Abi,
-      functionName: "transfer",
-      args: [to, amount],
-    });
+    assertTopupsOpen({ treasuryUsdc, treasuryMon, relayerMon }, amount);
+    const sent = await sendContract(
+      walletFor(env.treasuryKey()),
+      {
+        address: USDC,
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [to, amount],
+      },
+      gasGuard("topup"),
+    );
     return ok({ toppedUp: true, amount, balance: balance + amount, hash: sent.hash, explorer: txUrl(sent.hash) });
   } catch (error) {
     return fail(error);

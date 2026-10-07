@@ -1,55 +1,100 @@
 import "server-only";
 import { RelayError } from "./relay";
 
-/** Counts hits per key inside a window. Upstash Redis when configured, so caps hold across serverless instances. */
+/** Counts per key inside a window. Upstash Redis when configured, so caps hold across serverless instances. */
 export interface CounterStore {
+  /** Where the counts live: shared across instances (Upstash), this instance only, or nowhere (refuses). */
+  readonly kind: "upstash" | "memory" | "missing";
   /** Increments `key` and returns the new count. The count expires `windowSeconds` after its first hit. */
   hit(key: string, windowSeconds: number): Promise<number>;
+  /** Adds `by` to `key` and returns the new total, with the same expiry rule. */
+  add(key: string, by: number, windowSeconds: number): Promise<number>;
+  /** The current total for `key`, 0 when unset. */
+  get(key: string): Promise<number>;
 }
 
 export function memoryStore(now: () => number = Date.now): CounterStore {
   const counts = new Map<string, { count: number; resetAt: number }>();
+  const live = (key: string) => {
+    const entry = counts.get(key);
+    return entry && entry.resetAt > now() ? entry : undefined;
+  };
+  const add = async (key: string, by: number, windowSeconds: number) => {
+    const entry = live(key);
+    if (!entry) {
+      counts.set(key, { count: by, resetAt: now() + windowSeconds * 1000 });
+      return by;
+    }
+    entry.count += by;
+    return entry.count;
+  };
   return {
-    async hit(key, windowSeconds) {
-      const t = now();
-      const entry = counts.get(key);
-      if (!entry || entry.resetAt <= t) {
-        counts.set(key, { count: 1, resetAt: t + windowSeconds * 1000 });
-        return 1;
-      }
-      entry.count += 1;
-      return entry.count;
-    },
+    kind: "memory",
+    hit: (key, windowSeconds) => add(key, 1, windowSeconds),
+    add,
+    get: async (key) => live(key)?.count ?? 0,
   };
 }
 
-/** Upstash REST (the Vercel Marketplace integration sets KV_REST_API_URL and KV_REST_API_TOKEN). */
-export function upstashStore(url: string, token: string): CounterStore {
-  return {
-    async hit(key, windowSeconds) {
-      const res = await fetch(`${url}/pipeline`, {
-        method: "POST",
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify([
-          ["INCR", key],
-          ["EXPIRE", key, String(windowSeconds), "NX"],
-        ]),
-      });
-      if (!res.ok) throw new RelayError(503, "LimitStoreUnavailable", "Top-ups are paused for a moment. Try again soon.");
-      const [incr] = (await res.json()) as [{ result: number }];
-      return incr.result;
-    },
+const paused = () => new RelayError(503, "LimitStoreUnavailable", "Top-ups are paused for a moment. Try again soon.");
+
+/** Production without Upstash: every count fails, so anything relying on shared limits stays shut. */
+export function missingStore(): CounterStore {
+  const shut = async (): Promise<number> => {
+    throw paused();
   };
+  return { kind: "missing", hit: shut, add: shut, get: shut };
+}
+
+/** Upstash REST (the Vercel Marketplace integration sets KV_REST_API_URL and KV_REST_API_TOKEN). */
+export function upstashStore(url: string, token: string, request: typeof fetch = fetch): CounterStore {
+  // Failing to reach Upstash, or an error inside the pipeline, reads as paused; the caller decides what that means.
+  async function pipeline(commands: string[][]): Promise<{ result?: unknown; error?: string }[]> {
+    const res = await request(`${url}/pipeline`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(commands),
+    }).catch(() => null);
+    if (!res?.ok) throw paused();
+    const out = (await res.json().catch(() => null)) as { result?: unknown; error?: string }[] | null;
+    if (!Array.isArray(out) || out.some((r) => r.error)) throw paused();
+    return out;
+  }
+  const add = async (key: string, by: number, windowSeconds: number) => {
+    const [incr] = await pipeline([
+      ["INCRBY", key, String(by)],
+      ["EXPIRE", key, String(windowSeconds), "NX"],
+    ]);
+    return Number(incr!.result);
+  };
+  return {
+    kind: "upstash",
+    hit: (key, windowSeconds) => add(key, 1, windowSeconds),
+    add,
+    get: async (key) => Number((await pipeline([["GET", key]]))[0]!.result ?? 0),
+  };
+}
+
+/** True on the live site. Preview and local runs may count in memory. */
+export function isProduction(environment: NodeJS.ProcessEnv = process.env): boolean {
+  return environment.VERCEL_ENV === "production";
+}
+
+/**
+ * The shared counter store: Upstash when configured (the Vercel Marketplace integration sets KV_REST_API_URL and
+ * KV_REST_API_TOKEN); in production without it, a store that refuses, so top-ups fail closed; elsewhere, memory.
+ */
+export function storeFor(environment: NodeJS.ProcessEnv = process.env): CounterStore {
+  const url = environment.KV_REST_API_URL ?? environment.UPSTASH_REDIS_REST_URL;
+  const token = environment.KV_REST_API_TOKEN ?? environment.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) return upstashStore(url, token);
+  return isProduction(environment) ? missingStore() : memoryStore();
 }
 
 let shared: CounterStore | undefined;
 
 export function limitStore(): CounterStore {
-  if (shared) return shared;
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  shared = url && token ? upstashStore(url, token) : memoryStore();
-  return shared;
+  return (shared ??= storeFor());
 }
 
 export type TopupLimits = { perIpPerDay: number; globalPerHour: number };
@@ -96,12 +141,25 @@ export async function enforceCreateLimits(store: CounterStore, ip: string, limit
   }
 }
 
-/** The treasury must cover the top-up; otherwise say so plainly instead of failing the transfer. */
 /** Enough MON for a few top-up transfers at testnet gas prices. */
 export const MIN_TREASURY_GAS = 20_000_000_000_000_000n; // 0.02 MON
+/** Below this the relayer can't carry many buys, so new buyers aren't handed money they couldn't spend. */
+export const MIN_RELAYER_GAS = BigInt(process.env.MIN_RELAYER_GAS_WEI ?? "200000000000000000"); // 0.2 MON
 
-export function assertTreasuryCovers(treasuryBalance: bigint, amount: bigint, treasuryGas = MIN_TREASURY_GAS) {
-  if (treasuryBalance < amount || treasuryGas < MIN_TREASURY_GAS) {
+export type Balances = { treasuryUsdc: bigint; treasuryMon: bigint; relayerMon: bigint };
+export type TopupPause = "treasury-usdc" | "treasury-gas" | "relayer-gas";
+
+/** Why top-ups should pause right now, or null when the treasury and the relayer can both cover one. */
+export function topupPause(b: Balances, amount: bigint): TopupPause | null {
+  if (b.treasuryUsdc < amount) return "treasury-usdc";
+  if (b.treasuryMon < MIN_TREASURY_GAS) return "treasury-gas";
+  if (b.relayerMon < MIN_RELAYER_GAS) return "relayer-gas";
+  return null;
+}
+
+/** Pauses top-ups while the treasury or relayer is low, saying so plainly instead of failing the transfer. */
+export function assertTopupsOpen(b: Balances, amount: bigint) {
+  if (topupPause(b, amount)) {
     throw new RelayError(503, "DemoMoneyRefilling", "Demo money is being refilled. Try again in a few minutes.");
   }
 }

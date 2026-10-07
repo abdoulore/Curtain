@@ -5,6 +5,7 @@ import { txUrl } from "@/lib/chain";
 import { walletFor } from "@/server/clients";
 import { env } from "@/server/env";
 import { assertCurtainEvent } from "@/server/events";
+import { gasGuard } from "@/server/gas-budget";
 import { address, bytes32, fail, hexBytes, ok, parse, uint } from "@/server/http";
 import { gateLog } from "@/server/gate-log";
 import { RelayError, sendContract, toRelayError } from "@/server/relay";
@@ -39,12 +40,16 @@ export async function POST(request: Request) {
     const { event, ticketId, gate, auth } = parsed;
     if (gate.event !== event) throw new RelayError(400, "GateTokenWrongEvent", "That gate code is for another show");
     const eventAddress = await assertCurtainEvent(event);
-    const sent = await sendContract(walletFor(env.relayerKey()), {
-      address: eventAddress,
-      abi: curtainEventAbi,
-      functionName: "checkIn",
-      args: [ticketId, gate.gateNonce, BigInt(gate.challengeBlock), gate.pass, auth],
-    });
+    const sent = await sendContract(
+      walletFor(env.relayerKey()),
+      {
+        address: eventAddress,
+        abi: curtainEventAbi,
+        functionName: "checkIn",
+        args: [ticketId, gate.gateNonce, BigInt(gate.challengeBlock), gate.pass, auth],
+      },
+      gasGuard("checkin"),
+    );
     const [checkedIn] = parseEventLogs({ abi: curtainEventAbi, logs: sent.receipt.logs, eventName: "CheckedIn" });
     await record(event, { at: Date.now(), ok: true, ticketId: ticketId.toString(), hash: sent.hash });
     return ok({

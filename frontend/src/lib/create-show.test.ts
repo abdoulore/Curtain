@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { concat, encodeAbiParameters, getAddress, hashTypedData, keccak256, sha256, toBytes } from "viem";
 import { CURTAIN_FACTORY, RP_ID, USDC } from "./chain";
-import { buildShow, createShowTypedData, SHOW_LENGTH_SECONDS, type ShowForm } from "./create-show";
+import { buildShow, eventStepError, ticketStepError, createShowTypedData, SHOW_LENGTH_SECONDS, type ShowForm } from "./create-show";
 
 const ORGANIZER = getAddress("0x43b477ac071e8a790cf1d7fb64eb4dd80058dc91");
 const NOW = 1_791_300_000;
@@ -43,6 +43,24 @@ describe("buildShow", () => {
     expect(buildShow({ ...form, startsAt: NOW - SHOW_LENGTH_SECONDS - 1 }, ORGANIZER, NOW)).toMatchObject({ ok: false });
   });
 
+});
+
+describe("step checks", () => {
+  it("checks only the event details on the first step", () => {
+    expect(eventStepError(form, NOW)).toBeNull();
+    expect(eventStepError({ ...form, name: "" }, NOW)).toBe("Give the show a name.");
+    expect(eventStepError({ ...form, venue: "x" }, NOW)).toBe("Say where it is.");
+    expect(eventStepError({ ...form, startsAt: NOW - 7 * 3600 }, NOW)).toMatch(/already be over/);
+    // A bad price is the second step's business.
+    expect(eventStepError({ ...form, priceNaira: "" } as never, NOW)).toBeNull();
+  });
+
+  it("checks only the ticket details on the second step", () => {
+    expect(ticketStepError(form)).toBeNull();
+    expect(ticketStepError({ ...form, priceNaira: "abc" })).toBe("Set a ticket price in naira.");
+    expect(ticketStepError({ ...form, capacity: "0" })).toMatch(/Capacity/);
+    expect(ticketStepError({ ...form, perPerson: "99" })).toMatch(/Tickets per person/);
+  });
 });
 
 describe("createShowTypedData", () => {

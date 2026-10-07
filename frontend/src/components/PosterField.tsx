@@ -39,7 +39,7 @@ export function PosterFields({
           </span>
           <span className="text-sm font-normal">
             <span className="block font-medium">{shown ? "Change the poster" : "Add a poster"}</span>
-            <span className="block text-xs text-muted">JPG, PNG or WEBP, up to 3 MB. Portrait looks best.</span>
+            <span className="block text-xs text-muted">JPG, PNG or WEBP, up to 3 MB. Landscape looks best.</span>
           </span>
           <input
             type="file"

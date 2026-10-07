@@ -38,27 +38,43 @@ export const MAX_PER_PERSON = 50;
 
 export type BuiltShow = { ok: true; name: string; venue: string; params: ShowParams } | { ok: false; error: string };
 
-/** Checks the create form and turns it into contract parameters. Gates are paired after creation. */
-export function buildShow(form: ShowForm, organizer: Address, now: number): BuiltShow {
+/** The first step's problem, if any: name, venue and when. */
+export function eventStepError(form: Pick<ShowForm, "name" | "venue" | "startsAt">, now: number): string | null {
   const name = form.name.trim();
   const venue = form.venue.trim();
-  if (name.length < 3) return { ok: false, error: "Give the show a name." };
-  if (name.length > 80) return { ok: false, error: "Keep the name under 80 characters." };
-  if (venue.length < 3) return { ok: false, error: "Say where it is." };
-  if (venue.length > 120) return { ok: false, error: "Keep the venue under 120 characters." };
-  if (!Number.isFinite(form.startsAt)) return { ok: false, error: "Pick a date and time." };
-  const endTime = form.startsAt + SHOW_LENGTH_SECONDS;
-  if (endTime <= now) return { ok: false, error: "That show would already be over. Pick a later time." };
-  const price = nairaToUsdcUnits(form.priceNaira);
-  if (price === null) return { ok: false, error: "Set a ticket price in naira." };
+  if (name.length < 3) return "Give the show a name.";
+  if (name.length > 80) return "Keep the name under 80 characters.";
+  if (venue.length < 3) return "Say where it is.";
+  if (venue.length > 120) return "Keep the venue under 120 characters.";
+  if (!Number.isFinite(form.startsAt)) return "Pick a date and time.";
+  if (form.startsAt + SHOW_LENGTH_SECONDS <= now) return "That show would already be over. Pick a later time.";
+  return null;
+}
+
+/** The second step's problem, if any: price, capacity and tickets per person. */
+export function ticketStepError(form: Pick<ShowForm, "priceNaira" | "capacity" | "perPerson">): string | null {
+  if (nairaToUsdcUnits(form.priceNaira) === null) return "Set a ticket price in naira.";
   const capacity = Number(form.capacity);
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > MAX_CAPACITY) {
-    return { ok: false, error: `Capacity must be a whole number from 1 to ${MAX_CAPACITY.toLocaleString()}.` };
+    return `Capacity must be a whole number from 1 to ${MAX_CAPACITY.toLocaleString()}.`;
   }
   const perPerson = Number(form.perPerson);
   if (!Number.isInteger(perPerson) || perPerson < 1 || perPerson > MAX_PER_PERSON) {
-    return { ok: false, error: `Tickets per person is a whole number from 1 to ${MAX_PER_PERSON}.` };
+    return `Tickets per person is a whole number from 1 to ${MAX_PER_PERSON}.`;
   }
+  return null;
+}
+
+/** Checks the create form and turns it into contract parameters. Gates are paired after creation. */
+export function buildShow(form: ShowForm, organizer: Address, now: number): BuiltShow {
+  const error = eventStepError(form, now) ?? ticketStepError(form);
+  if (error) return { ok: false, error };
+  const name = form.name.trim();
+  const venue = form.venue.trim();
+  const endTime = form.startsAt + SHOW_LENGTH_SECONDS;
+  const price = nairaToUsdcUnits(form.priceNaira)!;
+  const capacity = Number(form.capacity);
+  const perPerson = Number(form.perPerson);
   return {
     ok: true,
     name,

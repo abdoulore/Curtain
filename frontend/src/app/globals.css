@@ -130,3 +130,16 @@ body {
 .gate-drain {
   animation: gate-drain 5s linear forwards;
 }
+
+/* Create Show: each step settles in from an already-visible start. */
+@keyframes step-in {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: none;
+  }
+}
+.step-in {
+  animation: step-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}

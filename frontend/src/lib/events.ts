@@ -1,5 +1,5 @@
 import { getAddress, isAddress, type Address } from "viem";
-import { DEMO_EVENT } from "./chain";
+import { DEMO_EVENT, RETIRED_DEMOS } from "./chain";
 
 /** What the contract does not store: the words and place people see. */
 export type EventMeta = {
@@ -38,18 +38,19 @@ export function findEvent(id: string): EventMeta | undefined {
   if (bySlug) return bySlug;
   if (!isAddress(id)) return undefined;
   const address = getAddress(id);
-  return (
-    CATALOG.find((e) => e.address === address) ?? {
-      slug: address,
-      address,
-      name: "Curtain event",
-      tagline: "Pay on entry. If the show doesn't happen, your money comes back.",
-      venue: "Venue to be announced",
-      // Shows made on the create page carry their own name and venue onchain; see withDetails.
-      city: "",
-      isDemo: false,
-    }
-  );
+  const catalogued = CATALOG.find((e) => e.address === address);
+  if (catalogued) return catalogued;
+  if (RETIRED_DEMOS.includes(address)) return { ...CATALOG[0]!, slug: address, address };
+  return {
+    slug: address,
+    address,
+    name: "Curtain event",
+    tagline: "Pay on entry. If the show doesn't happen, your money comes back.",
+    venue: "Venue to be announced",
+    // Shows made on the create page carry their own name and venue onchain; see withDetails.
+    city: "",
+    isDemo: false,
+  };
 }
 
 /** Applies the name and venue an organizer gave a show onchain. Catalog entries keep their own copy. */

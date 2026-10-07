@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { Address } from "viem";
 import { RP_ID } from "@/lib/chain";
 import { buildIcs, icsFileName } from "@/lib/ics";
@@ -13,6 +14,7 @@ export function AddToCalendar({
   doorsOpen,
   endTime,
   className,
+  icon,
 }: {
   event: Address;
   ticketId: string;
@@ -21,6 +23,7 @@ export function AddToCalendar({
   doorsOpen: number;
   endTime: number;
   className?: string;
+  icon?: ReactNode;
 }) {
   function download() {
     const ics = buildIcs(
@@ -49,6 +52,7 @@ export function AddToCalendar({
       onClick={download}
       className={className ?? "w-full rounded-xl border border-line px-4 py-2.5 text-sm font-semibold"}
     >
+      {icon}
       Add to calendar
     </button>
   );

@@ -15,6 +15,18 @@ export const monadTestnet = defineChain({
 export const CURTAIN_FACTORY: Address = "0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF";
 export const DEMO_EVENT: Address = "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E";
 
+/** Earlier factories, newest first. Shows made there keep working, so their names are still looked up. */
+export const RETIRED_FACTORIES: readonly Address[] = [
+  "0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6",
+  "0x13391D9E0dD62d01c62821671F47A12eE320Ca58",
+];
+/** Demo shows from earlier deployments, which people may still hold tickets for. */
+export const RETIRED_DEMOS: readonly Address[] = [
+  "0x5562bF1ccBabcF2f060239f9D241Ba9661217135",
+  "0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D",
+  "0xd3F22B52F74D658318C29E0475E1833214eCA005",
+];
+
 /** Circle USDC on Monad testnet. Its EIP-712 domain is name "USDC", version "2". */
 export const USDC: Address = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
 export const USDC_PERMIT_DOMAIN = { name: "USDC", version: "2", chainId: monadTestnet.id, verifyingContract: USDC } as const;

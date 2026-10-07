@@ -3,21 +3,34 @@
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
 import { curtainFactoryAbi } from "./abis";
-import { CURTAIN_FACTORY } from "./chain";
+import { CURTAIN_FACTORY, RETIRED_FACTORIES } from "./chain";
 import { findEvent, withDetails, type EventMeta } from "./events";
 import { browserClient } from "./reads";
 
 const cache = new Map<string, Promise<{ name: string; venue: string } | undefined>>();
 
-/** The name and venue stored by the factory when the show was created. Read once per page load. */
+async function detailsFrom(factory: Address, event: Address) {
+  const [name, venue] = await browserClient
+    .readContract({ address: factory, abi: curtainFactoryAbi, functionName: "details", args: [event] })
+    .catch(() => ["", ""] as const);
+  return name ? { name, venue } : undefined;
+}
+
+/**
+ * The name and venue stored by the factory when the show was created, trying earlier factories for older shows.
+ * Read once per page load.
+ */
 export function readShowDetails(event: Address) {
   const key = event.toLowerCase();
   let hit = cache.get(key);
   if (!hit) {
-    hit = browserClient
-      .readContract({ address: CURTAIN_FACTORY, abi: curtainFactoryAbi, functionName: "details", args: [event] })
-      .then(([name, venue]) => ({ name, venue }))
-      .catch(() => undefined);
+    hit = (async () => {
+      for (const factory of [CURTAIN_FACTORY, ...RETIRED_FACTORIES]) {
+        const found = await detailsFrom(factory, event);
+        if (found) return found;
+      }
+      return undefined;
+    })();
     cache.set(key, hit);
   }
   return hit;

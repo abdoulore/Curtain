@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { txUrl } from "@/lib/chain";
 import { friendlyPasskeyError, signOut, unlock, type StoredAccount } from "@/lib/account";
 import { ApiError } from "@/lib/api";
@@ -9,10 +9,13 @@ import { useAccount, useHydrated } from "@/lib/hooks";
 import { useMyTickets } from "@/lib/use-my-tickets";
 import { formatNaira } from "@/lib/money";
 import { browserClient, readBalance, readEventInfo, readTicket, type EventInfo, type TicketInfo } from "@/lib/reads";
-import { cardStatus, listTicket, rememberListed, wasListedHere, type CardStatus } from "@/lib/resale";
+import { cardStatus, listTicket, rememberListed, wasListedHere } from "@/lib/resale";
 import { useShowMeta } from "@/lib/show-details";
+import { ticketBadge, type BadgeIcon, type TicketBadge } from "@/lib/ticket-badge";
 import type { SavedTicket } from "@/lib/tickets";
+import { useShowMedia } from "@/lib/use-show-media";
 import { AddToCalendar } from "./AddToCalendar";
+import { Poster } from "./Poster";
 import { SendToPhone } from "./SendToPhone";
 import { SignInButton } from "./SignInButton";
 
@@ -35,32 +38,82 @@ function readShowOnce(event: SavedTicket["event"]): Promise<EventInfo> {
   return hit;
 }
 
-const DOOR_HINT = "At the door, scan the gate code with your camera and confirm with your fingerprint or Face ID.";
+const ICON_PATHS: Record<BadgeIcon, ReactNode> = {
+  check: <path d="M4.5 10.5l3.5 3.5 7.5-8" />,
+  tag: (
+    <>
+      <path d="M3 10V4a1 1 0 0 1 1-1h6l7 7-7 7z" />
+      <circle cx="7" cy="7" r="1.2" />
+    </>
+  ),
+  door: (
+    <>
+      <path d="M5 17V3h10v14M3 17h14" />
+      <path d="M12 10h.01" />
+    </>
+  ),
+  return: <path d="M7 5L3 9l4 4M3 9h9a5 5 0 0 1 0 10h-2" />,
+  clock: (
+    <>
+      <circle cx="10" cy="10" r="7" />
+      <path d="M10 6v4l3 2" />
+    </>
+  ),
+  arrow: <path d="M4 10h12M11 5l5 5-5 5" />,
+};
 
-function statusLine(status: CardStatus, price: string): { text: string; tone: string } {
-  switch (status) {
-    case "checking":
-      return { text: "Checking…", tone: "text-muted" };
-    case "ready":
-      return { text: "Ready for the door", tone: "text-go" };
-    case "listed":
-      return { text: `On sale at ${price}. It's still yours until someone buys it.`, tone: "text-velvet" };
-    case "used":
-      return { text: "Checked in. Enjoy the show", tone: "text-foreground" };
-    case "refunded":
-      return { text: `${price} is back in your balance`, tone: "text-go" };
-    case "refundOwed":
-      return { text: "Refund on its way", tone: "text-velvet" };
-    case "sold":
-      return { text: `Sold. The buyer's ${price} went to your balance.`, tone: "text-muted" };
-    case "passedOn":
-      return { text: "Passed on to someone else", tone: "text-muted" };
-  }
+function Icon({ name, className = "h-4 w-4" }: { name: BadgeIcon | "calendar" | "send"; className?: string }) {
+  const path =
+    name === "calendar" ? (
+      <>
+        <rect x="3" y="4" width="14" height="13" rx="2" />
+        <path d="M3 8h14M7 2v4M13 2v4" />
+      </>
+    ) : name === "send" ? (
+      <path d="M3 10l14-7-5 14-2.5-5.5z" />
+    ) : (
+      ICON_PATHS[name]
+    );
+  return (
+    <svg viewBox="0 0 20 20" className={`shrink-0 ${className}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {path}
+    </svg>
+  );
 }
+
+const BADGE_TONE: Record<TicketBadge["tone"], string> = {
+  go: "bg-go/12 text-go ring-go/30",
+  velvet: "bg-velvet/10 text-velvet ring-velvet/30",
+  neutral: "bg-foreground/8 text-foreground ring-foreground/20",
+  muted: "bg-foreground/5 text-muted ring-line",
+};
+
+function Badge({ badge }: { badge: TicketBadge }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${BADGE_TONE[badge.tone]}`}>
+      <Icon name={badge.icon} className="h-3.5 w-3.5" />
+      {badge.label}
+    </span>
+  );
+}
+
+/** The dashed tear line, with a notch cut into each edge of the ticket. */
+function Perforation() {
+  return (
+    <div className="relative mx-5 border-t-2 border-dashed border-line" aria-hidden>
+      <span className="absolute -top-3 -left-8 h-6 w-6 rounded-full border border-line bg-background [clip-path:inset(0_0_0_50%)]" />
+      <span className="absolute -top-3 -right-8 h-6 w-6 rounded-full border border-line bg-background [clip-path:inset(0_50%_0_0)]" />
+    </div>
+  );
+}
+
+const ACTION =
+  "flex flex-1 basis-0 flex-col items-center justify-center gap-1 px-2 py-3 text-xs font-semibold hover:bg-background disabled:opacity-50";
 
 function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account: StoredAccount; onMoney: () => void }) {
   const owner = account.address;
   const meta = useShowMeta(ticket.event);
+  const media = useShowMedia(ticket.event);
   const [info, setInfo] = useState<TicketInfo | null>(null);
   const [show, setShow] = useState<EventInfo | null>(null);
   const [justListed, setJustListed] = useState(false);
@@ -94,8 +147,9 @@ function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account
 
   const status = cardStatus(info, owner, listedHere);
   const price = show ? formatNaira(show.price) : "…";
-  const line = statusLine(status, status === "listed" && info ? formatNaira(info.resalePrice) : price);
+  const badge = ticketBadge(status, status === "listed" && info ? formatNaira(info.resalePrice) : price);
   const open = show?.status === "Open" && show.readAt < show.endTime;
+  const name = meta?.name ?? "Curtain show";
 
   async function setOnSale(onSale: boolean) {
     if (!show) return;
@@ -120,49 +174,73 @@ function TicketCard({ ticket, account, onMoney }: { ticket: SavedTicket; account
   }
 
   return (
-    <li className="overflow-hidden rounded-3xl border border-line bg-surface">
-      <div className="flex items-start justify-between gap-4 p-5">
-        <div className="min-w-0">
-          <p className="text-lg font-semibold">{meta?.name ?? "Curtain show"}</p>
+    <li className="overflow-hidden rounded-3xl border border-line bg-surface" aria-label={`${name}, ticket ${ticket.ticketId}`}>
+      <div className="flex gap-4 p-4">
+        <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border border-line">
+          <Poster src={media?.poster} name={name} sizes="112px" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <Badge badge={badge} />
+          <p className="mt-2 truncate text-base font-semibold">{name}</p>
           <p className="mt-0.5 text-sm text-muted">
             {show ? whenFmt.format(new Date(show.doorsOpen * 1000)) : "…"}
-            {meta?.venue ? ` · ${meta.venue}` : ""}
+            {meta?.venue ? <span className="block truncate">{meta.venue}</span> : null}
           </p>
-          <p className={`mt-2 text-sm font-medium ${line.tone}`}>{line.text}</p>
         </div>
-        <p className="font-mono text-3xl font-semibold text-velvet">#{ticket.ticketId}</p>
       </div>
 
-      {status === "ready" && <p className="px-5 pb-3 text-sm text-muted">{DOOR_HINT}</p>}
-      {(status === "refunded" || status === "sold") && (
-        <p className="px-5 pb-3 text-sm text-muted">Your balance pays for your next ticket on Curtain.</p>
-      )}
+      <Perforation />
 
-      {open && (status === "ready" || status === "listed") && (
-        <div className="space-y-3 px-5 pb-4">
+      <div className="flex items-end justify-between gap-4 px-5 pt-4">
+        <div>
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">Ticket</p>
+          <p className="font-mono text-4xl leading-none font-semibold text-velvet">#{ticket.ticketId}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">Price</p>
+          <p className="font-semibold">{price}</p>
+        </div>
+      </div>
+      {badge.detail && <p className="px-5 pt-3 text-sm text-muted">{badge.detail}</p>}
+
+      {open && (status === "ready" || status === "listed") ? (
+        <div className="mt-4 flex flex-wrap divide-x divide-line border-t border-line">
           {status === "ready" && show && (
             <AddToCalendar
               event={ticket.event}
               ticketId={ticket.ticketId}
-              name={meta?.name ?? "Curtain show"}
+              name={name}
               venue={meta?.venue ?? ""}
               doorsOpen={show.doorsOpen}
               endTime={show.endTime}
+              className={ACTION}
+              icon={<Icon name="calendar" />}
             />
           )}
-          {status === "ready" && <SendToPhone account={account} event={ticket.event} ticketId={ticket.ticketId} />}
-          <button
-            onClick={() => setOnSale(status === "ready")}
-            disabled={busy}
-            className="w-full rounded-xl border border-line px-4 py-2.5 text-sm font-semibold disabled:opacity-50"
-          >
-            {busy ? "Confirm with your fingerprint or Face ID" : status === "ready" ? "Sell at face value" : "Take it off sale"}
+          {status === "ready" && (
+            <SendToPhone
+              account={account}
+              event={ticket.event}
+              ticketId={ticket.ticketId}
+              className={ACTION}
+              icon={<Icon name="send" />}
+            />
+          )}
+          <button onClick={() => setOnSale(status === "ready")} disabled={busy} className={ACTION}>
+            <Icon name="tag" />
+            {busy ? "Confirm with your fingerprint" : status === "ready" ? "Sell at face value" : "Take off sale"}
           </button>
-          {error && <p className="text-sm text-stop">{error}</p>}
+          {error && (
+            <p role="alert" className="order-last basis-full border-t border-line px-5 py-3 text-sm text-stop">
+              {error}
+            </p>
+          )}
         </div>
+      ) : (
+        <div className="h-4" />
       )}
 
-      <div className="flex items-center justify-between border-t border-dashed border-line px-5 py-3 text-xs text-muted">
+      <div className="flex items-center justify-between border-t border-line px-5 py-3 text-xs text-muted">
         <span>
           {ticket.boughtAt > 0
             ? `Bought ${new Date(ticket.boughtAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}`
@@ -238,7 +316,7 @@ export function TicketsView() {
           </Link>
         </div>
       ) : (
-        <ul className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <ul className="mt-6 grid grid-cols-1 items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
           {mine.map((t) => (
             <TicketCard
               key={`${t.event}-${t.ticketId}`}

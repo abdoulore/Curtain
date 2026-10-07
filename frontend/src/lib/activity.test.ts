@@ -31,7 +31,12 @@ group("describe", () => {
     expect(describe(item("Purchased", 0, "1"))).toBe("Ticket #1 sold, ₦1,500 protected");
     expect(describe(item("CheckedIn", 0, "1"))).toBe("Ticket #1 checked in, ₦1,500 paid to the organizer");
     expect(describe(item("Withdrawn", 0))).toBe("Organizer withdrew ₦1,500");
-    expect(describe(item("Resold", 0, "2"))).toBe("Ticket #2 resold, ₦1,500 paid to the seller; the ticket's money stays held");
+    expect(describe(item("Resold", 0, "2"))).toBe("Ticket #2 resold, ₦1,500 paid to the seller; the ticket's money stays protected");
+  });
+
+  it("says whether the show was confirmed", () => {
+    expect(describe(item("Settled", 0))).toBe("Show confirmed, ₦1,500 paid to the organizer");
+    expect(describe(item("Settled", 0, undefined, { amount: 0n }))).toBe("Show not confirmed, unscanned tickets will be refunded");
   });
 
   it("tells a cancelled gift link from a new one", () => {

@@ -14,6 +14,7 @@ import { formatNaira } from "@/lib/money";
 import { readTicket, type TicketState } from "@/lib/reads";
 import { chooseTicket } from "@/lib/ticket-choice";
 import { SignInButton } from "./SignInButton";
+import { VerdictIcon } from "./VerdictIcon";
 
 function subscribeHash(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
@@ -91,12 +92,15 @@ export function CheckInView() {
 
   if (outcome?.ok) {
     return (
-      <main className="mx-auto mt-6 flex min-h-[70vh] max-w-md flex-col items-center justify-center rounded-3xl bg-go p-6 text-center text-white">
-        <p className="text-5xl">✓</p>
-        <h1 className="mt-4 text-3xl font-semibold">Welcome in</h1>
-        <p className="mt-2 text-lg">Ticket #{outcome.result.ticketId}</p>
-        <p className="mt-6 max-w-xs text-sm opacity-90">
-          {formatNaira(BigInt(outcome.result.released))} just went to the organizer. Enjoy the show.
+      <main
+        role="alert"
+        className="mx-auto mt-6 flex min-h-[70vh] max-w-md flex-col items-center justify-center rounded-3xl bg-admit p-6 text-center text-white"
+      >
+        <VerdictIcon ok className="h-24 w-24" />
+        <h1 className="mt-6 text-5xl font-black tracking-tight">You&apos;re in</h1>
+        <p className="mt-4 font-mono text-2xl font-semibold">Ticket #{outcome.result.ticketId}</p>
+        <p className="mt-6 max-w-xs text-base">
+          {formatNaira(BigInt(outcome.result.released))} paid to the organizer at the door. Enjoy the show.
         </p>
       </main>
     );
@@ -104,9 +108,12 @@ export function CheckInView() {
 
   if (outcome && !outcome.ok) {
     return (
-      <main className="mx-auto mt-6 flex min-h-[70vh] max-w-md flex-col items-center justify-center rounded-3xl bg-stop p-6 text-center text-white">
-        <p className="text-5xl">✕</p>
-        <h1 className="mt-4 text-3xl font-semibold">Not let in</h1>
+      <main
+        role="alert"
+        className="mx-auto mt-6 flex min-h-[70vh] max-w-md flex-col items-center justify-center rounded-3xl bg-deny p-6 text-center text-white"
+      >
+        <VerdictIcon ok={false} className="h-24 w-24" />
+        <h1 className="mt-6 text-4xl font-black tracking-tight">Not checked in</h1>
         <p className="mt-2 text-lg">{outcome.message}</p>
         <button onClick={() => setOutcome(null)} className="mt-8 rounded-2xl bg-white/15 px-5 py-3 font-semibold">
           Back

@@ -64,6 +64,9 @@ const pages = [
   { name: "organizer-pairing", path: "/organizer/demo", seed: "organizer", pair: true },
   // A real purchase with a virtual passkey authenticator (with PRF), ending on the success screen.
   { name: "bought", path: "/e/demo", buy: true },
+  // Then a real check-in through the gate code, with the gate screen open in its own browser: the phone's
+  // "You're in" is saved as checkin-done, and the gate's ADMIT flash as gate-admit.
+  { name: "checkin-done", path: "/e/demo", buy: true, door: true },
 ];
 const viewports = [
   { label: "375", width: 375, height: 812, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
@@ -88,6 +91,24 @@ async function installWallet(page) {
   }, organizer.address);
 }
 
+/** The demo show's gate screen in a browser of its own, so the buyer's storage never touches its key. */
+async function openGate(vp) {
+  const context = await browser.newContext({
+    viewport: { width: vp.width, height: vp.height },
+    isMobile: vp.isMobile,
+    hasTouch: vp.hasTouch,
+    deviceScaleFactor: vp.deviceScaleFactor,
+    colorScheme: "light",
+  });
+  const page = await context.newPage();
+  await page.addInitScript((entries) => {
+    for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, v);
+  }, seeds.gate);
+  await page.goto(`${BASE_URL}/gate/demo`, { waitUntil: "load", timeout: 60_000 });
+  await page.getByText("● Live").waitFor({ timeout: 60_000 });
+  return page;
+}
+
 const browser = await chromium.launch();
 for (const vp of viewports) {
   const context = await browser.newContext({
@@ -102,11 +123,15 @@ for (const vp of viewports) {
   for (const p of pages.filter((x) => !only || only.includes(x.name))) {
     const page = await context.newPage();
     const seed = p.seed ? seeds[p.seed] : {};
+    // Seed once per tab, so a later navigation in the same tab keeps what the page saved.
     await page.addInitScript((entries) => {
+      if (sessionStorage.getItem("screens.seeded")) return;
+      sessionStorage.setItem("screens.seeded", "1");
       localStorage.clear();
       for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
     }, seed);
     if (p.pair) await installWallet(page);
+    const gatePage = p.door ? await openGate(vp) : null;
     if (p.buy) {
       const cdp = await context.newCDPSession(page);
       await cdp.send("WebAuthn.enable");
@@ -127,6 +152,18 @@ for (const vp of viewports) {
       const done = await page.getByText("You're in.").waitFor({ timeout: 120_000 }).then(() => true, () => false);
       if (!done) throw new Error(`purchase did not finish: ${await page.locator(".text-stop").allInnerTexts()}`);
       await page.getByText("You're in.").scrollIntoViewIfNeeded();
+    }
+    if (gatePage) {
+      const pass = await issueGatePass(DEMO);
+      const fragment = b64url(concat([DEMO, pass.gateNonce, toHex(BigInt(pass.challengeBlock), { size: 8 }), pass.pass]));
+      await page.goto(`${BASE_URL}/checkin#${fragment}`, { waitUntil: "load" });
+      const admitted = gatePage.getByText("ADMIT", { exact: true }).waitFor({ timeout: 120_000 });
+      await page.getByRole("button", { name: "Check in" }).click({ timeout: 60_000 });
+      await page.getByText("You're in").waitFor({ timeout: 120_000 });
+      await admitted;
+      await gatePage.screenshot({ path: fileURLToPath(new URL(`gate-admit-${vp.label}.png`, OUT)) });
+      console.log(`gate-admit-${vp.label}.png`);
+      await gatePage.context().close();
     }
     if (p.pair) {
       await page.getByText("Use a browser wallet instead").click();

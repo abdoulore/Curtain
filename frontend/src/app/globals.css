@@ -15,6 +15,9 @@
   --viz-released: #2a78d6;
   --viz-held: #c0394f;
   --viz-refunded: #c98500;
+  /* Full-screen verdicts under white text, the same in both modes (contrast 6.5:1 and 7.3:1). */
+  --admit: #146c37;
+  --deny: #a8201a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,6 +50,8 @@
   --color-viz-released: var(--viz-released);
   --color-viz-held: var(--viz-held);
   --color-viz-refunded: var(--viz-refunded);
+  --color-admit: var(--admit);
+  --color-deny: var(--deny);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

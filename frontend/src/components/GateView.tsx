@@ -14,6 +14,7 @@ import { useDeviceKey, writeDeviceKey } from "@/lib/gate-device";
 import { useHydrated } from "@/lib/hooks";
 import { formatNaira } from "@/lib/money";
 import { browserClient } from "@/lib/reads";
+import { VerdictIcon } from "./VerdictIcon";
 
 const ROTATE_MS = 5_000;
 const RESULTS_MS = 2_000;
@@ -195,14 +196,16 @@ export function GateView({ meta }: { meta: EventMeta }) {
     <main className="relative pt-4 lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start lg:gap-10 lg:pt-8">
       {flash && (
         <div
-          className={`fixed inset-0 z-20 flex flex-col items-center justify-center px-6 text-center text-white ${flash.ok ? "bg-go" : "bg-stop"}`}
-          role="status"
+          className={`fixed inset-0 z-20 flex flex-col items-center justify-center px-6 text-center text-white ${flash.ok ? "bg-admit" : "bg-deny"}`}
+          role="alert"
         >
-          <p className="text-7xl lg:text-9xl">{flash.ok ? "✓" : "✕"}</p>
-          <p className="mt-4 text-4xl font-semibold lg:text-6xl">{flash.ok ? "Welcome in" : "Not let in"}</p>
-          <p className="mt-3 text-2xl lg:text-4xl">Ticket #{flash.ticketId}</p>
-          <p className="mt-4 max-w-xl text-lg opacity-90 lg:text-2xl">
-            {flash.ok ? `${formatNaira(flash.amount ?? 0n)} released to the organizer.` : flash.reason}
+          <VerdictIcon ok={flash.ok} />
+          <p className="mt-6 text-7xl leading-none font-black tracking-tight sm:text-8xl lg:text-[11rem]">
+            {flash.ok ? "ADMIT" : "DO NOT ADMIT"}
+          </p>
+          <p className="mt-8 font-mono text-4xl font-semibold lg:text-6xl">Ticket #{flash.ticketId}</p>
+          <p className="mt-4 max-w-xl text-xl lg:text-3xl">
+            {flash.ok ? `${formatNaira(flash.amount ?? 0n)} paid to the organizer` : flash.reason}
           </p>
         </div>
       )}

@@ -78,7 +78,7 @@ export function PairGateView() {
       <p className="mt-2 text-sm text-muted">The same code shows on the organizer&apos;s dashboard.</p>
       <p className={`mt-6 ${state === "timeout" ? "text-stop" : "text-muted"}`}>
         {state === "waiting"
-          ? "Waiting for the organizer's approval to land onchain…"
+          ? "Waiting for the organizer's approval to go through…"
           : state === "paired"
             ? "Paired. Opening the gate…"
             : "Ask the organizer to add this device again from the dashboard."}

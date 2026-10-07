@@ -47,7 +47,7 @@ export function describe(item: FeedItem): string {
     case "Created":
       return "Show created";
     case "Purchased":
-      return `${n} sold, ${money} held safely`;
+      return `${n} sold, ${money} protected`;
     case "CheckedIn":
       return `${n} checked in, ${money} paid to the organizer`;
     case "Withdrawn":
@@ -59,11 +59,13 @@ export function describe(item: FeedItem): string {
     case "Cancelled":
       return "Show cancelled, unscanned tickets will be refunded";
     case "Settled":
-      return item.amount > 0n ? `Show settled as held, ${money} released` : "Show not held, refunds open";
+      return item.amount > 0n
+        ? `Show confirmed, ${money} paid to the organizer`
+        : "Show not confirmed, unscanned tickets will be refunded";
     case "Listed":
       return item.amount > 0n ? `${n} put up for resale at ${money}` : `${n} taken off resale`;
     case "Resold":
-      return `${n} resold, ${money} paid to the seller; the ticket's money stays held`;
+      return `${n} resold, ${money} paid to the seller; the ticket's money stays protected`;
     case "ClaimSet":
       return item.account && item.account.toLowerCase() === zeroAddress ? `${n} gift link cancelled` : `${n} gift link created`;
     case "Claimed":

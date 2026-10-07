@@ -253,7 +253,7 @@ export function TicketsView() {
       <p className="mt-8 text-center text-xs text-muted">If a show is cancelled, your money comes back on its own.</p>
       <button
         onClick={() => {
-          if (confirm("Sign out of Curtain on this phone? Your tickets stay safe with your passkey.")) signOut();
+          if (confirm("Sign out of Curtain on this phone? Your tickets stay with your passkey.")) signOut();
         }}
         className="mx-auto mt-6 block text-xs text-muted underline"
       >

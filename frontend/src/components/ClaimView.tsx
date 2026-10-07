@@ -6,6 +6,7 @@ import { friendlyPasskeyError, isPrfUnavailable, signUp, unlock } from "@/lib/ac
 import { ApiError } from "@/lib/api";
 import { claimWithLink } from "@/lib/claim";
 import { parseClaimFragment } from "@/lib/claim-key";
+import { PASSKEY_PRIVACY } from "@/lib/copy";
 import { useShowMeta } from "@/lib/show-details";
 import { useAccount, useHydrated } from "@/lib/hooks";
 import { readTicket, type TicketInfo } from "@/lib/reads";
@@ -132,8 +133,8 @@ export function ClaimView() {
             </button>
             <p className="mt-3 text-center text-xs text-muted">
               {account
-                ? "It moves to the passkey on this phone. Its money stays safe until you walk in."
-                : "This phone gets its own passkey. No password, no app."}
+                ? "It moves to the passkey on this phone. Its money is held until the show happens."
+                : `This phone gets its own passkey. ${PASSKEY_PRIVACY}`}
             </p>
             {!account && (
               <div className="mt-4 text-center">
@@ -142,7 +143,11 @@ export function ClaimView() {
             )}
           </>
         )}
-        {error && <p className="mt-3 text-sm text-stop">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-3 text-sm text-stop">
+            {error}
+          </p>
+        )}
       </section>
     </main>
   );

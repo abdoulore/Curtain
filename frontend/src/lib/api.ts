@@ -24,7 +24,7 @@ const FRIENDLY: Record<string, string> = {
   TopupLimitIp: "You've had today's demo money on this network. Try again tomorrow.",
   DemoMoneyRefilling: "Demo money is being refilled. Try again in a few minutes.",
   TopupLimitGlobal: "Lots of people are topping up right now. Try again in an hour.",
-  UnsupportedToken: "Curtain shows are priced in USDC.",
+  UnsupportedToken: "This show doesn't accept that kind of payment.",
   // At the door
   TicketNotActive: "This ticket has already been used or refunded.",
   InvalidAssertion: "This ticket belongs to someone else's fingerprint or Face ID.",

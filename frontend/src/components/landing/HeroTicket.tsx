@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 /** The illustrative ticket: a fictional show at a fictional venue, priced like the demo show. */
 const TICKET = {
   show: "Saturday Night Punchlines",
-  when: "Sat 17 Oct · 8:00 pm",
+  when: "Sat 5 Dec · 8:00 pm",
   venue: "The Ember Room, Yaba",
   number: "014",
   price: "₦1,500",

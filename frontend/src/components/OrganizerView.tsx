@@ -16,6 +16,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { curtainEventAbi } from "@/lib/abis";
 import { friendlyPasskeyError, unlock } from "@/lib/account";
 import { ApiError, postJson } from "@/lib/api";
+import { STATUS_TEXT } from "@/lib/board";
 import { monadTestnet, PUBLIC_RPC_URL, txUrl } from "@/lib/chain";
 import { eventPath, type EventMeta } from "@/lib/events";
 import { gateCode, pairingUrl } from "@/lib/gate";
@@ -215,13 +216,15 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
   }
 
   const naira = (v: bigint | undefined) => (v === undefined ? "…" : formatNaira(v));
+  const locked = !canAct || busy !== null;
+  const card = "min-w-0 rounded-3xl border border-line bg-surface p-5 disabled:opacity-60";
 
   return (
     <main className="pt-6 lg:pt-10">
       <p className="text-sm text-muted">Organizer</p>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight lg:text-4xl">{meta.name}</h1>
       <p className="mt-1 text-sm text-muted">
-        {state ? (state.status === "Open" ? "Selling and admitting" : state.status) : "…"} ·{" "}
+        {state ? (STATUS_TEXT[state.status] ?? state.status) : "…"} ·{" "}
         <Link href={eventPath(meta)} className="underline">
           Ticket page
         </Link>{" "}
@@ -247,147 +250,163 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
         </div>
       )}
 
-      <ShareShow meta={meta} />
-
-      <div className="mt-6 lg:grid lg:grid-cols-[1.3fr_1fr] lg:items-start lg:gap-6">
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-3xl border border-line bg-surface p-5 sm:col-span-2">
-            <p className="text-xs font-medium tracking-wide text-muted uppercase">Ready to withdraw</p>
-            <p className="mt-2 text-4xl font-semibold">{naira(state?.available)}</p>
-            <p className="mt-1 text-sm text-muted">Released as people walked in, minus what you have withdrawn.</p>
-          </div>
-          {[
-            ["Paid at the door", state?.released],
-            ["Held for unscanned tickets", state?.escrowed],
-            ["Withdrawn", state?.withdrawn],
-            ["Refunded to buyers", state?.refunded],
-          ].map(([label, value]) => (
-            <div key={label as string} className="rounded-2xl border border-line bg-surface p-4">
-              <p className="text-xs font-medium tracking-wide text-muted uppercase">{label as string}</p>
-              <p className="mt-1 text-xl font-semibold">{naira(value as bigint | undefined)}</p>
+      <section
+        aria-label="Your money"
+        className="mt-6 rounded-3xl border border-line bg-surface p-5 lg:flex lg:items-end lg:justify-between lg:gap-10 lg:p-8"
+      >
+        <div>
+          <p className="text-5xl font-semibold tracking-tight tabular-nums lg:text-7xl">{naira(state?.available)}</p>
+          <p className="mt-1 text-lg text-muted lg:text-xl">ready to withdraw</p>
+          <p className="mt-4 text-base font-medium lg:text-lg">
+            {state ? `${state.checkedIn} checked in · ${state.sold} sold` : "…"}
+          </p>
+        </div>
+        <dl className="mt-5 grid grid-cols-3 gap-2 lg:mt-0 lg:min-w-[28rem] lg:gap-3">
+          {(
+            [
+              ["Protected", state?.escrowed],
+              ["Paid to organizer", state?.released],
+              ["Refunded", state?.refunded],
+            ] as const
+          ).map(([label, value]) => (
+            <div key={label} className="rounded-2xl bg-background p-3 lg:p-4">
+              <dt className="text-xs text-muted">{label}</dt>
+              <dd className="mt-1 font-semibold tabular-nums lg:text-xl">{naira(value)}</dd>
             </div>
           ))}
-          <div className="rounded-2xl border border-line bg-surface p-4 sm:col-span-2">
-            <p className="text-xs font-medium tracking-wide text-muted uppercase">Tickets</p>
-            <p className="mt-1 text-xl font-semibold">{state ? `${state.checkedIn} checked in of ${state.sold} sold` : "…"}</p>
-          </div>
-        </section>
+        </dl>
+      </section>
 
-        <section className="mt-6 space-y-4 lg:mt-0">
-          <div className="rounded-3xl border border-line bg-surface p-5">
-            {!hydrated ? null : canAct ? (
-              <p className="font-semibold text-go">
-                {walletIsOrganizer && !passkeyIsOrganizer ? "Signed in with your wallet" : `Signed in as ${account?.name || "the organizer"}`}
-              </p>
-            ) : account ? (
-              <>
-                <p className="font-semibold">Sign in as this show&apos;s organizer</p>
-                <p className="mt-1 text-sm text-muted">Use the passkey you created the show with.</p>
-                <div className="mt-3">
-                  <SignInButton variant="link" label="Sign in with another passkey" />
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="font-semibold">Sign in to manage this show</p>
-                <p className="mt-1 mb-3 text-sm text-muted">Use the passkey you created the show with.</p>
-                <SignInButton />
-              </>
-            )}
-            <p className="mt-2 text-xs text-muted">
-              You confirm each action with your fingerprint or Face ID; Curtain pays the network fee.
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-line px-4 py-3 text-sm">
+        {!hydrated ? (
+          <span className="h-5" />
+        ) : canAct ? (
+          <p className="font-semibold">
+            {walletIsOrganizer && !passkeyIsOrganizer
+              ? "Signed in with your wallet"
+              : `Signed in as ${account?.name || "the organizer"}`}
+          </p>
+        ) : (
+          <div className="min-w-0">
+            <p className="font-semibold">
+              {account ? "Sign in as this show's organizer" : "Sign in to manage this show"}
             </p>
+            <p className="text-muted">Use the passkey you created the show with.</p>
           </div>
-
-          <fieldset disabled={!canAct || busy !== null} className="min-w-0 space-y-4 disabled:opacity-60">
-            <div className="rounded-3xl border border-line bg-surface p-5">
-              <p className="font-semibold">Withdraw</p>
-              <div className="mt-3 flex gap-2">
-                <div className="flex min-w-0 flex-1 items-center rounded-xl border border-line bg-background px-3 focus-within:border-velvet">
-                  <span className="text-muted">₦</span>
-                  <input
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ""))}
-                    inputMode="decimal"
-                    aria-label="Amount in naira"
-                    placeholder={state ? formatNaira(state.available).replace("₦", "") : "0"}
-                    className="min-w-0 flex-1 bg-transparent py-2.5 pl-1 outline-none"
-                  />
-                </div>
-                <button onClick={withdraw} className="rounded-xl bg-velvet px-4 font-semibold text-velvet-ink">
-                  {busy?.startsWith("Withdrew") ? "Confirm…" : "Withdraw"}
-                </button>
-              </div>
-              <p className="mt-2 text-xs text-muted">
-                In naira at the display rate. Paid to the payout account fixed when the show was created. Leave it
-                empty to withdraw everything ready.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-line bg-surface p-5">
-              <p className="font-semibold">Gate devices</p>
-              {gates === null ? (
-                <p className="mt-2 text-sm text-muted">Checking…</p>
-              ) : gates.length === 0 ? (
-                <p className="mt-2 text-sm text-muted">No gates yet. Add the tablet or phone that will stand at the door.</p>
-              ) : (
-                <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
-                  {gates.map((g) => (
-                    <li key={g} className="flex items-center justify-between px-4 py-2.5">
-                      <span className="font-mono font-semibold tracking-wider">{gateCode(g)}</span>
-                      <button onClick={() => removeGate(g)} className="text-sm text-stop underline">
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <button onClick={addGate} className="mt-3 w-full rounded-xl border border-line px-3 py-2.5 text-sm font-semibold">
-                {busy?.startsWith("Gate") ? "Confirm…" : "Add a gate device"}
-              </button>
-            </div>
-
-            <div className="rounded-3xl border border-stop/40 bg-surface p-5">
-              <p className="font-semibold">Cancel the show</p>
-              <p className="mt-1 text-sm text-muted">Every unscanned ticket is refunded automatically. Scanned tickets stay paid.</p>
-              <button
-                onClick={() => confirm("Cancel the show? Unscanned tickets will be refunded.") && run("Show cancelled", { kind: "cancel" })}
-                className="mt-3 w-full rounded-xl border border-stop px-3 py-2.5 text-sm font-semibold text-stop"
-              >
-                {busy === "Show cancelled" ? "Confirm…" : "Cancel the show"}
-              </button>
-            </div>
-          </fieldset>
-
-          {notice && (
-            <p className={`text-sm ${notice.ok ? "text-go" : "text-stop"}`}>
-              {notice.text}{" "}
-              {notice.hash && (
-                <a href={txUrl(notice.hash)} target="_blank" rel="noopener" className="underline">
-                  Proof
-                </a>
-              )}
-            </p>
-          )}
-
-          <details className="text-xs text-muted">
-            <summary className="cursor-pointer">Use a browser wallet instead</summary>
-            <p className="mt-2">For an organizer account held in a wallet such as MetaMask.</p>
-            <button
-              onClick={() =>
-                walletSigner()
-                  .then(setWallet)
-                  .catch((e) => setNotice({ ok: false, text: e instanceof Error ? e.message : "Wallet unavailable" }))
-              }
-              className="mt-2 underline"
-            >
-              {wallet ? `Connected ${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}` : "Connect a wallet"}
-            </button>
-          </details>
-        </section>
+        )}
+        {hydrated && !canAct && (
+          <div className="w-full sm:w-auto">
+            {account ? <SignInButton variant="link" label="Sign in with another passkey" /> : <SignInButton />}
+          </div>
+        )}
+        <p className="w-full text-xs text-muted">
+          You confirm each action with your fingerprint or Face ID. Curtain pays the network fee.
+        </p>
       </div>
 
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+        <ShareShow meta={meta} />
+
+        <fieldset disabled={locked} className={card}>
+          <legend className="sr-only">Gate devices</legend>
+          <p className="font-semibold">Gate devices</p>
+          {gates === null ? (
+            <p className="mt-2 text-sm text-muted">Checking…</p>
+          ) : gates.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">No gates yet. Add the tablet or phone that will stand at the door.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
+              {gates.map((g) => (
+                <li key={g} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="font-mono font-semibold tracking-wider">Gate {gateCode(g)}</span>
+                  <button onClick={() => removeGate(g)} className="text-sm text-stop underline">
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button onClick={addGate} className="mt-3 w-full rounded-xl border border-line px-3 py-2.5 text-sm font-semibold">
+            {busy?.startsWith("Gate") ? "Confirm with your fingerprint" : "Add a gate device"}
+          </button>
+        </fieldset>
+
+        <fieldset disabled={locked} className={card}>
+          <legend className="sr-only">Withdraw</legend>
+          <p className="font-semibold">Withdraw</p>
+          <div className="mt-3 flex gap-2">
+            <div className="flex min-w-0 flex-1 items-center rounded-xl border border-line bg-background px-3 focus-within:border-velvet">
+              <span className="text-muted">₦</span>
+              <input
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ""))}
+                inputMode="decimal"
+                aria-label="Amount in naira"
+                placeholder={state ? formatNaira(state.available).replace("₦", "") : "0"}
+                className="min-w-0 flex-1 bg-transparent py-2.5 pl-1 outline-none"
+              />
+            </div>
+            <button onClick={withdraw} className="rounded-xl bg-velvet px-4 font-semibold text-velvet-ink">
+              {busy?.startsWith("Withdrew") ? "Confirm…" : "Withdraw"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            Leave it empty to withdraw everything ready. Paid to the payout account fixed when the show was created.
+          </p>
+          <p className="mt-3 border-t border-line pt-3 text-sm text-muted">
+            Withdrawn so far <span className="font-semibold text-foreground tabular-nums">{naira(state?.withdrawn)}</span>
+          </p>
+        </fieldset>
+      </div>
+
+      {notice && (
+        <p role={notice.ok ? "status" : "alert"} className={`mt-4 text-sm ${notice.ok ? "text-go" : "text-stop"}`}>
+          {notice.ok ? "✓ " : ""}
+          {notice.text}{" "}
+          {notice.hash && (
+            <a href={txUrl(notice.hash)} target="_blank" rel="noopener" className="underline">
+              Proof
+            </a>
+          )}
+        </p>
+      )}
+
       <DoorList event={meta.address} />
+
+      <section aria-label="Cancel the show" className="mt-12 border-t border-line pt-6">
+        <fieldset disabled={locked} className="max-w-xl rounded-3xl border border-stop/40 p-5 disabled:opacity-60">
+          <legend className="sr-only">Cancel the show</legend>
+          <p className="font-semibold">Cancel the show</p>
+          <p className="mt-1 text-sm text-muted">
+            Every ticket that wasn&apos;t checked in is refunded automatically. Money for checked-in tickets stays paid
+            to you. This can&apos;t be undone.
+          </p>
+          <button
+            onClick={() =>
+              confirm("Cancel the show? Every ticket that wasn't checked in will be refunded.") &&
+              run("Show cancelled", { kind: "cancel" })
+            }
+            className="mt-3 rounded-xl border border-stop px-4 py-2.5 text-sm font-semibold text-stop"
+          >
+            {busy === "Show cancelled" ? "Confirm with your fingerprint" : "Cancel the show"}
+          </button>
+        </fieldset>
+
+        <details className="mt-6 text-xs text-muted">
+          <summary className="cursor-pointer">Use a browser wallet instead</summary>
+          <p className="mt-2">For an organizer account held in a wallet such as MetaMask.</p>
+          <button
+            onClick={() =>
+              walletSigner()
+                .then(setWallet)
+                .catch((e) => setNotice({ ok: false, text: e instanceof Error ? e.message : "Wallet unavailable" }))
+            }
+            className="mt-2 underline"
+          >
+            {wallet ? `Connected ${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}` : "Connect a wallet"}
+          </button>
+        </details>
+      </section>
 
       {pairing && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">

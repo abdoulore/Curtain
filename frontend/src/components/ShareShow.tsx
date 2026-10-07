@@ -30,7 +30,7 @@ export function ShareShow({ meta }: { meta: EventMeta }) {
   }
 
   return (
-    <section className="mt-6 rounded-3xl border border-velvet/40 bg-surface p-5 lg:flex lg:items-center lg:justify-between lg:gap-6">
+    <section className="min-w-0 rounded-3xl border border-velvet/40 bg-surface p-5">
       <div className="min-w-0">
         <p className="font-semibold">Sell tickets</p>
         <p className="mt-1 text-sm text-muted">
@@ -39,10 +39,10 @@ export function ShareShow({ meta }: { meta: EventMeta }) {
         </p>
         <p className="mt-2 truncate font-mono text-sm">{url.replace("https://", "")}</p>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:mt-0 lg:flex lg:shrink-0">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <Link
           href={path}
-          className="col-span-2 rounded-xl bg-velvet px-4 py-2.5 text-center text-sm font-semibold text-velvet-ink sm:col-span-1"
+          className="col-span-2 rounded-xl bg-velvet px-4 py-2.5 text-center text-sm font-semibold text-velvet-ink"
         >
           Open ticket page
         </Link>
@@ -54,13 +54,13 @@ export function ShareShow({ meta }: { meta: EventMeta }) {
         </button>
         <button
           onClick={() => setShowQr((v) => !v)}
-          className="col-span-2 rounded-xl border border-line px-4 py-2.5 text-sm font-semibold sm:col-span-1"
+          className="col-span-2 rounded-xl border border-line px-4 py-2.5 text-sm font-semibold"
         >
           {showQr ? "Hide QR" : "QR code"}
         </button>
       </div>
       {showQr && (
-        <div className="mx-auto mt-4 w-48 rounded-2xl bg-white p-3 lg:mt-0">
+        <div className="mx-auto mt-4 w-48 rounded-2xl bg-white p-3">
           <QRCodeSVG value={url} level="M" marginSize={1} className="h-auto w-full" />
         </div>
       )}

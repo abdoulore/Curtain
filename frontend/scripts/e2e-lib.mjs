@@ -24,7 +24,26 @@ const permitAbi = parseAbi(["function nonces(address) view returns (uint256)"]);
 export const usdcOf = (a) => pub.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [a] });
 const json = (v) => JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x));
 
+// FUND_DIRECT=1: test people get their demo money straight from the treasury (a real transfer) instead of through
+// /api/topup, so a test run doesn't use up the app's daily top-up allowance for real visitors on this network.
+let treasuryClient;
+async function fundDirectly(address) {
+  if (!treasuryClient) {
+    const { readFileSync } = await import("node:fs");
+    const { createWalletClient, defineChain } = await import("viem");
+    const chain = defineChain({ id: CHAIN_ID, name: "Monad Testnet", nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 }, rpcUrls: { default: { http: ["https://testnet-rpc.monad.xyz"] } } });
+    const key = readFileSync(new URL("../../.env", import.meta.url), "utf8").match(/^TREASURY_PRIVATE_KEY=(0x[0-9a-fA-F]{64})/m)[1];
+    treasuryClient = createWalletClient({ account: privateKeyToAccount(key), chain, transport: http("https://testnet-rpc.monad.xyz") });
+  }
+  const hash = await treasuryClient.writeContract({
+    address: USDC, abi: erc20Abi, functionName: "transfer", args: [address, BigInt(process.env.FUND_AMOUNT ?? 1_000_000)],
+  });
+  await pub.waitForTransactionReceipt({ hash });
+  return { status: 200, json: { toppedUp: true, amount: String(process.env.FUND_AMOUNT ?? 1_000_000), hash } };
+}
+
 export async function api(path, body) {
+  if (path === "/api/topup" && process.env.FUND_DIRECT) return fundDirectly(body.address);
   const res = await fetch(`${BASE_URL}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: json(body) });
   return { status: res.status, json: await res.json() };
 }

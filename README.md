@@ -51,7 +51,9 @@ the door for the new holder's passkey.
 
 Phones: Android with Chrome and Google Password Manager (tested on a Samsung with fingerprint), or iPhone with Safari
 on iOS 18+ and iCloud Keychain. Open links in Chrome or Safari, not inside WhatsApp, Instagram or X. To run your own
-show, open https://curtaintickets.vercel.app/organizer/new, then use **Add a gate device** on the dashboard.
+show, open https://curtaintickets.vercel.app/organizer/new (event, tickets, review), then use **Add a gate device** on
+the dashboard's **Gates** tab. Besides Curtain Demo Night, three more demo shows with fictional names and venues are on
+sale for late October, so the Shows page reads like a real line-up.
 
 ## Why Monad
 
@@ -163,7 +165,7 @@ settled an ended show as not confirmed and refunded all 5 buyers ([runs](#chainl
 | Suite | Tests | Where |
 | --- | ---: | --- |
 | Contracts (`forge test`) | 127 | 59 escrow, 18 keeper, 14 canary, 10 show creation, 8 gate pass, 8 per-person limit, 5 held threshold, 5 invariants |
-| Web app (`npm test` in `frontend/`) | 177 | 27 files: passkeys and key recovery, error wording, copy and contrast checks, gate passes, top-up limits, gas ceilings, the money board's live moves, ticket states, create-show typed data, posters, calendar files and more |
+| Web app (`npm test` in `frontend/`) | 193 | 30 files: passkeys and key recovery, error wording, copy and contrast checks, gate passes, top-up limits, gas ceilings, the money board's live moves, ticket states and grouping, create-show steps and typed data, show naming rules, posters, calendar files and more |
 | Indexer (`npm test` in `indexer/`) | 3 | full show lifecycle, settlement and resale rebinding, show details and gates |
 | CRE workflow (`bun test` in `cre/curtain-keeper/`) | 9 | discovery, pending jobs and reports with the SDK's mocks |
 
@@ -188,7 +190,7 @@ per-person limit (`TooManyTickets`).
 | [`frontend/`](frontend) | Next.js app and relayer API on Vercel; [`frontend/scripts/`](frontend/scripts) holds the end-to-end and screenshot runs |
 | [`indexer/`](indexer) | Envio HyperIndex |
 | [`cre/curtain-keeper/`](cre/curtain-keeper) | Chainlink CRE workflow |
-| [`docs/screens/`](docs/screens) | Screenshots at 375 px and 1440 px |
+| [`docs/screens/`](docs/screens) | Screenshots at 375, 390 and 1440 px, including a real ADMIT and DO NOT ADMIT |
 
 ```sh
 forge test                              # contracts
@@ -266,6 +268,32 @@ cd frontend && BASE_URL=https://curtaintickets.vercel.app npm run red-cases
 ```
 
 ## Real-device and end-to-end runs
+
+Full run on the current deployment after the frontend redesign, Oct 7, against https://curtaintickets.vercel.app.
+The buyer ran in a real browser (Chromium with a virtual passkey authenticator that supports PRF) through the new event
+page; the other flows ran through the app's relayer API with EOAs standing in for passkey accounts.
+
+| Flow | Step | Tx |
+| --- | --- | --- |
+| Buyer, in the browser | buy ticket #11 on Curtain Demo Night | [`0x3fe8e0a0...d058`](https://testnet.monadvision.com/tx/0x3fe8e0a04c5fd149300610c599ca71aedcf85cc0fd3efd72779e6782e14dd058) |
+| | check in with the gate code: ADMIT, You're in | [`0xdeea6b91...13c8`](https://testnet.monadvision.com/tx/0xdeea6b91c2ceb303de3426c9da1c6819c81f958b1448059ca096c2652b1413c8) |
+| | scan the same ticket again: DO NOT ADMIT, refused with `TicketNotActive` at simulation | none |
+| `npm run e2e:create` | organizer creates a show by signature, with a poster | [`0xa0c5de4d...f567`](https://testnet.monadvision.com/tx/0xa0c5de4d13e20e430c44bc3187ac371898e9ea828dc5b8361b129ddc4e59f567) |
+| | pair a gate device | [`0xfacf712f...d911`](https://testnet.monadvision.com/tx/0xfacf712ff37e9a6f9fcaaca15fd29c843e423fa43091c885046b5d6b3b52d911) |
+| | guest buys, then checks in at that gate | [`0x1064a775...230f`](https://testnet.monadvision.com/tx/0x1064a7750f8077444fa3649fe9fb996f40ec9f51a628afed18a1b4e2e97e230f), [`0x8bd428ce...9be7`](https://testnet.monadvision.com/tx/0x8bd428ce41010579d63ebd6692ffff81d32818bb4c0e6f8d9d96659d2a3b9be7) |
+| | withdraw ₦1,500; the organizer never held MON | [`0xc9b30e4c...6438`](https://testnet.monadvision.com/tx/0xc9b30e4c91e07cd202760b3bd2c63318ccd27bf5453d46322375248df6776438) |
+| | cancel the show | [`0xcdc75568...627c`](https://testnet.monadvision.com/tx/0xcdc755684585b39cc750d774f907967568b1e3fcec9761b64a9f8b511236627c) |
+| `npm run e2e:resale` | list at face value (above face value refused, `PriceAboveCap`) | [`0xca5aa872...f8ef`](https://testnet.monadvision.com/tx/0xca5aa8720ea60c545291e226cc502f1f5b5f0dc6209dc80a84c59356ad63f8ef) |
+| | second buyer buys on resale; the seller is paid directly | [`0xa2140e59...e7c0`](https://testnet.monadvision.com/tx/0xa2140e59b247634f83f31ee04beb2f56cfb2b76f37d23b1f36b6c8b138a0e7c0) |
+| | seller refused at the door (`InvalidAssertion`); new holder checks in | [`0xa2882cd6...291f`](https://testnet.monadvision.com/tx/0xa2882cd6a6110f07d71fd579d7f2640188161e7dbef32b11c96103f4e7d3291f) |
+| `npm run e2e:claim` | send to phone, revoke (claim refused, `NoClaimKey`), send again | [`0x4a9802ae...45e3`](https://testnet.monadvision.com/tx/0x4a9802ae231108a465aa7da0c7c32e2255ad8ab5e95b8a4233111decfbbc45e3), [`0xd6504510...e52f`](https://testnet.monadvision.com/tx/0xd6504510511b111b477ba924940df13b872e3e54ff05e4c544417f906d9fe52f), [`0xd4e8ada3...2b6c`](https://testnet.monadvision.com/tx/0xd4e8ada38ae6bbf98e84b9e7fff1db58a833038182cd3843c6d2eea9b2062b6c) |
+| | phone claims (reusing the link refused), then checks in | [`0xb74420d7...9f35`](https://testnet.monadvision.com/tx/0xb74420d773f63d96aa31538479520b92bb8c57221ddad306180880e4b8ea9f35), [`0x262b9bc9...47a5`](https://testnet.monadvision.com/tx/0x262b9bc9cef587a8f7e4e6d964d6b7a8f4e480e7e1cbfed066ddcbc0f2f847a5) |
+| `npm run e2e:organizer` | signed withdraw, add gate, remove gate; a stranger refused | [`0x85b18715...b365`](https://testnet.monadvision.com/tx/0x85b18715498c10cdb965f3cc8d86025274e98fe110a7c3a906f3ff3449e0b365), [`0x25184871...9d1d`](https://testnet.monadvision.com/tx/0x2518487144ccdbe7877b2e7398e2949e2295f62ac0e9fe8be42a0fa37a7d9d1d), [`0xa9c20eb7...cfc5`](https://testnet.monadvision.com/tx/0xa9c20eb7bdafcacd4aa037c7e687c9ca33f329cfbada18afa6fb68718ad8cfc5) |
+
+The three extra demo shows were created by the demo organizer's signature (`scripts/demo-shows.mjs`):
+Saturday Night Punchlines [`0xce311838...d0f1`](https://testnet.monadvision.com/tx/0xce3118387361a7a74e7a19b549ba428efd0ae83b32d325f03dc67a8d6d40d0f1),
+Highlife After Dark [`0x1f580205...a337`](https://testnet.monadvision.com/tx/0x1f580205d17715e228913567b91aaa9c373d3b8370e7f35d3bbecb58bedaa337),
+First Draft: Open Mic Poetry [`0x78aa10f8...22c8`](https://testnet.monadvision.com/tx/0x78aa10f853506cb8bb0a24cb848da5b8fadda695102f68e0db9fac0ab00422c8).
 
 Real passkey run on factory `0x13391D9E...Ca58`, Oct 6: Samsung Android (fingerprint, Mera passkey account
 `0xc1ACaC62...5291`) as organizer and buyer, a Windows laptop paired as the gate. Show "Magic show"

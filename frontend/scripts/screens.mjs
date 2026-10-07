@@ -32,9 +32,9 @@ async function fundDirectly(page) {
   if (process.env.REAL_TOPUP) return;
   await page.route("**/api/topup", async (route) => {
     const { address } = JSON.parse(route.request().postData() ?? "{}");
-    const hash = await treasury.writeContract({ address: USDC, abi: erc20Abi, functionName: "transfer", args: [address, 3_000_000n] });
+    const hash = await treasury.writeContract({ address: USDC, abi: erc20Abi, functionName: "transfer", args: [address, 1_000_000n] });
     await pub.waitForTransactionReceipt({ hash });
-    await route.fulfill({ json: { toppedUp: true, amount: "3000000", hash } });
+    await route.fulfill({ json: { toppedUp: true, amount: "1000000", hash } });
   });
 }
 const state = JSON.parse(readFileSync(new URL("state.json", OUT), "utf8"));
@@ -88,6 +88,7 @@ const pages = [
 ];
 const viewports = [
   { label: "375", width: 375, height: 812, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
+  { label: "390", width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
   { label: "1440", width: 1440, height: 900, isMobile: false, hasTouch: false, deviceScaleFactor: 1 },
 ];
 
@@ -128,7 +129,8 @@ async function openGate(vp) {
 }
 
 const browser = await chromium.launch();
-for (const vp of viewports) {
+// WIDTHS=390 retakes only those widths.
+for (const vp of viewports.filter((v) => !process.env.WIDTHS || process.env.WIDTHS.split(",").includes(v.label))) {
   const context = await browser.newContext({
     viewport: { width: vp.width, height: vp.height },
     isMobile: vp.isMobile,
@@ -152,6 +154,13 @@ for (const vp of viewports) {
     const gatePage = p.door ? await openGate(vp) : null;
     if (p.buy) {
       await fundDirectly(page);
+      // Every relayed transaction, for the run's record.
+      page.on("response", async (res) => {
+        const route = new URL(res.url()).pathname;
+        if (!/^\/api\/(topup|relay\/(buy|checkin))$/.test(route)) return;
+        const body = await res.json().catch(() => ({}));
+        console.log(`  ${route} ${res.status()} ${body.hash ?? body.error ?? ""}`);
+      });
       const cdp = await context.newCDPSession(page);
       await cdp.send("WebAuthn.enable");
       await cdp.send("WebAuthn.addVirtualAuthenticator", {
@@ -184,7 +193,26 @@ for (const vp of viewports) {
       await admitted;
       await gatePage.screenshot({ path: fileURLToPath(new URL(`gate-admit-${vp.label}.png`, OUT)) });
       console.log(`gate-admit-${vp.label}.png`);
+      await page.screenshot({ path: fileURLToPath(new URL(`checkin-done-${vp.label}.png`, OUT)), fullPage: true });
+      console.log(`checkin-done-${vp.label}.png`);
+
+      // The same ticket again with a fresh gate code: refused on the phone and at the gate.
+      const again = await issueGatePass(DEMO);
+      const fragment2 = b64url(concat([DEMO, again.gateNonce, toHex(BigInt(again.challengeBlock), { size: 8 }), again.pass]));
+      await page.goto(`${BASE_URL}/checkin#${fragment2}`, { waitUntil: "load" });
+      await page.reload({ waitUntil: "load" }); // a hash-only change keeps the last verdict on screen
+      const denied = gatePage.getByText("DO NOT ADMIT", { exact: true }).waitFor({ timeout: 120_000 }).then(() => true, () => false);
+      await page.getByRole("button", { name: "Check in" }).click({ timeout: 60_000 });
+      await page.getByText("Not checked in").waitFor({ timeout: 120_000 });
+      if (await denied) {
+        await gatePage.screenshot({ path: fileURLToPath(new URL(`gate-deny-${vp.label}.png`, OUT)) });
+        console.log(`gate-deny-${vp.label}.png`);
+      } else console.log("gate did not flash DO NOT ADMIT for the second scan");
+      await page.screenshot({ path: fileURLToPath(new URL(`checkin-refused-${vp.label}.png`, OUT)), fullPage: true });
+      console.log(`checkin-refused-${vp.label}.png`);
       await gatePage.context().close();
+      await page.close();
+      continue;
     }
     if (p.pair) {
       await page.getByText("Use a browser wallet instead").click();

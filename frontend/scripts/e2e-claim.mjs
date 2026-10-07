@@ -8,6 +8,7 @@ import {
   bytesToHex, concat, createPublicClient, encodeAbiParameters, http, keccak256, parseAbi, toBytes, zeroAddress,
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { api as libApi } from "./e2e-lib.mjs";
 import { issueGatePass } from "./gate-device.mjs";
 import { deriveClaimKey } from "../src/lib/claim-key.ts";
 
@@ -25,6 +26,7 @@ const eventAbi = parseAbi([
 const domain = { name: "Curtain", version: "1", chainId: CHAIN_ID, verifyingContract: EVENT };
 
 async function api(path, body) {
+  if (path === "/api/topup") return libApi(path, body);
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },

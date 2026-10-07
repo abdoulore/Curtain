@@ -87,14 +87,25 @@ export async function fetchGates(show: Address): Promise<string[]> {
   return data.Gate.map((g) => g.gate);
 }
 
-export type MyShowRow = { id: string; name: string; venue: string; status: string; sold: number; doorsOpen: string };
+export type MyShowRow = {
+  id: string;
+  name: string;
+  venue: string;
+  status: string;
+  sold: number;
+  checkedIn: number;
+  doorsOpen: string;
+  endTime: string;
+  released: string;
+  withdrawn: string;
+};
 
 /** Shows an organizer created, newest first. */
 export async function fetchShowsOf(organizer: Address): Promise<MyShowRow[]> {
   const data = await query<{ Show: MyShowRow[] }>(
     `query MyShows($organizer: String!) {
       Show(where: { organizer: { _eq: $organizer } }, order_by: { createdAt: desc }) {
-        id name venue status sold doorsOpen
+        id name venue status sold checkedIn doorsOpen endTime released withdrawn
       }
     }`,
     { organizer: organizer.toLowerCase() },

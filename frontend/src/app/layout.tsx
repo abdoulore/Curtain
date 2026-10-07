@@ -35,20 +35,40 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <Image src="/logo.png" alt="" width={32} height={32} priority className="rounded-lg" /> Curtain
           </Link>
-          <nav className="flex items-center gap-2 text-sm font-medium">
-            <Link href="/board/demo" className="hidden rounded-full px-3 py-1.5 text-muted hover:text-foreground sm:inline-block">
-              Money board
+          <nav aria-label="Main" className="flex items-center gap-1 text-sm font-medium sm:gap-2">
+            <Link href="/shows" className="rounded-full px-2.5 py-1.5 text-muted hover:text-foreground sm:px-3">
+              Shows
             </Link>
-            <Link href="/organizer" className="hidden rounded-full px-3 py-1.5 text-muted hover:text-foreground sm:inline-block">
-              For organizers
-            </Link>
-            <Link href="/tickets" className="rounded-full border border-line px-3 py-1.5">
+            <Link href="/tickets" className="rounded-full border border-line px-2.5 py-1.5 sm:px-3">
               My tickets
+            </Link>
+            <Link href="/organizer" className="rounded-full px-2.5 py-1.5 text-muted hover:text-foreground sm:px-3">
+              <span className="sm:hidden">Organizers</span>
+              <span className="hidden sm:inline">For organizers</span>
             </Link>
           </nav>
         </header>
         <InAppBrowserNotice />
         <div className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 lg:px-8">{children}</div>
+        <footer className="border-t border-line">
+          <nav
+            aria-label="Footer"
+            className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-sm text-muted lg:px-8"
+          >
+            <Link href="/#how-it-works" className="hover:text-foreground">
+              How it works
+            </Link>
+            <Link href="/board/demo" className="hover:text-foreground">
+              Money board
+            </Link>
+            <a href="https://www.monad.xyz" target="_blank" rel="noopener" className="hover:text-foreground">
+              Built on Monad
+            </a>
+            <a href="https://github.com/abdoulore/Curtain" target="_blank" rel="noopener" className="hover:text-foreground">
+              GitHub
+            </a>
+          </nav>
+        </footer>
       </body>
     </html>
   );

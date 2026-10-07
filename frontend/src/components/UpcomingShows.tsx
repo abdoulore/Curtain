@@ -11,7 +11,8 @@ import { Poster } from "./Poster";
 
 const when = new Intl.DateTimeFormat("en-NG", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
-export function UpcomingShows() {
+/** Upcoming show cards. On the home page a short list with a link to /shows; on /shows, every show. */
+export function UpcomingShows({ heading = true, limit }: { heading?: boolean; limit?: number }) {
   const [shows, setShows] = useState<ShowSummary[] | null>(null);
   const media = useShowsMedia(shows?.map((s) => s.address) ?? []);
 
@@ -25,13 +26,23 @@ export function UpcomingShows() {
     };
   }, []);
 
-  if (shows !== null && shows.length === 0) return null;
+  if (shows !== null && shows.length === 0) {
+    return heading ? null : <p className="mt-6 text-muted">New shows appear here as organizers create them.</p>;
+  }
+  const shown = limit && shows ? shows.slice(0, limit) : shows;
 
   return (
-    <section className="mt-14 lg:mt-20">
-      <h2 className="text-xl font-semibold lg:text-2xl">Upcoming shows</h2>
+    <section className={heading ? "mt-14 lg:mt-20" : "mt-6"} aria-label="Upcoming shows">
+      {heading && (
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-xl font-semibold lg:text-2xl">Upcoming shows</h2>
+          <Link href="/shows" className="text-sm font-semibold text-velvet underline underline-offset-2">
+            All shows
+          </Link>
+        </div>
+      )}
       <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {(shows ?? [null, null, null]).map((s, i) =>
+        {(shown ?? [null, null, null]).map((s, i) =>
           s ? (
             <li key={s.address}>
               <Link

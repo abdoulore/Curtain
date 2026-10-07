@@ -38,7 +38,7 @@ const seeds = {
       ticketId: t.ticketId,
       owner: state.persona,
       hash: "0x",
-      boughtAt: 1_791_200_000_000 + i,
+      boughtAt: Date.now() - (state.tickets.length - i) * 60_000,
     })),
     "curtain.listed.v1": state.tickets.filter((t) => t.listedHere).map((t) => `${t.event.toLowerCase()}-${t.ticketId}`),
   },
@@ -62,10 +62,9 @@ const pages = [
   { name: "organizer-new", path: "/organizer/new", seed: "organizer" },
   { name: "organizer", path: "/organizer/demo", seed: "organizer" },
   { name: "organizer-pairing", path: "/organizer/demo", seed: "organizer", pair: true },
-  // A real purchase with a virtual passkey authenticator (with PRF), ending on the success screen.
-  { name: "bought", path: "/e/demo", buy: true },
-  // Then a real check-in through the gate code, with the gate screen open in its own browser: the phone's
-  // "You're in" is saved as checkin-done, and the gate's ADMIT flash as gate-admit.
+  // A real purchase with a virtual passkey authenticator (with PRF), saved as bought, then a real check-in through
+  // the gate code with the gate screen open in its own browser: the phone's "You're in" is saved as checkin-done and
+  // the gate's ADMIT flash as gate-admit. One purchase per width keeps within the app's daily top-up limit.
   { name: "checkin-done", path: "/e/demo", buy: true, door: true },
 ];
 const viewports = [
@@ -154,6 +153,8 @@ for (const vp of viewports) {
       await page.getByText("You're in.").scrollIntoViewIfNeeded();
     }
     if (gatePage) {
+      await page.screenshot({ path: fileURLToPath(new URL(`bought-${vp.label}.png`, OUT)), fullPage: true });
+      console.log(`bought-${vp.label}.png`);
       const pass = await issueGatePass(DEMO);
       const fragment = b64url(concat([DEMO, pass.gateNonce, toHex(BigInt(pass.challengeBlock), { size: 8 }), pass.pass]));
       await page.goto(`${BASE_URL}/checkin#${fragment}`, { waitUntil: "load" });
@@ -174,6 +175,13 @@ for (const vp of viewports) {
       await page.waitForTimeout(500);
     }
     const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) > window.innerWidth);
+    if (p.name === "event" && vp.isMobile) {
+      // The phone's sticky buy bar is fixed to the screen, so a full-page capture would float it mid-page: keep a
+      // screen-sized shot with the bar where it sits, and the full page without it.
+      await page.screenshot({ path: fileURLToPath(new URL(`event-sticky-${vp.label}.png`, OUT)) });
+      console.log(`event-sticky-${vp.label}.png`);
+      await page.addStyleTag({ content: '[aria-label="Ticket price"] { display: none !important; }' });
+    }
     const file = new URL(`${p.name}-${vp.label}.png`, OUT);
     await page.screenshot({ path: fileURLToPath(file), fullPage: !p.pair });
     console.log(`${p.name}-${vp.label}.png${overflow ? "  HORIZONTAL OVERFLOW" : ""}`);

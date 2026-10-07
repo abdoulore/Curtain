@@ -15,7 +15,7 @@ const organizer = privateKeyToAccount(env.match(/^ORGANIZER_PRIVATE_KEY=(0x[0-9a
 const png = await renderPoster({
   kicker: "Live in Lagos",
   name: "Curtain Demo Night",
-  line: "Stand-up, live music and a door that pays the artists when you walk in.",
+  line: "Stand-up and live music. Held until the show happens, paid to the artists at the door.",
   when: "Nightly · doors 7:30 pm",
   venue: "The Velvet Room, Victoria Island",
 });
@@ -24,7 +24,7 @@ const meta = await uploadPoster(
   DEMO,
   organizer,
   png,
-  "Stand-up, live music and a door that pays the artists when you walk in. Your ticket money waits safely and reaches the performers the moment you scan in.",
+  "Stand-up and live music in Victoria Island. Your money is held until the show happens. When you walk in, it's paid to the artists at the door. If the show doesn't happen, it comes back to you automatically.",
 );
 console.log("poster url:", meta.poster);
 

@@ -40,7 +40,7 @@ the door for the new holder's passkey.
 
 ## 60-second demo
 
-1. **Laptop:** open the [demo gate](https://curtaintickets.vercel.app/gate/pair#VWK_HMurzy8GAjn50kG6lmEhcTW0ZXgbjZDH9G9RwvXea_zUYhDRepxMAu_Zq0TrhPK_wg).
+1. **Laptop:** open the [demo gate](https://curtaintickets.vercel.app/gate/pair#oB76W8HNtZSm7HDSvRsROLSWyw7gDla7-tUTJdNPMBoFbLRDxIi0gphOLxUzeMC2CLq2Og).
    It pairs the browser as a gate for "Curtain Demo Night" and shows a QR code that changes every few seconds.
 2. **Phone:** open https://curtaintickets.vercel.app/e/demo, type a first name, tap **Get my ticket** and confirm with
    your fingerprint or Face ID. ₦1,500 is now protected.

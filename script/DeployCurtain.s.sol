@@ -36,7 +36,6 @@ contract DeployCurtain is Script {
             doorsOpen: uint64(block.timestamp),
             endTime: uint64(block.timestamp + 30 days),
             settleDelay: 1 hours,
-            heldThresholdBps: 5000,
             maxChallengeAge: 300,
             maxPerBuyer: 0,
             rpIdHash: sha256(bytes(RP_ID)),

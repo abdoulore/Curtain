@@ -73,7 +73,6 @@ contract DeployKeeper is Script {
             doorsOpen: uint64(block.timestamp),
             endTime: endTime,
             settleDelay: 0,
-            heldThresholdBps: 5000,
             maxChallengeAge: 300,
             maxPerBuyer: 0,
             rpIdHash: sha256(bytes(RP_ID)),

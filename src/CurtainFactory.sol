@@ -17,10 +17,10 @@ contract CurtainFactory is EIP712, Nonces {
     }
 
     bytes32 public constant SHOW_TYPEHASH = keccak256(
-        "Show(address payout,address token,uint96 price,uint32 capacity,uint64 salesEnd,uint64 doorsOpen,uint64 endTime,uint64 settleDelay,uint16 heldThresholdBps,uint32 maxChallengeAge,uint16 maxPerBuyer,bytes32 rpIdHash,address[] gates)"
+        "Show(address payout,address token,uint96 price,uint32 capacity,uint64 salesEnd,uint64 doorsOpen,uint64 endTime,uint64 settleDelay,uint32 maxChallengeAge,uint16 maxPerBuyer,bytes32 rpIdHash,address[] gates)"
     );
     bytes32 public constant CREATE_SHOW_TYPEHASH = keccak256(
-        "CreateShow(address organizer,string name,string venue,Show show,uint256 nonce,uint256 deadline)Show(address payout,address token,uint96 price,uint32 capacity,uint64 salesEnd,uint64 doorsOpen,uint64 endTime,uint64 settleDelay,uint16 heldThresholdBps,uint32 maxChallengeAge,uint16 maxPerBuyer,bytes32 rpIdHash,address[] gates)"
+        "CreateShow(address organizer,string name,string venue,Show show,uint256 nonce,uint256 deadline)Show(address payout,address token,uint96 price,uint32 capacity,uint64 salesEnd,uint64 doorsOpen,uint64 endTime,uint64 settleDelay,uint32 maxChallengeAge,uint16 maxPerBuyer,bytes32 rpIdHash,address[] gates)"
     );
 
     address public immutable implementation;
@@ -103,7 +103,6 @@ contract CurtainFactory is EIP712, Nonces {
                 p.doorsOpen,
                 p.endTime,
                 p.settleDelay,
-                p.heldThresholdBps,
                 p.maxChallengeAge,
                 p.maxPerBuyer,
                 p.rpIdHash,

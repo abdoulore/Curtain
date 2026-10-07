@@ -705,12 +705,11 @@ contract CurtainEventTest is CurtainTestBase {
         assertTrue(e.domainSeparator() != ev.domainSeparator()); // each clone signs under its own address
     }
 
-    function test_factory_defaultsForZeroThresholdAndAge() public {
+    function test_factory_defaultsForZeroAgeAndFixedThreshold() public {
         CurtainEvent.EventParams memory p = _params();
-        p.heldThresholdBps = 0;
         p.maxChallengeAge = 0;
         CurtainEvent e = CurtainEvent(factory.createEvent(p));
-        assertEq(e.heldThresholdBps(), 5000);
+        assertEq(e.HELD_THRESHOLD_BPS(), 5000);
         assertEq(e.maxChallengeAge(), 300);
     }
 
@@ -722,11 +721,6 @@ contract CurtainEventTest is CurtainTestBase {
 
         p = _params();
         p.doorsOpen = p.endTime + 1;
-        vm.expectRevert(CurtainEvent.InvalidParams.selector);
-        factory.createEvent(p);
-
-        p = _params();
-        p.heldThresholdBps = 10_001;
         vm.expectRevert(CurtainEvent.InvalidParams.selector);
         factory.createEvent(p);
     }

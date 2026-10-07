@@ -46,7 +46,6 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         uint64 doorsOpen;
         uint64 endTime;
         uint64 settleDelay;
-        uint16 heldThresholdBps; // 0 selects DEFAULT_HELD_THRESHOLD_BPS
         uint32 maxChallengeAge; // in blocks, 0 selects DEFAULT_MAX_CHALLENGE_AGE
         uint16 maxPerBuyer; // tickets one account may hold, 0 selects DEFAULT_MAX_PER_BUYER
         bytes32 rpIdHash; // sha256 of the WebAuthn rpId, compared with authenticatorData[0:32]
@@ -84,7 +83,8 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         bytes32 s;
     }
 
-    uint16 public constant DEFAULT_HELD_THRESHOLD_BPS = 5000;
+    /// @notice A show counts as held when at least half of the tickets sold were checked in.
+    uint16 public constant HELD_THRESHOLD_BPS = 5000;
     uint32 public constant DEFAULT_MAX_CHALLENGE_AGE = 300;
     uint16 public constant DEFAULT_MAX_PER_BUYER = 4;
 
@@ -110,7 +110,6 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     address public payout;
     uint32 public capacity;
     uint32 public maxChallengeAge;
-    uint16 public heldThresholdBps;
     EventStatus public status;
     IERC20 public token;
     uint64 public salesEnd;
@@ -187,8 +186,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     function initialize(address organizer_, EventParams calldata p) external initializer {
         if (
             organizer_ == address(0) || p.payout == address(0) || address(p.token) == address(0) || p.price == 0
-                || p.capacity == 0 || p.salesEnd > p.endTime || p.doorsOpen > p.endTime || p.heldThresholdBps > 10_000
-                || p.rpIdHash == bytes32(0)
+                || p.capacity == 0 || p.salesEnd > p.endTime || p.doorsOpen > p.endTime || p.rpIdHash == bytes32(0)
         ) revert InvalidParams();
 
         organizer = organizer_;
@@ -200,7 +198,6 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
         doorsOpen = p.doorsOpen;
         endTime = p.endTime;
         settleDelay = p.settleDelay;
-        heldThresholdBps = p.heldThresholdBps == 0 ? DEFAULT_HELD_THRESHOLD_BPS : p.heldThresholdBps;
         maxChallengeAge = p.maxChallengeAge == 0 ? DEFAULT_MAX_CHALLENGE_AGE : p.maxChallengeAge;
         maxPerBuyer = p.maxPerBuyer == 0 ? DEFAULT_MAX_PER_BUYER : p.maxPerBuyer;
         rpIdHash = p.rpIdHash;
@@ -337,7 +334,7 @@ contract CurtainEvent is Initializable, EIP712, Nonces, ReentrancyGuardTransient
     /// @notice After endTime plus settleDelay, decides whether the event was held. Anyone may call.
     function settle() external {
         if (status != EventStatus.Open || block.timestamp < uint256(endTime) + settleDelay) revert NotSettleable();
-        if (uint256(checkedIn) * 10_000 >= uint256(heldThresholdBps) * sold) {
+        if (uint256(checkedIn) * 10_000 >= uint256(HELD_THRESHOLD_BPS) * sold) {
             status = EventStatus.Held;
             uint256 amount = escrowed;
             escrowed = 0;

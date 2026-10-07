@@ -71,7 +71,6 @@ abstract contract CurtainTestBase is Test {
             doorsOpen: doorsOpen,
             endTime: endTime,
             settleDelay: SETTLE_DELAY,
-            heldThresholdBps: 5000,
             maxChallengeAge: MAX_AGE,
             maxPerBuyer: 0,
             rpIdHash: sha256(bytes(RP_ID)),

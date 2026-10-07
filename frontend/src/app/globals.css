@@ -27,7 +27,8 @@
     --foreground: #f4ece4;
     --muted: #a99c90;
     --line: #2f2522;
-    --velvet: #d2475b;
+    /* Lighter than the light-mode velvet so links and small text stay above 4.5:1 on the dark surface. */
+    --velvet: #e05a6d;
     --velvet-ink: #1a0b0e;
     --go: #4ade80;
     --stop: #f87171;
@@ -61,6 +62,25 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Keyboard focus is always visible, on every control, in both modes. */
+:focus-visible {
+  outline: 2px solid var(--velvet);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Reduced motion: movement becomes an instant change. The gate code's drain bar stays, since it tells time. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.gate-drain),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Gate code lifetime: drains over one rotation. */

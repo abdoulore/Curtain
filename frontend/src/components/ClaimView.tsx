@@ -13,6 +13,7 @@ import { readTicket, type TicketInfo } from "@/lib/reads";
 import { saveTicket } from "@/lib/tickets";
 import { ContinueOnPhone } from "./ContinueOnPhone";
 import { SignInButton } from "./SignInButton";
+import { VerdictIcon } from "./VerdictIcon";
 
 function subscribeHash(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
@@ -83,11 +84,11 @@ export function ClaimView() {
 
   if (done) {
     return (
-      <main className="mx-auto mt-6 flex min-h-[60vh] max-w-md flex-col items-center justify-center rounded-3xl bg-go p-6 text-center text-white">
-        <p className="text-5xl">✓</p>
+      <main className="mx-auto mt-6 flex min-h-[60vh] max-w-md flex-col items-center justify-center rounded-3xl bg-admit p-6 text-center text-white">
+        <VerdictIcon ok className="h-20 w-20" />
         <h1 className="mt-4 text-3xl font-semibold">Ticket #{link.ticketId.toString()} is on this phone</h1>
         <p className="mt-3 max-w-xs opacity-90">At the door, scan the gate code and confirm with your fingerprint or Face ID.</p>
-        <Link href="/tickets" className="mt-6 rounded-2xl bg-white px-5 py-3 font-semibold text-go">
+        <Link href="/tickets" className="mt-6 rounded-2xl bg-white px-5 py-3 font-semibold text-admit">
           See my ticket
         </Link>
       </main>

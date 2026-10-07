@@ -32,6 +32,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
+        <a
+          href="#content"
+          className="sr-only rounded-xl bg-velvet px-4 py-2 font-semibold text-velvet-ink focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
+        >
+          Skip to content
+        </a>
         <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 pt-5 pb-2 lg:px-8">
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <Image src="/logo.png" alt="" width={32} height={32} priority className="rounded-lg" /> Curtain
@@ -50,7 +56,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </nav>
         </header>
         <InAppBrowserNotice />
-        <div className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 lg:px-8">{children}</div>
+        <div id="content" className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 lg:px-8">
+          {children}
+        </div>
         <footer className="border-t border-line">
           <nav
             aria-label="Footer"

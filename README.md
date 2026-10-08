@@ -403,7 +403,10 @@ Laptop to phone on real devices, on an earlier deployment, Oct 5:
 | Samsung Android, Chrome | B: scan and claim | claimed | [`0xfe965f93...e3ec`](https://testnet.monadvision.com/tx/0xfe965f938f9fdbbc18c80375810510b80c52726b0b0bda7940da040fe1dce3ec) |
 | Samsung Android, Chrome | check in at the laptop gate, fingerprint | green | [`0xb160c881...c1b6`](https://testnet.monadvision.com/tx/0xb160c881abadf97bddcfb44e1e1a44d81b2855470450b11a9f88f231a93dc1b6) |
 
-iPhone with Face ID on the live site: passed, Oct 8. Mac has not been run.
+iPhone, Safari, Face ID, on the live site, Oct 8: a new passkey account (`0x4970fdf1...68ED`) signed up and bought
+ticket #8 on Curtain Demo Night with one Face ID prompt,
+[`0x1bcf1983...18e1`](https://testnet.monadvision.com/tx/0x1bcf1983864304d73ff57f35c62c22bdfd42b07ab52d4dfe92ccc39143fd18e1).
+Mac has not been run.
 
 ## Chainlink CRE runs
 

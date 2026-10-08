@@ -1,5 +1,5 @@
 import "server-only";
-import { BaseError, ContractFunctionRevertedError, type Abi, type Address, type Hash, type TransactionReceipt } from "viem";
+import { BaseError, ContractFunctionRevertedError, InsufficientFundsError, type Abi, type Address, type Hash, type TransactionReceipt } from "viem";
 import { nonceManager } from "viem/accounts";
 import { monadTestnet } from "@/lib/chain";
 import { publicClient, type Wallet } from "./clients";
@@ -24,6 +24,9 @@ export function toRelayError(error: unknown): RelayError {
       const name = reverted.data?.errorName ?? "Reverted";
       const args = reverted.data?.args?.map((a) => (typeof a === "bigint" ? a.toString() : a));
       return new RelayError(400, name, reverted.shortMessage, args);
+    }
+    if (error.walk((e) => e instanceof InsufficientFundsError) instanceof InsufficientFundsError) {
+      return new RelayError(503, "RelayerRefilling", "The relayer is out of gas money");
     }
     return new RelayError(502, "RpcError", error.shortMessage);
   }

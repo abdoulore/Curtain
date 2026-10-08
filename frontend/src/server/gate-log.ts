@@ -1,7 +1,15 @@
 import "server-only";
 
-/** One check-in attempt as the gate screen shows it. Refused attempts never reach the chain, so they live here. */
-export type GateResult = { at: number; ok: boolean; ticketId: string; code?: string; hash?: string };
+/**
+ * One check-in attempt as the gate screen shows it. Refused attempts never reach the chain, so they live here.
+ * `gate` is the paired device whose code was scanned; each gate screen shows only its own attempts.
+ */
+export type GateResult = { at: number; ok: boolean; ticketId: string; gate?: string; code?: string; hash?: string };
+
+/** The attempts made at one gate device, newest first. */
+export function forGate(results: GateResult[], gate: string): GateResult[] {
+  return results.filter((r) => r.gate?.toLowerCase() === gate.toLowerCase());
+}
 
 export interface GateLog {
   push(event: string, result: GateResult): Promise<void>;

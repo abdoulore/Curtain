@@ -50,28 +50,46 @@ export function listingsFor(
     .sort((a, b) => (a.price === b.price ? Number(a.ticketId - b.ticketId) : a.price < b.price ? -1 : 1));
 }
 
-export type CardStatus = "checking" | "ready" | "listed" | "used" | "refunded" | "refundOwed" | "sold" | "passedOn";
+export type CardStatus =
+  | "checking"
+  | "ready"
+  | "listed"
+  | "used"
+  | "refunded"
+  | "refundable"
+  | "ended"
+  | "missed"
+  | "sold"
+  | "passedOn";
+
+/** The show a ticket belongs to, as far as the ticket's state depends on it. */
+export type ShowForCard = { status: string; readAt: number; endTime: number };
 
 /**
  * What a ticket card says. A ticket that left this account after its owner listed it from here was sold;
- * otherwise it was passed on (a gift link or Send to my phone).
+ * otherwise it was passed on (a gift link or Send to my phone). An unused ticket follows its show: refundable once
+ * the show is cancelled or not confirmed, ended once it is over, missed when it went ahead without this ticket.
  */
 export function cardStatus(
   info: { state: TicketState; holder: Address; resalePrice: bigint } | null,
   owner: Address,
   listedHere: boolean,
+  show: ShowForCard | null = null,
 ): CardStatus {
   if (!info) return "checking";
   if (info.holder.toLowerCase() !== owner.toLowerCase()) return listedHere ? "sold" : "passedOn";
   switch (info.state) {
     case "Active":
+      if (show?.status === "Cancelled" || show?.status === "NotHeld") return "refundable";
+      if (show?.status === "Held") return "missed";
+      if (show && show.readAt >= show.endTime) return "ended";
       return info.resalePrice > 0n ? "listed" : "ready";
     case "CheckedIn":
       return "used";
     case "Refunded":
       return "refunded";
     case "RefundOwed":
-      return "refundOwed";
+      return "refundable";
     default:
       return "checking";
   }

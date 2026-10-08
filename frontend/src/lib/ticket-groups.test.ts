@@ -11,7 +11,9 @@ describe("ticketGroup", () => {
   });
 
   it("puts used, refunded, sold and passed-on tickets under Past", () => {
-    for (const s of ["used", "refunded", "refundOwed", "sold", "passedOn"] as CardStatus[]) expect(ticketGroup(s, open)).toBe("past");
+    for (const s of ["used", "refunded", "refundable", "ended", "missed", "sold", "passedOn"] as CardStatus[]) {
+      expect(ticketGroup(s, open)).toBe("past");
+    }
   });
 
   it("moves a ticket to Past once its show ends or is cancelled", () => {
@@ -25,6 +27,7 @@ describe("mainAction", () => {
     expect(mainAction("ready")).toBe("View ticket");
     expect(mainAction("listed")).toBe("Manage listing");
     expect(mainAction("refunded")).toBe("View refund");
+    expect(mainAction("refundable")).toBe("Get my refund");
     expect(mainAction("checking")).toBeNull();
   });
 });

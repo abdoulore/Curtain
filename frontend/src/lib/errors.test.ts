@@ -68,6 +68,7 @@ describe("plainError: contract and relayer", () => {
       "BadRequest", "GateTokenWrongEvent", "UnknownEvent", "UnsupportedToken", "WrongRpId", "GateAuthExpired",
       "GateUnauthorized", "NotOrganizer", "RevertedOnchain", "CreateLimitGlobal", "CreateLimitIp", "TopupLimitGlobal",
       "TopupLimitIp", "InternalError", "NotCreated", "RpcError", "DemoMoneyRefilling", "LimitStoreUnavailable", "GasCeiling",
+      "RelayerRefilling",
     ];
     expect(codes.filter((c) => friendlyMessage(c) === DEFAULT)).toEqual([]);
   });

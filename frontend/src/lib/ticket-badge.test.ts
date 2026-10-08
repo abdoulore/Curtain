@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CardStatus } from "./resale";
 import { ticketBadge } from "./ticket-badge";
 
-const ALL: CardStatus[] = ["checking", "ready", "listed", "used", "refunded", "refundOwed", "sold", "passedOn"];
+const ALL: CardStatus[] = ["checking", "ready", "listed", "used", "refunded", "refundable", "ended", "missed", "sold", "passedOn"];
 
 describe("ticketBadge", () => {
   it.each(ALL)("gives %s a label and an icon, not just a colour", (status) => {

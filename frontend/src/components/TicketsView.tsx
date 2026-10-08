@@ -14,6 +14,7 @@ import { readShowDetails, useShowMeta } from "@/lib/show-details";
 import { ticketBadge, type BadgeIcon, type TicketBadge } from "@/lib/ticket-badge";
 import { mainAction, sortTickets, ticketGroup } from "@/lib/ticket-groups";
 import type { SavedTicket } from "@/lib/tickets";
+import { requestRefund } from "@/lib/refund";
 import { useMyTickets } from "@/lib/use-my-tickets";
 import { useShowMedia } from "@/lib/use-show-media";
 import { whenText } from "@/lib/when";
@@ -149,6 +150,19 @@ function TicketCard({
   const panelId = `ticket-${keyOf(ticket)}`;
   const canSell = !past && (status === "ready" || status === "listed");
 
+  async function refund() {
+    setBusy(true);
+    setError(null);
+    try {
+      await requestRefund(ticket.event, ticket.ticketId);
+      onChanged();
+    } catch (e) {
+      setError(plainError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function setOnSale(onSale: boolean) {
     if (!show) return;
     if (onSale && !confirm(`Put ticket #${ticket.ticketId} on sale at face value, ${price}? The buyer pays you directly.`)) return;
@@ -194,7 +208,24 @@ function TicketCard({
       </div>
 
       <div className="px-5 pt-4 pb-5">
-        {action && (
+        {status === "refundable" ? (
+          <>
+            <button
+              onClick={refund}
+              disabled={busy}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-velvet px-4 py-3 font-semibold text-velvet-ink disabled:opacity-60"
+            >
+              <Icon name="return" />
+              {busy ? "Getting your refund…" : "Get my refund"}
+            </button>
+            {badge.detail && <p className="mt-3 text-sm text-muted">{badge.detail}</p>}
+            {error && (
+              <p role="alert" className="mt-3 text-sm text-stop">
+                {error}
+              </p>
+            )}
+          </>
+        ) : action && (
           <button
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
@@ -335,7 +366,7 @@ export function TicketsView() {
   const rows = mine
     .map((t) => {
       const l = loaded[keyOf(t)];
-      const status = cardStatus(l?.info ?? null, account.address, wasListedHere(t.event, t.ticketId));
+      const status = cardStatus(l?.info ?? null, account.address, wasListedHere(t.event, t.ticketId), l?.show ?? null);
       return { ticket: t, info: l?.info ?? null, show: l?.show ?? null, named: l?.named, status, boughtAt: t.boughtAt };
     })
     .filter((r) => r.named !== false);

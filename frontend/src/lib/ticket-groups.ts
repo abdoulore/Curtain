@@ -20,8 +20,12 @@ export function mainAction(status: CardStatus): string | null {
     case "listed":
       return "Manage listing";
     case "refunded":
-    case "refundOwed":
       return "View refund";
+    case "refundable":
+      return "Get my refund";
+    case "ended":
+    case "missed":
+      return "Details";
     case "sold":
       return "View sale";
     case "passedOn":

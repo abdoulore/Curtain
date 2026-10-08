@@ -14,6 +14,8 @@ export const monadTestnet = defineChain({
 
 export const CURTAIN_FACTORY: Address = "0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF";
 export const DEMO_EVENT: Address = "0x6385e193b18c4291Da556121e6E9eCF04b384672";
+/** Receives the Chainlink workflow's reports; its `pending` view is also what the relayer's daily keeper asks. */
+export const CURTAIN_KEEPER: Address = "0xC157558da8C7d90EAE75C38A850515567ED5a18E";
 
 /** Earlier factories, newest first. Shows made there keep working, so their names are still looked up. */
 export const RETIRED_FACTORIES: readonly Address[] = [

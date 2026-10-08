@@ -26,8 +26,27 @@ export function ticketBadge(status: CardStatus, price: string): TicketBadge {
       return { label: "Checked in", icon: "door", tone: "neutral", detail: "Enjoy the show." };
     case "refunded":
       return { label: "Refunded", icon: "return", tone: "go", detail: `${price} is back in your balance. It pays for your next ticket.` };
-    case "refundOwed":
-      return { label: "Refund on its way", icon: "clock", tone: "velvet", detail: "Your money comes back automatically." };
+    case "refundable":
+      return {
+        label: "Refund ready",
+        icon: "return",
+        tone: "velvet",
+        detail: `This show didn't go ahead, so the ${price} you paid comes back to you.`,
+      };
+    case "ended":
+      return {
+        label: "Show ended",
+        icon: "clock",
+        tone: "muted",
+        detail: "Not checked in. If the show isn't confirmed, this ticket is refunded automatically.",
+      };
+    case "missed":
+      return {
+        label: "Not checked in",
+        icon: "door",
+        tone: "muted",
+        detail: "The show went ahead, so this ticket's money was paid to the organizer.",
+      };
     case "sold":
       return { label: "Sold", icon: "arrow", tone: "muted", detail: `The buyer's ${price} went to your balance.` };
     case "passedOn":

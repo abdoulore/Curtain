@@ -21,6 +21,7 @@ const FRIENDLY: Record<string, string> = {
   InvalidPublicKey: "Use your Curtain passkey for tickets.",
   UnknownEvent: "We couldn't find this show.",
   RpcError: "The network is slow right now. Try again in a moment.",
+  RelayerRefilling: "Curtain is topping up its network fees. Try again in a few minutes.",
   RevertedOnchain: "That didn't go through. Please try again.",
   InternalError: "Something went wrong on our side. Please try again.",
   BadRequest: "Something in that request wasn't right. Refresh the page and try again.",

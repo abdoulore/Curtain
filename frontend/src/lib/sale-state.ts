@@ -7,7 +7,12 @@ export type SaleState =
 
 /** Whether new tickets can be bought right now, and what to say when they can't. */
 export function saleState(info: Pick<EventInfo, "status" | "readAt" | "salesEnd" | "endTime" | "sold" | "capacity">): SaleState {
-  if (info.status === "Cancelled") return { kind: "closed", label: "This show was cancelled. Every ticket is being refunded." };
+  if (info.status === "Cancelled") {
+    return { kind: "closed", label: "This show was cancelled. Every ticket that wasn't checked in is refunded." };
+  }
+  if (info.status === "NotHeld") {
+    return { kind: "closed", label: "This show wasn't confirmed. Every ticket that wasn't checked in is refunded." };
+  }
   if (info.status !== "Open" || info.readAt >= info.endTime) return { kind: "closed", label: "This show has ended." };
   if (info.readAt >= info.salesEnd) return { kind: "closed", label: "Ticket sales have closed." };
   if (info.sold >= info.capacity) return { kind: "soldOut", label: "Sold out" };

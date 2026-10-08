@@ -3,18 +3,20 @@ import { limitStore, type CounterStore } from "./limits";
 import { RelayError } from "./relay";
 
 /** Every route that makes the relayer or the treasury pay gas. */
-export const GAS_ROUTES = ["buy", "checkin", "claim", "create", "list", "organizer", "setclaim", "topup"] as const;
+export const GAS_ROUTES = ["buy", "checkin", "claim", "create", "keeper", "list", "organizer", "setclaim", "topup"] as const;
 export type GasRoute = (typeof GAS_ROUTES)[number];
 
 /**
  * Gas limit (Monad charges the limit, not the gas used) each route may spend per UTC day. Sized from the measured
- * gas per call: about 500 buys, 500 check-ins and 40 new shows a day. Override with GAS_CEILING_<ROUTE>.
+ * gas per call: about 500 buys, 500 check-ins, 40 new shows and 40 refund batches a day. Override with GAS_CEILING_<ROUTE>.
  */
 const DEFAULT_CEILINGS: Record<GasRoute, number> = {
   buy: 150_000_000,
   checkin: 75_000_000,
   claim: 20_000_000,
   create: 20_000_000,
+  // Settlements and refund batches (about 500k gas per batch of 10 refunds).
+  keeper: 20_000_000,
   list: 20_000_000,
   organizer: 30_000_000,
   setclaim: 20_000_000,

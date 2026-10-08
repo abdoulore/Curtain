@@ -11,15 +11,15 @@ import { sendContract } from "@/server/relay";
 
 const body = z.object({ address });
 
-/** Only tops up accounts holding less than this, so one account cannot drain the treasury. */
-const LOW_BALANCE = 1_000_000n; // 1 USDC
 
 /** Testnet only: sends a new account a little USDC from the treasury. Buyers never need MON. */
 export async function POST(request: Request) {
   try {
     const { address: to } = await parse(request, body);
     const balance = await publicClient.readContract({ address: USDC, abi: erc20Abi, functionName: "balanceOf", args: [to] });
-    if (balance >= LOW_BALANCE) return ok({ toppedUp: false, balance });
+    // Only accounts holding less than one top-up get one, so a buyer can always afford the dearest demo ticket and
+    // nobody can stack demo money.
+    if (balance >= env.topupAmount()) return ok({ toppedUp: false, balance });
     // Counted only when money would actually move: per network per day, and for the whole app per hour. In
     // production without Upstash this refuses, so top-ups fail closed.
     await enforceTopupLimits(limitStore(), clientIp(request));

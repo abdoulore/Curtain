@@ -55,6 +55,23 @@ describe("listingsFor", () => {
   });
 });
 
+describe("cardStatus and the show", () => {
+  const open = { status: "Open", readAt: 100, endTime: 200 };
+  const active = { state: "Active" as const, holder: "0x0000000000000000000000000000000000000001" as const, resalePrice: 0n };
+  const me = active.holder;
+
+  it("offers a refund once the show is cancelled or not confirmed", () => {
+    expect(cardStatus(active, me, false, { ...open, status: "Cancelled" })).toBe("refundable");
+    expect(cardStatus(active, me, false, { ...open, status: "NotHeld" })).toBe("refundable");
+  });
+
+  it("never says ready for the gate once the show is over", () => {
+    expect(cardStatus(active, me, false, { ...open, readAt: 200 })).toBe("ended");
+    expect(cardStatus(active, me, false, { ...open, status: "Held" })).toBe("missed");
+    expect(cardStatus(active, me, false, open)).toBe("ready");
+  });
+});
+
 describe("cardStatus", () => {
   const info = (state: "Active" | "CheckedIn" | "Refunded" | "RefundOwed", holder: `0x${string}` = ME, resalePrice = 0n) => ({
     state,
@@ -68,7 +85,7 @@ describe("cardStatus", () => {
     expect(cardStatus(info("Active", ME, 1_000_000n), ME, true)).toBe("listed");
     expect(cardStatus(info("CheckedIn"), ME, false)).toBe("used");
     expect(cardStatus(info("Refunded"), ME, false)).toBe("refunded");
-    expect(cardStatus(info("RefundOwed"), ME, false)).toBe("refundOwed");
+    expect(cardStatus(info("RefundOwed"), ME, false)).toBe("refundable");
   });
 
   it("calls a listed ticket that left the account sold, and anything else passed on", () => {

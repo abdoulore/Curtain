@@ -404,7 +404,7 @@ Laptop to phone on real devices, on an earlier deployment, Oct 5:
 | Samsung Android, Chrome | check in at the laptop gate, fingerprint | green | [`0xb160c881...c1b6`](https://testnet.monadvision.com/tx/0xb160c881abadf97bddcfb44e1e1a44d81b2855470450b11a9f88f231a93dc1b6) |
 
 iPhone, Safari, Face ID, on the live site, Oct 8: a new passkey account (`0x4970fdf1...68ED`) signed up and bought
-ticket #8 on Curtain Demo Night with one Face ID prompt,
+ticket #8 on Curtain Demo Night,
 [`0x1bcf1983...18e1`](https://testnet.monadvision.com/tx/0x1bcf1983864304d73ff57f35c62c22bdfd42b07ab52d4dfe92ccc39143fd18e1).
 Mac has not been run.
 

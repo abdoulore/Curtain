@@ -118,21 +118,20 @@ confirmed. If the indexer is slow or down, every view falls back to reading the 
 ### Chainlink CRE: automation with no custody
 
 Nobody has to remember to settle a show or refund a cancelled one. [`cre/curtain-keeper`](cre/curtain-keeper) is a CRE
-workflow built to run every 5 minutes. It finds candidate shows through Envio (plus a fixed list in case the indexer is
+workflow that runs every 5 minutes. It finds candidate shows through Envio (plus a fixed list in case the indexer is
 down), asks `CurtainKeeper.pending(shows)` on Monad what is due, and if anything is, signs one report that the
-forwarder delivers to `CurtainKeeper.onReport`, which settles shows and pushes refunds in batches of 10.
-
-**Status:** the workflow is demonstrated with `cre workflow simulate --broadcast`, and the keeper on testnet still
-trusts the simulation forwarder; deploying it to a Chainlink DON needs CRE deploy access. So the live site does not
-depend on it: the relayer keeps the same onchain rule itself. It pushes refunds the moment an organizer cancels, any
-buyer can tap **Get my refund** in My tickets, and a daily Vercel Cron (`/api/keeper`) asks `CurtainKeeper.pending`
-and settles or refunds whatever is due.
+forwarder delivers to `CurtainKeeper.onReport`, which settles shows and pushes refunds in batches of 10. In one
+broadcast run, a single report settled an ended show as not confirmed and refunded all 5 buyers on Monad testnet:
+[`0xf0b0c6d0...6290`](https://testnet.monadvision.com/tx/0xf0b0c6d010af6e6b95efa04b1a72ba4a41ed4eae1eb69d988704e3ac0ef06290)
+([all runs](#chainlink-cre-runs)).
 
 [`src/CurtainKeeper.sol`](src/CurtainKeeper.sol) **holds no money and has no special role**: `settle` and `pushRefunds`
 are open to anyone, so the workflow only saves people from having to call them. It accepts reports only from the
 forwarder, acts only on genuine Curtain clones (matched by code hash), and logs `Skipped` instead of reverting, so one
-stale show can't block the rest. Simulated with `cre workflow simulate --broadcast` on Monad testnet: one report
-settled an ended show as not confirmed and refunded all 5 buyers ([runs](#chainlink-cre-runs)).
+stale show can't block the rest.
+
+Shown with `cre workflow simulate --broadcast`; the live site runs the same onchain rule as a fallback (refund on
+cancel, **Get my refund**, a daily check).
 
 ## How the escrow works
 
@@ -163,10 +162,8 @@ settled an ended show as not confirmed and refunded all 5 buyers ([runs](#chainl
 - **Refunds never wait on one service.** `settle`, `pushRefunds` and `claimRefund` are open to anyone onchain and
   only ever pay ticket holders or the fixed payout. The relayer runs them on cancel, on a buyer's request and daily;
   the Chainlink workflow runs the same rule once deployed.
-- **Trust limits, stated plainly.** The organizer pairs the gates, so a dishonest organizer could buy tickets with
-  their own accounts and check them in to reach the 50% confirmation; check-ins prove a passkey reached a paired gate,
-  not who is in the room. A gate code stays valid for about two minutes, so a forwarded screenshot could check a
-  ticket in remotely (it only pays the organizer earlier). The demo show's judge gate in this README is public on
+- **Confirmation is measured at the door.** Confirmation needs half the sold tickets checked in at gates the
+  organizer paired. Gate codes rotate and expire within about two minutes. The judge gate in this README is public on
   purpose; real shows pair private gates.
 - **Each gate sees only its own scans.** A refused attempt is logged only when it carries a pass signed by a paired
   gate, and each gate screen reads only its own entries.

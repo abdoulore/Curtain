@@ -13,7 +13,7 @@ organizer at the door. If the show doesn't happen, it comes back to you automati
 | --- | --- | --- |
 | CurtainFactory | [`0xd22f6eb4...83bF`](https://testnet.monadvision.com/address/0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF) | [`0x50f7b66b...0b10`](https://testnet.monadvision.com/tx/0x50f7b66bfde281e7d4584bb94bf97c3bd6fe45edd38ee521206064f99f270b10) |
 | CurtainEvent implementation | [`0x33Bda352...dD8`](https://testnet.monadvision.com/address/0x33Bda35276C3582eD2129d54a63a21725C8cbdD8) | same tx |
-| Demo show (a clone, made with `createEventFor`) | [`0xa01EFA5B...CB0E`](https://testnet.monadvision.com/address/0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E) | [`0xd5136a0c...7e89`](https://testnet.monadvision.com/tx/0xd5136a0c1f91824e62331ce575c1a9435f109c386c6b35edafa4d63521077e89) |
+| Demo show (a clone, made with `createEventFor`, open until Dec 31) | [`0x6385e193...4672`](https://testnet.monadvision.com/address/0x6385e193b18c4291Da556121e6E9eCF04b384672) | [`0x22de9d98...ac0e`](https://testnet.monadvision.com/tx/0x22de9d980dc5aedbec86aac54057dd1976f77060d629841ef65128c90384ac0e) |
 | CurtainKeeper (Chainlink CRE receiver) | [`0xC157558d...a18E`](https://testnet.monadvision.com/address/0xC157558da8C7d90EAE75C38A850515567ED5a18E) | [`0xc99d3cca...6346`](https://testnet.monadvision.com/tx/0xc99d3cca7f4df86e1a218b0a1db3427817b55277be83f3270b5c1c83e3356346) |
 
 All four are source-verified on Sourcify (exact match). Earlier deployments are listed in the
@@ -40,7 +40,7 @@ the door for the new holder's passkey.
 
 ## 60-second demo
 
-1. **Laptop:** open the [demo gate](https://curtaintickets.vercel.app/gate/pair#oB76W8HNtZSm7HDSvRsROLSWyw7gDla7-tUTJdNPMBoFbLRDxIi0gphOLxUzeMC2CLq2Og).
+1. **Laptop:** open the [demo gate](https://curtaintickets.vercel.app/gate/pair#Y4Xhk7GMQpHaVWEh5uns8Es4RnKtmayIwODJ2JuNMO7Qb_Tib_nVA1hdZfHnK-ZYNKqO7g).
    It pairs the browser as a gate for "Curtain Demo Night" and shows a QR code that changes every few seconds.
 2. **Phone:** open https://curtaintickets.vercel.app/e/demo, type a first name, tap **Get my ticket** and confirm with
    your fingerprint or Face ID. ₦1,500 is now protected.
@@ -53,7 +53,7 @@ Phones: Android with Chrome and Google Password Manager (tested on a Samsung wit
 on iOS 18+ and iCloud Keychain. Open links in Chrome or Safari, not inside WhatsApp, Instagram or X. To run your own
 show, open https://curtaintickets.vercel.app/organizer/new (event, tickets, review), then use **Add a gate device** on
 the dashboard's **Gates** tab. Besides Curtain Demo Night, three more demo shows with fictional names and venues are on
-sale for late October, so the Shows page reads like a real line-up.
+sale for December, so the Shows page reads like a real line-up.
 
 ## Why Monad
 
@@ -210,7 +210,7 @@ MIT
 
 The demo show sells 200 tickets at 1 USDC (shown as ₦1,500; Circle testnet USDC
 `0x534b2f3A21130d7a60830c2Df862319e593943A3`, EIP-712 domain `USDC` version `2`), up to 4 per person, doors open
-now, ends 30 days after deploy, rpId `curtaintickets.vercel.app`. The held threshold is a contract constant: half the
+since Oct 8 and open until Dec 31 2026 (so judges can buy and check in), rpId `curtaintickets.vercel.app`. The held threshold is a contract constant: half the
 tickets sold.
 
 ```sh
@@ -239,6 +239,7 @@ still appear in My tickets.
 
 | Version | Factory | Demo show | Keeper |
 | --- | --- | --- | --- |
+| Current factory, October demo (replaced Oct 8 by the December one; still open until Nov 6, hidden from lists) | same as above | `0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E` | same as above |
 | Held threshold set per show (until Oct 7) | `0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6` | `0x5562bF1ccBabcF2f060239f9D241Ba9661217135` | `0xc16008D869fC44E2af4d217C23adc2eCFdC57219` |
 | Before the per-person limit | `0x13391D9E0dD62d01c62821671F47A12eE320Ca58` | `0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D` | `0xe2F693e95eA2A2ff45fA08374198714CD49E58B1` |
 | Earlier | `0x00CC023C3BFB01eb3E5470247c7976966b04d0Db` | `0xd3F22B52F74D658318C29E0475E1833214eCA005` | `0x010F096F8dC260b68A07025C00404aaf9F33bADe` |
@@ -290,10 +291,31 @@ page; the other flows ran through the app's relayer API with EOAs standing in fo
 | | phone claims (reusing the link refused), then checks in | [`0xb74420d7...9f35`](https://testnet.monadvision.com/tx/0xb74420d773f63d96aa31538479520b92bb8c57221ddad306180880e4b8ea9f35), [`0x262b9bc9...47a5`](https://testnet.monadvision.com/tx/0x262b9bc9cef587a8f7e4e6d964d6b7a8f4e480e7e1cbfed066ddcbc0f2f847a5) |
 | `npm run e2e:organizer` | signed withdraw, add gate, remove gate; a stranger refused | [`0x85b18715...b365`](https://testnet.monadvision.com/tx/0x85b18715498c10cdb965f3cc8d86025274e98fe110a7c3a906f3ff3449e0b365), [`0x25184871...9d1d`](https://testnet.monadvision.com/tx/0x2518487144ccdbe7877b2e7398e2949e2295f62ac0e9fe8be42a0fa37a7d9d1d), [`0xa9c20eb7...cfc5`](https://testnet.monadvision.com/tx/0xa9c20eb7bdafcacd4aa037c7e687c9ca33f329cfbada18afa6fb68718ad8cfc5) |
 
-The three extra demo shows were created by the demo organizer's signature (`scripts/demo-shows.mjs`):
-Saturday Night Punchlines [`0xce311838...d0f1`](https://testnet.monadvision.com/tx/0xce3118387361a7a74e7a19b549ba428efd0ae83b32d325f03dc67a8d6d40d0f1),
-Highlife After Dark [`0x1f580205...a337`](https://testnet.monadvision.com/tx/0x1f580205d17715e228913567b91aaa9c373d3b8370e7f35d3bbecb58bedaa337),
-First Draft: Open Mic Poetry [`0x78aa10f8...22c8`](https://testnet.monadvision.com/tx/0x78aa10f853506cb8bb0a24cb848da5b8fadda695102f68e0db9fac0ab00422c8).
+The demo shows were recreated on Oct 8 with December dates, so they stay open through judging, each from the demo
+organizer's `CreateShow` signature (`scripts/demo-shows.mjs`; the last three were submitted by the operator's relayer
+key directly, once the public create endpoint's daily limit was used up):
+
+| Show | Address | Created |
+| --- | --- | --- |
+| Curtain Demo Night (doors open now, until Dec 31) | [`0x6385e193...4672`](https://testnet.monadvision.com/address/0x6385e193b18c4291Da556121e6E9eCF04b384672) | [`0x22de9d98...ac0e`](https://testnet.monadvision.com/tx/0x22de9d980dc5aedbec86aac54057dd1976f77060d629841ef65128c90384ac0e) |
+| Saturday Night Punchlines (Sat 5 Dec) | [`0xD9bAe079...70F9`](https://testnet.monadvision.com/address/0xD9bAe0794514D4De8C5c5B140Db419Bc40b670F9) | [`0x1ab736f3...b06e`](https://testnet.monadvision.com/tx/0x1ab736f32405f1a65a2c7b07cf61095bab1b4ef023200e1b134b1d729b80b06e) |
+| Highlife After Dark (Sat 12 Dec) | [`0xa8a6013A...2e24`](https://testnet.monadvision.com/address/0xa8a6013A82C9C65f586D10fa0146eEAE01CF2e24) | [`0xd7f66513...0a60`](https://testnet.monadvision.com/tx/0xd7f665133ccbbc016cf27b986e969c35682296fe225177d17ffb45cf7f380a60) |
+| First Draft: Open Mic Poetry (Sat 19 Dec) | [`0x6a33f89D...0722`](https://testnet.monadvision.com/address/0x6a33f89D9122C2dd8A92c6D25affEb057dAF0722) | [`0xde1e3a99...0870`](https://testnet.monadvision.com/tx/0xde1e3a99927c41874e15ad3d3c50b363fcaca6a276cf877324a58c45883b0870) |
+
+Judge gate paired on the new demo show [`0x8e1adea9...678e`](https://testnet.monadvision.com/tx/0x8e1adea91aafdbe5bba2858a40f93fd50e2407b7064208329c5d3ac3ce81678e). The
+October versions of the three extra shows were cancelled before any sale:
+[`0x61f0b0d1...4a62`](https://testnet.monadvision.com/tx/0x61f0b0d113d79475d77bd30f2555c47976122cb80a83bca3caeb9843514a4a62),
+[`0xa912b39d...e87c`](https://testnet.monadvision.com/tx/0xa912b39dcef1c4a271120559ca32d1e245bbc658ed216eaab858c2d600b1e87c),
+[`0x42d47864...97fd`](https://testnet.monadvision.com/tx/0x42d478644fd1bc2aafc8df3e5d4505c7d5af7067b5c32592fc81b486f53c97fd).
+
+Buy, check-in and second-scan refusal on the new demo show, from the screenshot run (real transactions, at each width):
+[`0x501bae4f...5144`](https://testnet.monadvision.com/tx/0x501bae4fbc3c3a46ef01100218d9d73681f605ef9e9fad3c9e791d7275735144) and
+[`0xf6fe8aa1...0bae`](https://testnet.monadvision.com/tx/0xf6fe8aa121cb45478825f6184beae3be054cadf296759ae3ba9e04a42b7f0bae);
+[`0x97f7a497...4568`](https://testnet.monadvision.com/tx/0x97f7a497be312af34dca1c13ad0d166d7c5bec766f6c5170bbd3bfb12f304568) and
+[`0x8c42ebf5...6953`](https://testnet.monadvision.com/tx/0x8c42ebf583828df766359e710f56416b506e44f1361d692974a4651d76ba6953);
+[`0xb7cdae47...f8fa`](https://testnet.monadvision.com/tx/0xb7cdae47ff47b4c8cdb81a98f332722a5f5b65352f4a2adf184b720f8e04f8fa) and
+[`0xd249f972...d87a`](https://testnet.monadvision.com/tx/0xd249f972ca1fdccc18e3a354647be2e1b42327371d0fb10310cdb5894ff6d87a). Each second scan was refused with
+`TicketNotActive` at simulation.
 
 Real passkey run on factory `0x13391D9E...Ca58`, Oct 6: Samsung Android (fingerprint, Mera passkey account
 `0xc1ACaC62...5291`) as organizer and buyer, a Windows laptop paired as the gate. Show "Magic show"

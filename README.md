@@ -118,9 +118,15 @@ confirmed. If the indexer is slow or down, every view falls back to reading the 
 ### Chainlink CRE: automation with no custody
 
 Nobody has to remember to settle a show or refund a cancelled one. [`cre/curtain-keeper`](cre/curtain-keeper) is a CRE
-workflow that runs every 5 minutes. It finds candidate shows through Envio (plus a fixed list in case the indexer is
+workflow built to run every 5 minutes. It finds candidate shows through Envio (plus a fixed list in case the indexer is
 down), asks `CurtainKeeper.pending(shows)` on Monad what is due, and if anything is, signs one report that the
 forwarder delivers to `CurtainKeeper.onReport`, which settles shows and pushes refunds in batches of 10.
+
+**Status:** the workflow is demonstrated with `cre workflow simulate --broadcast`, and the keeper on testnet still
+trusts the simulation forwarder; deploying it to a Chainlink DON needs CRE deploy access. So the live site does not
+depend on it: the relayer keeps the same onchain rule itself. It pushes refunds the moment an organizer cancels, any
+buyer can tap **Get my refund** in My tickets, and a daily Vercel Cron (`/api/keeper`) asks `CurtainKeeper.pending`
+and settles or refunds whatever is due.
 
 [`src/CurtainKeeper.sol`](src/CurtainKeeper.sol) **holds no money and has no special role**: `settle` and `pushRefunds`
 are open to anyone, so the workflow only saves people from having to call them. It accepts reports only from the
@@ -154,6 +160,16 @@ settled an ended show as not confirmed and refunded all 5 buyers ([runs](#chainl
   [refused by the contract](#every-red-case-refused-onchain).
 - **Passkeys sync with the user's Apple or Google account**, so the ticket works on every device signed in to it.
   The fingerprint or Face ID never leaves the phone; Curtain only receives the signature.
+- **Refunds never wait on one service.** `settle`, `pushRefunds` and `claimRefund` are open to anyone onchain and
+  only ever pay ticket holders or the fixed payout. The relayer runs them on cancel, on a buyer's request and daily;
+  the Chainlink workflow runs the same rule once deployed.
+- **Trust limits, stated plainly.** The organizer pairs the gates, so a dishonest organizer could buy tickets with
+  their own accounts and check them in to reach the 50% confirmation; check-ins prove a passkey reached a paired gate,
+  not who is in the room. A gate code stays valid for about two minutes, so a forwarded screenshot could check a
+  ticket in remotely (it only pays the organizer earlier). The demo show's judge gate in this README is public on
+  purpose; real shows pair private gates.
+- **Each gate sees only its own scans.** A refused attempt is logged only when it carries a pass signed by a paired
+  gate, and each gate screen reads only its own entries.
 - **Relayer safety:** top-ups fail closed in production without the shared limit store (Upstash), each relay route
   has a daily gas ceiling, and top-ups pause when the treasury or relayer runs low.
   https://curtaintickets.vercel.app/api/health reports all of it.

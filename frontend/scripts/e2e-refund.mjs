@@ -3,8 +3,13 @@
 // request is checked against the already-refunded show.
 //
 //   BASE_URL=https://curtaintickets.vercel.app FUND_DIRECT=1 node scripts/e2e-refund.mjs
+//
+// DIRECT=1 has the operator's relayer key submit the organizer-signed CreateShow itself, for when the public create
+// endpoint's daily per-network limit is used up. Everything after creation still goes through the app's API.
+import { readFileSync } from "node:fs";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { sha256, toBytes } from "viem";
+import { createWalletClient, defineChain, http, parseEventLogs, sha256, toBytes } from "viem";
+import { curtainFactoryAbi } from "../src/lib/abis.ts";
 import { api, buy, eventAbi, FACTORY, must, organizerAction, person, pub, RP_ID, USDC, usdcOf } from "./e2e-lib.mjs";
 
 const organizer = privateKeyToAccount(generatePrivateKey());
@@ -36,7 +41,21 @@ const sig = await organizer.signTypedData({
   primaryType: "CreateShow",
   message: { organizer: organizer.address, name, venue, show, nonce, deadline },
 });
-const EVENT = must("create show", await api("/api/relay/create", { organizer: organizer.address, name, venue, params: show, nonce, deadline, sig })).event;
+async function createDirect() {
+  const key = readFileSync(new URL("../../.env", import.meta.url), "utf8").match(/^RELAYER_PRIVATE_KEY=(0x[0-9a-fA-F]{64})/m)[1];
+  const chain = defineChain({ id: 10143, name: "Monad Testnet", nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 }, rpcUrls: { default: { http: ["https://testnet-rpc.monad.xyz"] } } });
+  const relayer = createWalletClient({ account: privateKeyToAccount(key), chain, transport: http() });
+  const call = { address: FACTORY, abi: curtainFactoryAbi, functionName: "createEventFor", args: [organizer.address, show, name, venue, nonce, deadline, sig], account: relayer.account };
+  const estimate = await pub.estimateContractGas(call);
+  const hash = await relayer.writeContract({ ...call, gas: estimate + estimate / 10n });
+  const receipt = await pub.waitForTransactionReceipt({ hash });
+  const [ev] = parseEventLogs({ abi: curtainFactoryAbi, logs: receipt.logs, eventName: "EventCreated" });
+  console.log("create show:", hash);
+  return ev.args.eventAddress;
+}
+const EVENT = process.env.DIRECT
+  ? await createDirect()
+  : must("create show", await api("/api/relay/create", { organizer: organizer.address, name, venue, params: show, nonce, deadline, sig })).event;
 console.log("show:", EVENT);
 
 // Two guests buy one ticket each.
@@ -55,8 +74,6 @@ for (const [i, g] of guests.entries()) {
   const now = await usdcOf(g.account.address);
   if (now !== before[i]) throw new Error(`guest ${i} not refunded: had ${before[i]}, now ${now}`);
 }
-const state = await pub.readContract({ address: EVENT, abi: eventAbi, functionName: "refunded" }).catch(() => null);
-console.log("refunded on the escrow:", state?.toString());
 
 // A guest asking afterwards finds nothing left to do, and isn't charged for it.
 const again = await api("/api/relay/refund", { event: EVENT, ticketId: "1" });

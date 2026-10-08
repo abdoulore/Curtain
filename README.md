@@ -50,7 +50,7 @@ the door for the new holder's passkey.
 5. **Money board:** https://curtaintickets.vercel.app/board/demo shows what is protected, paid and refunded, live.
 
 Phones: Android with Chrome and Google Password Manager (tested on a Samsung with fingerprint), or iPhone with Safari
-on iOS 18+ and iCloud Keychain. Open links in Chrome or Safari, not inside WhatsApp, Instagram or X. To run your own
+on iOS 18+ and iCloud Keychain (tested with Face ID). Open links in Chrome or Safari, not inside WhatsApp, Instagram or X. To run your own
 show, open https://curtaintickets.vercel.app/organizer/new (event, tickets, review), then use **Add a gate device** on
 the dashboard's **Gates** tab. Besides Curtain Demo Night, three more demo shows with fictional names and venues are on
 sale for December, so the Shows page reads like a real line-up.
@@ -403,7 +403,7 @@ Laptop to phone on real devices, on an earlier deployment, Oct 5:
 | Samsung Android, Chrome | B: scan and claim | claimed | [`0xfe965f93...e3ec`](https://testnet.monadvision.com/tx/0xfe965f938f9fdbbc18c80375810510b80c52726b0b0bda7940da040fe1dce3ec) |
 | Samsung Android, Chrome | check in at the laptop gate, fingerprint | green | [`0xb160c881...c1b6`](https://testnet.monadvision.com/tx/0xb160c881abadf97bddcfb44e1e1a44d81b2855470450b11a9f88f231a93dc1b6) |
 
-Mac and iPhone have not been run.
+iPhone with Face ID on the live site: passed, Oct 8. Mac has not been run.
 
 ## Chainlink CRE runs
 

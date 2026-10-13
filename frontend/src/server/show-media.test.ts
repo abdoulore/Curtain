@@ -54,6 +54,13 @@ describe("saveShowMedia", () => {
     expect(meta.poster).toContain("poster-");
   });
 
+  it("accepts a description whose line breaks arrived as CRLF", async () => {
+    const typed = "Two hours of stand-up.\n\nDoors at 7.";
+    const sig = await sign(NO_POSTER, typed);
+    const meta = await saveShowMedia(EVENT, { description: typed.replace(/\n/g, "\r\n"), sig }, organizerOf, memory());
+    expect(meta.description).toBe(typed);
+  });
+
   it("refuses anyone but the organizer", async () => {
     const stranger = privateKeyToAccount(generatePrivateKey());
     const sig = await sign(NO_POSTER, "hi", stranger);

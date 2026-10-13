@@ -28,10 +28,11 @@ describe("findEvent", () => {
     expect(findEvent("nope")).toBeUndefined();
   });
 
-  it("labels the extra demo shows as Demo", () => {
+  it("labels the extra demo shows as Demo, but not the judges' show", () => {
     expect(findEvent(DEMO_SHOWS[0]!)?.isDemo).toBe(true);
     expect(isDemoShow(DEMO_SHOWS[1]!.toLowerCase())).toBe(true);
-    expect(isDemoShow(DEMO_EVENT)).toBe(true);
+    expect(isDemoShow(DEMO_EVENT)).toBe(false);
+    expect(findEvent("demo")?.isDemo).toBe(false);
     expect(isDemoShow("0x1111111111111111111111111111111111111111")).toBe(false);
   });
 });

@@ -18,7 +18,7 @@ export async function renderPoster(fields) {
   return new Uint8Array(png);
 }
 
-export async function uploadPoster(event, organizer, png, description) {
+export async function uploadPoster(event, organizer, png, description, type = "image/png") {
   const message = [
     "Curtain show details",
     `Show: ${event}`,
@@ -27,7 +27,7 @@ export async function uploadPoster(event, organizer, png, description) {
   ].join("\n");
   const sig = await organizer.signMessage({ message });
   const form = new FormData();
-  form.set("poster", new Blob([png], { type: "image/png" }), "poster.png");
+  form.set("poster", new Blob([png], { type }), type === "image/png" ? "poster.png" : "poster.jpg");
   form.set("description", description);
   form.set("sig", sig);
   const res = await fetch(`${BASE_URL}/api/shows/${event}/media`, { method: "POST", body: form });

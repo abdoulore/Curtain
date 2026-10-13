@@ -6,25 +6,32 @@ import { readFileSync } from "node:fs";
 import { concat, hexToBytes } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { eventAbi, must, organizerAction, pub } from "./e2e-lib.mjs";
-import { renderPoster, uploadPoster } from "./poster-lib.mjs";
+import { readPng, renderPoster, uploadPoster } from "./poster-lib.mjs";
 
-const DEMO = "0x6385e193b18c4291Da556121e6E9eCF04b384672";
+const DEMO = "0xfF2D205A82798C1cFB267670c05bcd98c27fa08C";
 const env = readFileSync(new URL("../../.env", import.meta.url), "utf8");
 const organizer = privateKeyToAccount(env.match(/^ORGANIZER_PRIVATE_KEY=(0x[0-9a-fA-F]{64})/m)[1]);
 
-const png = await renderPoster({
-  kicker: "Live in Lagos",
-  name: "Curtain Demo Night",
-  line: "Stand-up and live music. Held until the show happens, paid to the organizer at the door.",
-  when: "Nightly · doors 7:30 pm",
-  venue: "The Velvet Room, Victoria Island",
-});
+// POSTER_FILE=path uploads that PNG or JPEG; otherwise a house-style poster is drawn.
+const png = process.env.POSTER_FILE
+  ? readPng(process.env.POSTER_FILE)
+  : await renderPoster({
+      kicker: "Live in Lagos",
+      name: "The Last Danfo",
+      line: "A stage comedy about the last yellow bus in Lagos.",
+      when: "Nightly · 7:30 pm",
+      venue: "The Brickhall Theatre, Ikoyi",
+    });
 console.log(`poster: ${png.length} bytes`);
 const meta = await uploadPoster(
   DEMO,
   organizer,
   png,
-  "Stand-up and live music in Victoria Island. Your money is held until the show happens. When you walk in, it's paid to the organizer at the door. If the show doesn't happen, it comes back to you automatically.",
+  "The last yellow danfo in Lagos is being taken off the road, and nine passengers refuse to get off. A stage comedy " +
+    "about traffic, family and one very stubborn conductor. Nightly at 7:30 pm, about 90 minutes. " +
+    "Your money is held until the show happens. When you walk in, it's paid to the organizer at the door. If the show " +
+    "doesn't happen, it comes back to you automatically.",
+  process.env.POSTER_FILE?.endsWith(".jpg") ? "image/jpeg" : "image/png",
 );
 console.log("poster url:", meta.poster);
 

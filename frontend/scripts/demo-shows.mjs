@@ -1,5 +1,5 @@
-// Creates the demo shows, each signed by the demo organizer key (CreateShow) and submitted by the relayer: Curtain
-// Demo Night, open now until the end of December so judges can buy and check in, and three more with fictional names
+// Creates the demo shows, each signed by the demo organizer key (CreateShow) and submitted by the relayer: The Last
+// Danfo, open now until the end of December so judges can buy and check in, and three more with fictional names
 // and venues in December, each with a house-style poster. Prints the addresses for DEMO_EVENT in src/lib/chain.ts and
 // DEMO_SHOWS in src/lib/events.ts. The demo show's poster and judge gate come from demo-setup.mjs.
 //
@@ -27,12 +27,12 @@ const promise = () =>
 
 const SHOWS = [
   {
-    name: "Curtain Demo Night",
-    venue: "The Velvet Room, Victoria Island, Lagos",
-    // Doors open now and stay open through judging.
+    name: "The Last Danfo",
+    venue: "The Brickhall Theatre, Ikoyi, Lagos",
+    // A stage comedy playing nightly: doors open now and stay open through judging.
     doorsOpen: BigInt(Math.floor(Date.now() / 1000)),
     endTime: lagos("2026-12-31T23:00:00"),
-    price: 1_000_000n, // ₦1,500
+    price: 2_000_000n, // ₦3,000, within one 3 USDC top-up
     capacity: 200,
     gates: [gateDevice],
   },

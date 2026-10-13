@@ -65,6 +65,8 @@ export async function saveShowMedia(
   store: MediaStore,
   now = Date.now(),
 ): Promise<ShowMedia> {
+  // A form upload turns each line break into CRLF; the organizer signed the text as typed, with LF.
+  update = { ...update, description: update.description.replace(/\r\n/g, "\n") };
   const descriptionError = checkDescription(update.description);
   if (descriptionError) throw new RelayError(400, "DescriptionTooLong", descriptionError);
   if (update.poster) {

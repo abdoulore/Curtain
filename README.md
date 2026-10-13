@@ -13,7 +13,7 @@ organizer at the door. If the show doesn't happen, it comes back to you automati
 | --- | --- | --- |
 | CurtainFactory | [`0xd22f6eb4...83bF`](https://testnet.monadvision.com/address/0xd22f6eb461A97b9cA1b66837AfAb2E8D937F83bF) | [`0x50f7b66b...0b10`](https://testnet.monadvision.com/tx/0x50f7b66bfde281e7d4584bb94bf97c3bd6fe45edd38ee521206064f99f270b10) |
 | CurtainEvent implementation | [`0x33Bda352...dD8`](https://testnet.monadvision.com/address/0x33Bda35276C3582eD2129d54a63a21725C8cbdD8) | same tx |
-| Demo show (a clone, made with `createEventFor`, open until Dec 31) | [`0x6385e193...4672`](https://testnet.monadvision.com/address/0x6385e193b18c4291Da556121e6E9eCF04b384672) | [`0x22de9d98...ac0e`](https://testnet.monadvision.com/tx/0x22de9d980dc5aedbec86aac54057dd1976f77060d629841ef65128c90384ac0e) |
+| Demo show, The Last Danfo (a clone, made with `createEventFor`, open until Dec 31) | [`0xfF2D205A...a08C`](https://testnet.monadvision.com/address/0xfF2D205A82798C1cFB267670c05bcd98c27fa08C) | [`0xe15f0337...02e2`](https://testnet.monadvision.com/tx/0xe15f0337615c30e15a07e8c81d585d848a8df49d54c100ce96386d6e1a6902e2) |
 | CurtainKeeper (Chainlink CRE receiver) | [`0xC157558d...a18E`](https://testnet.monadvision.com/address/0xC157558da8C7d90EAE75C38A850515567ED5a18E) | [`0xc99d3cca...6346`](https://testnet.monadvision.com/tx/0xc99d3cca7f4df86e1a218b0a1db3427817b55277be83f3270b5c1c83e3356346) |
 
 All four are source-verified on Sourcify (exact match). Earlier deployments are listed in the
@@ -40,8 +40,8 @@ the door for the new holder's passkey.
 
 ## 60-second demo
 
-1. **Laptop:** open the [demo gate](https://curtaintickets.vercel.app/gate/pair#Y4Xhk7GMQpHaVWEh5uns8Es4RnKtmayIwODJ2JuNMO7Qb_Tib_nVA1hdZfHnK-ZYNKqO7g).
-   It pairs the browser as a gate for "Curtain Demo Night" and shows a QR code that changes every few seconds.
+1. **Laptop:** open the [demo gate](https://curtaintickets.vercel.app/gate/pair#_y0gWoJ5jBz7JnZwwFvNmMJ_oIyVCjZjjNIuZDBS0Q3qbw_Re1I3fLwCJHr-iSVSoS5MwQ).
+   It pairs the browser as a gate for "The Last Danfo" and shows a QR code that changes every few seconds.
 2. **Phone:** open https://curtaintickets.vercel.app/e/demo, type a first name, tap **Get my ticket** and confirm with
    your fingerprint or Face ID. ₦1,500 is now protected.
 3. **Phone:** scan the laptop's code, tap **Check in**, confirm. The laptop shows **ADMIT**, the phone says
@@ -52,8 +52,7 @@ the door for the new holder's passkey.
 Phones: Android with Chrome and Google Password Manager (tested on a Samsung with fingerprint), or iPhone with Safari
 on iOS 18+ and iCloud Keychain (tested with Face ID). Open links in Chrome or Safari, not inside WhatsApp, Instagram or X. To run your own
 show, open https://curtaintickets.vercel.app/organizer/new (event, tickets, review), then use **Add a gate device** on
-the dashboard's **Gates** tab. Besides Curtain Demo Night, three more demo shows with fictional names and venues are on
-sale for December, so the Shows page reads like a real line-up.
+the dashboard's **Gates** tab. The demo show and the other shows listed are testnet shows with fictional venues.
 
 ## Why Monad
 
@@ -221,9 +220,9 @@ MIT
 
 ## Deployment details
 
-The demo show sells 200 tickets at 1 USDC (shown as ₦1,500; Circle testnet USDC
+The demo show sells 200 tickets at 2 USDC (shown as ₦3,000; Circle testnet USDC
 `0x534b2f3A21130d7a60830c2Df862319e593943A3`, EIP-712 domain `USDC` version `2`), up to 4 per person, doors open
-since Oct 8 and open until Dec 31 2026 (so judges can buy and check in), rpId `curtaintickets.vercel.app`. The held threshold is a contract constant: half the
+since Oct 13 and open until Dec 31 2026 (so judges can buy and check in), rpId `curtaintickets.vercel.app`. The held threshold is a contract constant: half the
 tickets sold.
 
 ```sh
@@ -252,7 +251,8 @@ still appear in My tickets.
 
 | Version | Factory | Demo show | Keeper |
 | --- | --- | --- | --- |
-| Current factory, October demo (replaced Oct 8 by the December one; still open until Nov 6, hidden from lists) | same as above | `0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E` | same as above |
+| Current factory, Curtain Demo Night (replaced Oct 13 by The Last Danfo; still open until Dec 31, hidden from lists) | same as above | `0x6385e193b18c4291Da556121e6E9eCF04b384672` | same as above |
+| Current factory, October demo (replaced Oct 8 by Curtain Demo Night; still open until Nov 6, hidden from lists) | same as above | `0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E` | same as above |
 | Held threshold set per show (until Oct 7) | `0x5e2366072A6db0e0734bBb8976F86a7Eac6Fb3b6` | `0x5562bF1ccBabcF2f060239f9D241Ba9661217135` | `0xc16008D869fC44E2af4d217C23adc2eCFdC57219` |
 | Before the per-person limit | `0x13391D9E0dD62d01c62821671F47A12eE320Ca58` | `0x4Dc6c2eC3899C28BADdFe872B09c6c41C7dD653D` | `0xe2F693e95eA2A2ff45fA08374198714CD49E58B1` |
 | Earlier | `0x00CC023C3BFB01eb3E5470247c7976966b04d0Db` | `0xd3F22B52F74D658318C29E0475E1833214eCA005` | `0x010F096F8dC260b68A07025C00404aaf9F33bADe` |
@@ -306,6 +306,11 @@ page; the other flows ran through the app's relayer API with EOAs standing in fo
 | `npm run e2e:refund` (Oct 8) | two guests buy, then the organizer cancels | [`0x5c6e0046...1c72`](https://testnet.monadvision.com/tx/0x5c6e00466eab382625f7a027d2a26521cb032cbdb24896ba597ac2d8383e1c72), [`0x791ce7f4...48f3`](https://testnet.monadvision.com/tx/0x791ce7f43a6eeb19bf72ca98b868cdfeb0436a91b6ab3801ff80a7a2937c48f3), [`0xfa5000a4...d086`](https://testnet.monadvision.com/tx/0xfa5000a40075ebe4a0bbbc14808f65e7c38187f39611eea2dc744507f0fbd086) |
 | | the relayer refunds both guests in the same request; nobody asked | [`0xcbddf816...3032`](https://testnet.monadvision.com/tx/0xcbddf81634e3af0c4e7fd0a3b4d49bd39f409e5731d6dbf80d8c74a06ccc3032) |
 | | daily keeper run: pushed the refund batch of a cancelled show | [`0x31aa0ce4...40dd`](https://testnet.monadvision.com/tx/0x31aa0ce42e76aac7680e0438355097f60debf6f877bb2e48680a595264da40dd) |
+
+On Oct 13 the demo show was replaced by The Last Danfo, a show with a real poster and copy:
+[`0xfF2D205A...a08C`](https://testnet.monadvision.com/address/0xfF2D205A82798C1cFB267670c05bcd98c27fa08C), created [`0xe15f0337...02e2`](https://testnet.monadvision.com/tx/0xe15f0337615c30e15a07e8c81d585d848a8df49d54c100ce96386d6e1a6902e2), judge gate paired
+[`0xe676c159...0c73`](https://testnet.monadvision.com/tx/0xe676c15923fa209a4fba3e4ee2aba84d027ca14e7347552bd30eda2914460c73). Curtain Demo Night and the three December demo shows below are hidden from
+lists; tickets already bought for them keep working.
 
 The demo shows were recreated on Oct 8 with December dates, so they stay open through judging, each from the demo
 organizer's `CreateShow` signature (`scripts/demo-shows.mjs`; the last three were submitted by the operator's relayer

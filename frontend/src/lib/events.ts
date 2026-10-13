@@ -12,17 +12,27 @@ export type EventMeta = {
   isDemo: boolean;
 };
 
+/** The judges' show: open now through December, with a public gate in the README. */
 const CATALOG: EventMeta[] = [
   {
     slug: "demo",
     address: DEMO_EVENT,
-    name: "Curtain Demo Night",
-    tagline: "Stand-up and live music. Your money is held until the show happens, then paid to the organizer at the door.",
-    venue: "The Velvet Room",
-    city: "Victoria Island, Lagos",
-    isDemo: true,
+    name: "The Last Danfo",
+    tagline: "A stage comedy about the last yellow bus in Lagos and the passengers who won't get off. Nightly at 7:30 pm.",
+    venue: "The Brickhall Theatre",
+    city: "Ikoyi, Lagos",
+    isDemo: false,
   },
 ];
+
+/** Earlier demo shows keep the name their tickets were bought under. */
+const RETIRED_DEMO: Omit<EventMeta, "slug" | "address"> = {
+  name: "Curtain Demo Night",
+  tagline: "Stand-up and live music. Your money is held until the show happens, then paid to the organizer at the door.",
+  venue: "The Velvet Room",
+  city: "Victoria Island, Lagos",
+  isDemo: true,
+};
 
 /**
  * Shows kept off the lists. A scripted test run created the first and didn't keep its organizer key, so it
@@ -30,8 +40,13 @@ const CATALOG: EventMeta[] = [
  */
 export const HIDDEN_SHOWS: readonly Address[] = [
   "0x1c10dbC3425FD4F9fbb4c837E494cBb5AEB23399",
-  // The October demo show, replaced by the December one; its tickets still work and keep their name.
+  // Earlier demo shows, replaced by The Last Danfo; their tickets still work and keep their name.
   "0xa01EFA5Bc1cDB594A6Ec70d2Bd1b1138B496CB0E",
+  "0x6385e193b18c4291Da556121e6E9eCF04b384672",
+  // The December demo shows with house-style posters, replaced by real-looking shows.
+  "0xD9bAe0794514D4De8C5c5B140Db419Bc40b670F9",
+  "0xa8a6013A82C9C65f586D10fa0146eEAE01CF2e24",
+  "0x6a33f89D9122C2dd8A92c6D25affEb057dAF0722",
 ];
 
 /** Extra demo shows with fictional names and venues, made by the demo organizer (scripts/demo-shows.mjs). */
@@ -41,11 +56,11 @@ export const DEMO_SHOWS: readonly Address[] = [
   "0x6a33f89D9122C2dd8A92c6D25affEb057dAF0722",
 ];
 
-/** True for the demo show and the other demo shows, which carry a Demo label everywhere. */
+/** True for the extra and retired demo shows, which carry a Demo label everywhere. */
 export function isDemoShow(address: string): boolean {
   if (!isAddress(address)) return false;
   const a = getAddress(address);
-  return a === DEMO_EVENT || DEMO_SHOWS.includes(a);
+  return DEMO_SHOWS.includes(a) || RETIRED_DEMOS.includes(a);
 }
 
 /** Events this app lists. */
@@ -58,7 +73,7 @@ export function findEvent(id: string): EventMeta | undefined {
   const address = getAddress(id);
   const catalogued = CATALOG.find((e) => e.address === address);
   if (catalogued) return catalogued;
-  if (RETIRED_DEMOS.includes(address)) return { ...CATALOG[0]!, slug: address, address };
+  if (RETIRED_DEMOS.includes(address)) return { ...RETIRED_DEMO, slug: address, address };
   return {
     slug: address,
     address,

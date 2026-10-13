@@ -189,7 +189,7 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
   const [wallet, setWallet] = useState<Signer | null>(null);
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ ok: boolean; text: string; hash?: string } | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string; hash?: string; kind?: OrganizerAction["kind"] } | null>(null);
   const [pairing, setPairing] = useState<{ gateKey: Hex; gate: Address } | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [copied, setCopied] = useState(false);
@@ -261,11 +261,11 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
         deadline,
         sig,
       });
-      setNotice({ ok: true, text: `${label}.`, hash });
+      setNotice({ ok: true, text: `${label}.`, hash, kind: action.kind });
       await refresh();
       return true;
     } catch (e) {
-      setNotice({ ok: false, text: plainError(e) });
+      setNotice({ ok: false, text: plainError(e), kind: action.kind });
       return false;
     } finally {
       setBusy(null);
@@ -415,7 +415,7 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
                   {state && state.withdrawn > 0n ? ` You've withdrawn ${formatNaira(state.withdrawn)} so far.` : ""}
                 </p>
               </fieldset>
-              {noticeLine}
+              {notice?.kind !== "cancel" && noticeLine}
             </div>
 
             <dl className="mt-10 divide-y divide-line border-y border-line lg:mt-2">
@@ -463,22 +463,31 @@ export function OrganizerView({ meta }: { meta: EventMeta }) {
             <h2 id="cancel-heading" className="font-semibold text-stop">
               Cancel the show
             </h2>
-            <fieldset disabled={locked} className="mt-2 max-w-xl min-w-0 disabled:opacity-60">
-              <legend className="sr-only">Cancel the show</legend>
-              <p className="text-sm text-muted">
-                Every ticket that wasn&apos;t checked in is refunded automatically. Money for checked-in tickets stays paid to
-                you. This can&apos;t be undone.
+            {state && state.status !== "Open" ? (
+              <p className="mt-2 max-w-xl text-sm text-muted">
+                {state.status === "Cancelled"
+                  ? "This show is cancelled. Every ticket that wasn't checked in is refunded."
+                  : "This show has ended, so it can't be cancelled."}
               </p>
-              <button
-                onClick={() =>
-                  confirm("Cancel the show? Every ticket that wasn't checked in will be refunded.") &&
-                  run("Show cancelled", { kind: "cancel" })
-                }
-                className="mt-4 rounded-2xl px-5 py-3 text-sm font-semibold text-stop ring-1 ring-stop"
-              >
-                {busy === "Show cancelled" ? "Confirm with your fingerprint" : "Cancel the show"}
-              </button>
-            </fieldset>
+            ) : (
+              <fieldset disabled={locked} className="mt-2 max-w-xl min-w-0 disabled:opacity-60">
+                <legend className="sr-only">Cancel the show</legend>
+                <p className="text-sm text-muted">
+                  Every ticket that wasn&apos;t checked in is refunded automatically. Money for checked-in tickets stays paid to
+                  you. This can&apos;t be undone.
+                </p>
+                <button
+                  onClick={() =>
+                    confirm("Cancel the show? Every ticket that wasn't checked in will be refunded.") &&
+                    run("Show cancelled", { kind: "cancel" })
+                  }
+                  className="mt-4 rounded-2xl px-5 py-3 text-sm font-semibold text-stop ring-1 ring-stop"
+                >
+                  {busy === "Show cancelled" ? "Confirm with your fingerprint" : "Cancel the show"}
+                </button>
+              </fieldset>
+            )}
+            {notice?.kind === "cancel" && noticeLine}
 
             <details className="mt-8 text-xs text-muted">
               <summary className="cursor-pointer">Use a browser wallet instead</summary>

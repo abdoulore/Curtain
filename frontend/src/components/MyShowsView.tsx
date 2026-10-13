@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getAddress, type Address } from "viem";
 import { STATUS_TEXT } from "@/lib/board";
 import { useAccount, useHydrated } from "@/lib/hooks";
@@ -18,6 +18,12 @@ import { SignInButton } from "./SignInButton";
 type Pending = { event: string; name: string };
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
+
+type View = "open" | "closed";
+const VIEWS: { id: View; label: string }[] = [
+  { id: "open", label: "Open" },
+  { id: "closed", label: "Closed" },
+];
 
 function ShowRow({ card, poster, now }: { card: ShowCard; poster?: string | null; now: number }) {
   const name = card.name || "Untitled show";
@@ -61,6 +67,8 @@ export function MyShowsView() {
   const [cards, setCards] = useState<ShowCard[] | null>(null);
   const [pending, setPending] = useState<Pending[]>([]);
   const [now, setNow] = useState(0);
+  const [view, setView] = useState<View>("open");
+  const tabRefs = useRef<Record<View, HTMLButtonElement | null>>({ open: null, closed: null });
   const media = useShowsMedia((cards ?? []).map((c) => c.event as Address));
 
   useEffect(() => {
@@ -84,6 +92,20 @@ export function MyShowsView() {
   }, [account]);
 
   if (!hydrated) return null;
+
+  // Shows just created count as open until the indexer has them.
+  const open = (cards ?? []).filter((c) => c.live);
+  const closed = (cards ?? []).filter((c) => !c.live);
+  const counts: Record<View, number> = { open: open.length + pending.length, closed: closed.length };
+  const shown = view === "open" ? open : closed;
+
+  function onTabKey(e: React.KeyboardEvent) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const next: View = e.key === "Home" ? "open" : e.key === "End" ? "closed" : view === "open" ? "closed" : "open";
+    setView(next);
+    tabRefs.current[next]?.focus();
+  }
 
   return (
     <main className="pt-6 lg:pt-10">
@@ -116,22 +138,55 @@ export function MyShowsView() {
           </p>
         </div>
       ) : (
-        <ul className="mt-6 divide-y divide-line border-y border-line">
-          {pending.map((p) => (
-            <li key={p.event} className="flex flex-wrap items-center justify-between gap-4 py-6">
-              <div>
-                <p className="font-display text-2xl leading-tight">{p.name}</p>
-                <p className="mt-1 text-sm text-muted">Just created. Totals appear in a moment.</p>
-              </div>
-              <Link href={`/organizer/${getAddress(p.event)}`} className="rounded-2xl bg-velvet px-5 py-3 text-sm font-semibold text-velvet-ink">
-                Manage show
-              </Link>
-            </li>
-          ))}
-          {cards.map((c) => (
-            <ShowRow key={c.event} card={c} poster={media[getAddress(c.event)]?.poster} now={now} />
-          ))}
-        </ul>
+        <>
+          <div role="tablist" aria-label="Your shows" className="mt-8 flex gap-1 border-b border-line">
+            {VIEWS.map((v) => (
+              <button
+                key={v.id}
+                ref={(el) => {
+                  tabRefs.current[v.id] = el;
+                }}
+                role="tab"
+                id={`tab-${v.id}`}
+                aria-selected={view === v.id}
+                aria-controls="panel-shows"
+                tabIndex={view === v.id ? 0 : -1}
+                onClick={() => setView(v.id)}
+                onKeyDown={onTabKey}
+                className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold ${
+                  view === v.id ? "border-velvet text-foreground" : "border-transparent text-muted hover:text-foreground"
+                }`}
+              >
+                {v.label}
+                <span className="ml-1.5 text-muted tabular-nums">{counts[v.id]}</span>
+              </button>
+            ))}
+          </div>
+          <div role="tabpanel" id="panel-shows" aria-labelledby={`tab-${view}`}>
+            {counts[view] === 0 ? (
+              <p className="py-10 text-sm text-muted">
+                {view === "open" ? "No shows on sale right now." : "Cancelled and finished shows land here."}
+              </p>
+            ) : (
+              <ul className="divide-y divide-line border-b border-line">
+                {view === "open" && pending.map((p) => (
+                  <li key={p.event} className="flex flex-wrap items-center justify-between gap-4 py-6">
+                    <div>
+                      <p className="font-display text-2xl leading-tight">{p.name}</p>
+                      <p className="mt-1 text-sm text-muted">Just created. Totals appear in a moment.</p>
+                    </div>
+                    <Link href={`/organizer/${getAddress(p.event)}`} className="rounded-2xl bg-velvet px-5 py-3 text-sm font-semibold text-velvet-ink">
+                      Manage show
+                    </Link>
+                  </li>
+                ))}
+                {shown.map((c) => (
+                  <ShowRow key={c.event} card={c} poster={media[getAddress(c.event)]?.poster} now={now} />
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
       )}
     </main>
   );

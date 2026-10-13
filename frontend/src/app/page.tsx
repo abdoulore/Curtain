@@ -35,7 +35,7 @@ const JOURNEY = [
     n: "01",
     verb: "Buy",
     glyph: <TicketGlyph />,
-    title: "₦1,500 protected",
+    title: "₦3,000 protected",
     body: "Your money is held for the show, not handed over.",
   },
   {
@@ -49,7 +49,7 @@ const JOURNEY = [
     n: "03",
     verb: "Paid",
     glyph: <PaidGlyph />,
-    title: "₦1,500 to the organizer",
+    title: "₦3,000 to the organizer",
     body: "Paid the moment you walk in. If the show doesn't happen, you're refunded automatically.",
   },
 ];
@@ -181,8 +181,8 @@ export default function Home() {
           <figure aria-label="Illustration: the organizer's dashboard and a gate screen" className="relative">
             <div aria-hidden className="grid grid-cols-[1.25fr_1fr] gap-4">
               <div className="rounded-2xl bg-surface p-5 ring-1 ring-line">
-                <p className="text-xs text-muted">Saturday Night Punchlines</p>
-                <p className="mt-3 text-3xl font-semibold tabular-nums">₦1,500</p>
+                <p className="text-xs text-muted">The Last Danfo</p>
+                <p className="mt-3 text-3xl font-semibold tabular-nums">₦3,000</p>
                 <p className="text-sm text-muted">ready to withdraw</p>
                 <p className="mt-4 text-sm font-medium">1 checked in · 1 sold</p>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-line">

@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-/** The illustrative ticket: a fictional show at a fictional venue, priced like the demo show. */
+/** The illustrative ticket: the demo show, at its real price. */
 const TICKET = {
-  show: "Saturday Night Punchlines",
-  when: "Sat 5 Dec · 8:00 pm",
-  venue: "The Ember Room, Yaba",
+  show: "The Last Danfo",
+  when: "Nightly · 7:30 pm",
+  venue: "The Brickhall Theatre, Ikoyi",
   number: "014",
-  price: "₦1,500",
+  price: "₦3,000",
 };
 
 const STEPS = [

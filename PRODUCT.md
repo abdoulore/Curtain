@@ -55,7 +55,7 @@ Constraints every design must keep:
 
 ## Brand Commitments
 
-- Name: **Curtain**. Logo: the drawn-back velvet curtain icon (`frontend/public/logo.png`).
+- Name: **Curtain**. Logo: the velvet hexagon C, a curtain drawn back (`frontend/public/logo.png`).
 - Headline: **"If the curtain never rises, your money comes back."**
 - Buyer promise: "Your money is held until the show happens. When you walk in, it's paid to the organizer at the door. If the show doesn't happen, it comes back to you automatically."
 - Organizer promise: "Ticket money reaches you as people walk in. Once the show is confirmed, the rest follows. If it doesn't happen, buyers are refunded automatically."

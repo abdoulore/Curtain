@@ -47,7 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 pt-5 pb-2 lg:px-8">
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <Image src="/logo.png" alt="" width={32} height={32} priority className="rounded-lg" /> Curtain
+            <Image src="/logo.png" alt="" width={32} height={32} priority className="dark:brightness-125" /> Curtain
           </Link>
           <nav aria-label="Main" className="flex items-center gap-0.5 text-sm font-medium whitespace-nowrap sm:gap-2">
             <Link href="/shows" className="rounded-full px-2 py-1.5 text-muted hover:text-foreground sm:px-3">

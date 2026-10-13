@@ -20,7 +20,7 @@ export function Poster({ src, name, sizes, priority }: { src?: string | null; na
       role="img"
       className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_50%_70%,#5a3a1c_0%,#2a1e1b_45%,#120d0c_100%)]"
     >
-      <Image src="/logo.png" alt="" width={96} height={96} className="h-1/3 w-auto max-w-[40%] rounded-2xl opacity-90 shadow-lg" />
+      <Image src="/logo-tile.png" alt="" width={96} height={96} className="h-1/3 w-auto max-w-[40%] rounded-2xl shadow-lg" />
     </div>
   );
 }

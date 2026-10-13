@@ -43,9 +43,9 @@ the door for the new holder's passkey.
 1. **Laptop:** open the [demo gate](https://curtaintickets.vercel.app/gate/pair#_y0gWoJ5jBz7JnZwwFvNmMJ_oIyVCjZjjNIuZDBS0Q3qbw_Re1I3fLwCJHr-iSVSoS5MwQ).
    It pairs the browser as a gate for "The Last Danfo" and shows a QR code that changes every few seconds.
 2. **Phone:** open https://curtaintickets.vercel.app/e/demo, type a first name, tap **Get my ticket** and confirm with
-   your fingerprint or Face ID. ₦1,500 is now protected.
+   your fingerprint or Face ID. ₦3,000 is now protected.
 3. **Phone:** scan the laptop's code, tap **Check in**, confirm. The laptop shows **ADMIT**, the phone says
-   **You're in**, and ₦1,500 is paid to the organizer.
+   **You're in**, and ₦3,000 is paid to the organizer.
 4. **Scan again** with the same ticket: **DO NOT ADMIT**, refused by the contract.
 5. **Money board:** https://curtaintickets.vercel.app/board/demo shows what is protected, paid and refunded, live.
 

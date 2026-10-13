@@ -8,6 +8,7 @@ import { useAccount, useHydrated } from "@/lib/hooks";
 import { fetchShowsOf } from "@/lib/indexer";
 import { formatNaira } from "@/lib/money";
 import { sortShowCards, toShowCard, type ShowCard } from "@/lib/my-shows";
+import { showsOfOnChain } from "@/lib/my-shows-chain";
 import { createdShows } from "@/lib/organizer-local";
 import { useShowsMedia } from "@/lib/use-show-media";
 import { whenText } from "@/lib/when";
@@ -75,7 +76,9 @@ export function MyShowsView() {
     if (!account) return;
     let alive = true;
     const local = createdShows(account.address).map((s) => ({ event: s.event, name: s.name }));
+    // Without the indexer, the factory's own record still lists every show.
     fetchShowsOf(account.address)
+      .catch(() => showsOfOnChain(account.address))
       .catch(() => [])
       .then((rows) => {
         if (!alive) return;

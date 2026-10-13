@@ -1,5 +1,6 @@
 import { getAddress, parseAbi, type Address } from "viem";
-import { CURTAIN_KEEPER } from "@/lib/chain";
+import { CURTAIN_FACTORY, CURTAIN_KEEPER } from "@/lib/chain";
+import { factoryShowAddresses } from "@/lib/upcoming";
 import { publicClient } from "@/server/clients";
 import { fail, ok } from "@/server/http";
 import { keepShow } from "@/server/keeper";
@@ -7,8 +8,15 @@ import { RelayError } from "@/server/relay";
 
 const keeperAbi = parseAbi(["function pending(address[] events) view returns ((address eventAddress, uint8 action)[] jobs)"]);
 
-/** Shows that may still owe a settlement or refunds, from the indexer. */
+/** Every show the factory has made, from its nonce, plus the indexer's open ones; the keeper never depends on Envio. */
 async function candidateShows(): Promise<Address[]> {
+  const nonce = await publicClient.getTransactionCount({ address: CURTAIN_FACTORY });
+  const indexed = await indexedShows().catch(() => []);
+  return [...new Set([...factoryShowAddresses(CURTAIN_FACTORY, nonce, 500), ...indexed])];
+}
+
+/** Shows that may still owe a settlement or refunds, from the indexer. */
+async function indexedShows(): Promise<Address[]> {
   const url = process.env.NEXT_PUBLIC_ENVIO_GRAPHQL_URL;
   if (!url) return [];
   const res = await fetch(url, {

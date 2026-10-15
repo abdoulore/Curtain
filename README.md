@@ -6,7 +6,7 @@ organizer at the door. If the show doesn't happen, it comes back to you automati
 [![CI](https://github.com/abdoulore/Curtain/actions/workflows/test.yml/badge.svg)](https://github.com/abdoulore/Curtain/actions/workflows/test.yml)
 
 - **Live:** https://curtaintickets.vercel.app (Monad testnet, demo money)
-- **Demo video:** _placeholder, the final cut is published here by Oct 13_
+- **Demo video:** [Watch on YouTube](https://youtu.be/2HV42nUL4uI)
 - **Built for:** Monad Metropolis, Track 02 (Consumer Products and Payments)
 
 | Contract (Monad testnet, chain 10143) | Address | Deploy tx |
